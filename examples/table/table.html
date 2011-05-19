@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DVL Simple Heatmap</title>
+    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />	
+    <script type="text/javascript" src="../../js/jquery-1.4.4.min.js"></script>
+    <script type="text/javascript" src="../../js/jquery-ui-1.8.7.custom.js"></script>
+    <script type="text/javascript" src="../../d3.js"></script>
+    <script type="text/javascript" src="../../protovis-r3.2.js"></script>
+    <script type="text/javascript" src="../../sprintf.js"></script>
+    <script type="text/javascript" src="../../dvl.js"></script>
+    <style type="text/css">
+
+body {
+  font: 12px sans-serif;
+}
+
+th {
+  border: 1px solid black;
+}
+
+td {
+  border: 1px solid #ccc;
+}
+
+    </style>
+
+  </head>
+  <body>
+    <div>
+      <button onclick="sort.set(null).notify()">Sort on NULL</button>
+      <button onclick="sort.set('a').notify()">Sort on a</button>
+      <button onclick="sort.set('b').notify()">Sort on b</button>
+      <button onclick="sort.set('c').notify()">Sort on c</button>
+      <button onclick="order.set(order.get() == 'asc' ? 'desc' : 'asc').notify()">Order toggle</button>
+    </div>
+  </body>
+  <script type="text/javascript">
+  
+  var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var n = letters.length;
+  var data = [];
+  for (var i=0; i < 15; i++) {
+    data.push({
+      a: letters[i * 3  % n],
+      b: letters[(i+5) * 11 % n],
+      c: Math.random(),
+      d: Math.random()
+    });
+  }
+  data = dvl.def(data, 'data');
+
+  var sort = dvl.def('b', 'sort'); 
+  var order = dvl.def('asc', 'order'); 
+  
+  dvl.html.table({
+    selector: 'body',
+    sort: {
+      on: sort,
+      order: order,
+      modes: ['asc', 'none'], 
+      indicator: {
+        none: 'sort_none.png',
+        desc: 'sort_arrow_up.png',
+        asc:  'sort_arrow_down.png'
+      }
+    },
+    columns: [
+      { id:'a', title:'A', gen: dvl.gen.fromArray(data, dvl.acc('a')) },
+      { id:'b', title:'B', gen: dvl.gen.fromArray(data, dvl.acc('b')) },
+      { id:'c', title:'C', gen: dvl.gen.fromArray(data, dvl.acc('c')) }
+    ]
+  });
+  
+  dvl.html.table({
+    selector: 'body',
+    sort: {
+      on: sort,
+      order: order,
+      modes: ['asc', 'none'], 
+      indicator: {
+        none: 'sort_none.png',
+        desc: 'sort_arrow_up.png',
+        asc:  'sort_arrow_down.png'
+      }
+    },
+    columns: [
+      {
+        title: 'AB',
+        columns: [
+          { id:'a', title:'A', gen: dvl.gen.fromArray(data, dvl.acc('a')) },
+          { id:'b', title:'B', gen: dvl.gen.fromArray(data, dvl.acc('b')), reverseIndicator:true },
+        ]
+      },
+      {
+        title: 'DDD',
+        columns: [
+          { id:'d', title:'D', gen: dvl.gen.fromArray(data, dvl.acc('d')), sortable:false }
+        ]
+      }
+    ],
+    rowLimit: 5
+  });
+
+
+  </script>
+</html>

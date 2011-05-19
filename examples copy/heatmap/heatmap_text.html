@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DVL Simple Heatmap</title>
+    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />	
+    <script type="text/javascript" src="../../js/jquery-1.4.4.min.js"></script>
+    <script type="text/javascript" src="../../js/jquery-ui-1.8.7.custom.js"></script>
+    <script type="text/javascript" src="../../d3.js"></script>
+    <script type="text/javascript" src="../../protovis-r3.2.js"></script>
+    <script type="text/javascript" src="../../sprintf.js"></script>
+    <script type="text/javascript" src="../../dvl.js"></script>
+    <script type="text/javascript" src="text.js"></script>
+    <style type="text/css">
+
+body {
+  font: 12px sans-serif;
+}
+
+.background {
+  fill: #ccc;
+}
+
+.lines {
+  shape-rendering: crispEdges;
+}
+
+    </style>
+
+  </head>
+  <body>
+    <div id="heatmap"></div>
+    <div id="table"></div>
+    
+  </body>
+  <script type="text/javascript">
+  
+  text = text.toUpperCase().replace(/[^A-Z ]/g, '').split(' ');
+  
+  var letters = dvl.const("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(''));
+
+  data = dvl.def([], 'data');
+
+	var getX = dvl.acc('s');
+	var getY = dvl.acc('f');
+	var getV = dvl.acc('count');
+	
+	var size = dvl.def({ width: 800, height: 800 }, "size");
+	var margin = dvl.def({ top: 30, bottom: 70, left: 70, right: 30 }, "margin");
+  
+  var panel = dvl.svg.canvas({
+    selector:'#heatmap',
+    size:size,
+    margin:margin
+  });
+	
+  var sx = dvl.scale.ordinal({
+    name: "scale_x",
+    domain: { data:letters },
+    rangeFrom: 0,
+    rangeTo: panel.width,
+    padding: 10
+  })
+  
+  var sy = dvl.scale.ordinal({
+    name: "scale_y",
+    domain: { data:letters },
+    rangeFrom: 0,
+    rangeTo: panel.height,
+    padding: 10
+  });
+  
+  var sc = dvl.scale.linear({
+    name: "scale_color",
+    domain: { data: dvl.def([0, 100]) },
+    rangeFrom: "#fff",
+    rangeTo: "#f00"
+  });
+  
+  var scaledTicksX = dvl.gen.fromArray(sx.ticks, null, sx.scale),
+      scaledTicksY = dvl.gen.fromArray(sy.ticks, null, sy.scale);
+  
+  dvl.svg.lines({
+    panel: panel,
+    duration: 0,
+    props: {
+      key: sx.ticks,
+      left: scaledTicksX,
+      top1: 0,
+      bottom2: 0,
+      stroke: "black"
+    }
+  });
+  
+  dvl.svg.lines({
+    panel: panel,
+    duration: 0,
+    props: {
+      key: sy.ticks,
+      top: scaledTicksY,
+      left1: 0,
+      right2: 0,
+      stroke: "black"
+    }
+  });
+  
+  dvl.svg.labels({
+    panel: panel,
+    duration: 0,
+    props: {
+      key: sx.ticks,
+      left: scaledTicksX,
+      bottom: -3,
+      text: sx.ticks,
+      baseline: "top",
+      align: "middle"
+    }
+  });
+  
+  dvl.svg.labels({
+    panel: panel,
+    duration: 0,
+    props: {
+      key: sy.ticks,
+      left: -3,
+      top:  scaledTicksY,
+      text: sy.ticks,
+      align: "end",
+      baseline: "middle"
+    }
+  });
+  
+  var sizeX = dvl.apply({
+    fn: function(b) { return 0.9 * b; },
+    args: sx.band
+  });
+  var sizeY = dvl.apply({
+    fn: function(b) { return 0.9 * b; },
+    args: sy.band
+  });
+  
+  dvl.svg.bars({
+    panel: panel,
+    duration: 0,
+    props: {
+      key: dvl.gen.fromArray(data, function(d) { return d.pair; }),
+      centerX: dvl.gen.fromArray(data, getX, sx.scale),
+      centerY: dvl.gen.fromArray(data, getY, sy.scale),
+      width: sizeX,
+      height: sizeY,
+      fill: dvl.gen.fromArray(data, getV, sc.scale),
+    }
+  });
+  
+  ////////////////////////////
+  var skip = {
+    "the": 1,
+    "it": 1,
+    "of": 1,
+    "for": 1,
+    "and": 1,
+    "or": 1
+  }
+  
+  var timer = setInterval(function() {
+    if(text.length == 0) {
+      clearInterval(timer);
+    } else {
+      while (skip[word = text.shift()]);
+      
+      if(!word) return; 
+      
+      for (var pos = 0; pos < word.length-1; pos++) {
+        pair = word.substr(pos, 2);
+        //console.log(pos, pair);
+        ds = data.get();
+        var found = false;
+        for (var i=0; i < ds.length; i++) {
+          if(ds[i].pair == pair) {
+            ds[i].count += 1;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          data.push({
+            pair: pair,
+            f: pair.substr(0,1),
+            s: pair.substr(1,1),
+            count: 1
+          });
+        }
+      }
+      
+      data.notify();
+    }
+  }, 20);
+  
+  dvl.html.table2({
+    selector: '#table',
+    sort: {
+      on: 'count',
+      order: "desc",
+      modes: ['desc'], 
+    },
+    columns: [
+      { id:'title', title:'A', gen: dvl.gen.fromArray(data, dvl.acc('pair')) },
+      { id:'count', title:'B', gen: dvl.gen.fromArray(data, getV) },
+    ]
+  });
+
+  </script>
+</html>

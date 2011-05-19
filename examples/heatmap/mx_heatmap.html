@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DVL Simple Heatmap</title>
+    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />	
+    <script type="text/javascript" src="../../js/jquery-1.4.4.min.js"></script>
+    <script type="text/javascript" src="../../js/jquery-ui-1.8.7.custom.js"></script>
+    <script type="text/javascript" src="../../d3.js"></script>
+    <script type="text/javascript" src="../../protovis-r3.2.js"></script>
+    <script type="text/javascript" src="../../sprintf.js"></script>
+    <script type="text/javascript" src="../../dvl.js"></script>
+    <script type="text/javascript" src="mx_heatmap_data.js"></script>
+    <script type="text/javascript" src="mx_heatmap_mesures.js"></script>
+    <script type="text/javascript" src="figue.js"></script>
+    <style type="text/css">
+
+body {
+  font: 12px sans-serif;
+}
+
+.background {
+  fill: #ddd;
+}
+
+.lines {
+  shape-rendering: crispEdges;
+  stroke-width: 0.5px;
+  stroke: #fefefe;
+}
+
+text {
+  cursor: pointer;
+}
+
+    </style>
+
+  </head>
+  <body>
+    <div>
+      <button onclick="mesure.set('ecpm').notify()">eCPM</button>
+      <button onclick="mesure.set('impressions').notify()">Impressions</button>
+      <button onclick="mesure.set('revenue').notify()">Revenue</button>
+      |
+      <button onclick="clusterX.set(!clusterX.get()).notify()">Toggle cluster X</button>
+      <button onclick="clusterY.set(!clusterY.get()).notify()">Toggle cluster Y</button>
+      <span id="hx">?</span> / <span id="hy">?</span> / Value: <span id="v">?</span>
+    </div>
+  </body>
+  <script type="text/javascript">
+  
+  data = dvl.def(mx_heatmap_data);
+  
+	var getX = dvl.acc('advertiser');
+	var getY = dvl.acc('site_category');
+	var mesure = dvl.def('revenue');
+	var getV = dvl.acc(mesure);
+	var duration = 300;
+	
+	var colorScale = dvl.def(null, 'color_scale');
+	var labelText = dvl.def(null, 'label_text');
+	var legendTicks = dvl.def(null, 'legend_ticks');
+	
+	function updateColorScale() {
+	  mes = mesure.get();
+	  d = data.get();
+	  
+	  m = mx_heatmap_mesures[mes];
+	  var rawScale = m.getScale(d);
+	  colorScale.set(function(d) { return rawScale(d).color; });
+	  legendTicks.set(rawScale.legendTicks());
+	  
+	  dvl.notify(colorScale, legendTicks);
+	}
+	dvl.register({
+	  fn: updateColorScale,
+	  listen: [data, mesure],
+	  change: [colorScale, labelText, legendTicks],
+	  name: 'color_updater'
+	});
+	
+	var size = dvl.def({ width: 900, height: 800 }, "size");
+	var margin = dvl.def({ top: 30, bottom: 170, left: 170, right: 150 }, "margin");
+  
+  var highlightX = dvl.def(null, 'hightlightX');
+  var highlightY = dvl.def(null, 'hightlightY');
+  var value = dvl.def(null, 'value');
+  
+  var clusterX = dvl.def(false, 'clusterX');
+  var clusterY = dvl.def(false, 'clusterY');
+  
+  var dataX = dvl.apply({
+	  fn: function(data, accX, accY, accV, cluster) {
+	    if (cluster) {
+	      return clusterSort(data, accX, accY, accV)
+	    } else {
+	      var mapped = dvl.util.uniq(data.map(accX));
+    	  mapped.sort();
+    	  return mapped;
+	    }
+  	},
+	  args: [data, getX, getY, getV, clusterX]
+  });
+  
+  var dataY = dvl.apply({
+	  fn: function(data, accX, accY, accV, cluster) {
+	    if (cluster) {
+	      return clusterSort(data, accY, accX, accV)
+	    } else {
+	      var mapped = dvl.util.uniq(data.map(accY));
+    	  mapped.sort();
+    	  return mapped;
+	    }
+  	},
+	  args: [data, getX, getY, getV, clusterY]
+  });
+  
+  var panel = dvl.svg.canvas({
+    selector:'body',
+    size:size,
+    margin:margin,
+    on: {
+      mouseout: function() {
+        highlightX.set(null);
+        highlightY.set(null);
+        value.set(null);
+        dvl.notify(highlightX, highlightY, value);
+      }
+    }
+  });
+	
+  var sx = dvl.scale.ordinal({
+    name: "scale_x",
+    domain: { data:dataX },
+    rangeFrom: 0,
+    rangeTo: panel.width,
+    padding: 10
+  })
+  
+  var sy = dvl.scale.ordinal({
+    name: "scale_y",
+    domain: { data:dataY },
+    rangeFrom: 0,
+    rangeTo: panel.height,
+    padding: 10
+  });
+  
+  var scaledTicksX = dvl.gen.fromArray(sx.ticks, null, sx.scale),
+      scaledTicksY = dvl.gen.fromArray(sy.ticks, null, sy.scale);
+  
+  dvl.svg.lines({
+    panel: panel,
+    duration: duration,
+    props: {
+      key: sx.ticks,
+      left: scaledTicksX,
+      top1: 0,
+      bottom2: 0
+    }
+  });
+  
+  dvl.svg.lines({
+    panel: panel,
+    duration: duration,
+    props: {
+      key: sy.ticks,
+      top: scaledTicksY,
+      left1: 0,
+      right2: 0
+    }
+  });
+  
+  dvl.html.out({
+    selector: '#hx',
+    data: highlightX,
+    text: true
+  })
+  
+  dvl.html.out({
+    selector: '#hy',
+    data: highlightY,
+    text: true
+  })
+  
+  dvl.html.out({
+    selector: '#v',
+    data: value,
+    text: true
+  })
+  
+  
+  dvl.svg.labels({
+    panel: panel,
+    duration: 0,
+    props: {
+      key: sx.ticks,
+      left: scaledTicksX,
+      bottom: -3,
+      text: sx.ticks,
+      baseline: "top",
+      align: "start",
+      angle: 45,
+      color: dvl.gen.equal(sx.ticks, highlightX, "red", "black")
+    },
+    on: {
+      mousemove: function(i) {
+        console.log(i);
+        return;
+        var d = dataX.get()[i];
+        highlightX.set(d);
+        highlightY.set(null);
+        value.set(null);
+        dvl.notify(highlightX, highlightY, value);
+      }
+    }
+  });
+  
+  dvl.svg.labels({
+    panel: panel,
+    duration: 0,
+    props: {
+      key: sy.ticks,
+      left: -3,
+      top:  scaledTicksY,
+      text: sy.ticks,
+      align: "end",
+      baseline: "middle",
+      color: dvl.gen.equal(sy.ticks, highlightY, "red", "black")
+    },
+    on: {
+      mousemove: function(i) {
+        console.log(i);
+        return;
+        var d = dataY.get()[i];
+        highlightX.set(null);
+        highlightY.set(d);
+        value.set(null);
+        dvl.notify(highlightX, highlightY, value);
+      }
+    }
+  });
+  
+  var sizeX = dvl.apply({
+    fn: function(b) { return 0.9 * b; },
+    args: sx.band
+  });
+  var sizeY = dvl.apply({
+    fn: function(b) { return 0.9 * b; },
+    args: sy.band
+  });
+  var keys = dvl.apply({
+    fn: function(ds, x, y) {
+      return ds.map(function(d) { return x(d) + '_' + y(d); });
+    },
+    args: [data, getX, getY]
+  });
+  
+  dvl.svg.bars({
+    panel: panel,
+    duration: duration,
+    props: {
+      key: keys,
+      centerX: dvl.gen.fromArray(data, getX, sx.scale),
+      centerY: dvl.gen.fromArray(data, getY, sy.scale),
+      width: sizeX,
+      height: sizeY,
+      fill: dvl.gen.fromArray(data, getV, colorScale),
+    },
+    on: {
+      mousemove: function(i) {
+        var d = data.get()[i];
+        highlightX.set(getX.get()(d));
+        highlightY.set(getY.get()(d));
+        value.set(d[mesure.get()]);
+        dvl.notify(highlightX, highlightY, value);
+      }
+    }
+  });
+  
+  dvl.svg.bars({
+    panel: panel,
+    duration: 0,
+    clip: false,
+    props: {
+      right: -40,
+      top: dvl.gen.fromFn(function(i) { return 200+i*24; }),
+      width: 20,
+      height: 20,
+      fill: dvl.gen.fromArray(legendTicks, dvl.acc('value'), colorScale),
+      stroke: "#ccc"
+    }
+  });
+  
+  dvl.svg.labels({
+    panel: panel,
+    duration: 0,
+    clip: false,
+    props: {
+      right: -50,
+      top: dvl.gen.fromFn(function(i) { return 200+12+i*24; }),
+      width: 20,
+      height: 20,
+      text: dvl.gen.fromArray(legendTicks, dvl.acc('text'))
+    }
+  });
+  
+  function clusterSort(dt, accX, accY, accV) {
+    var xs = dvl.util.uniq(dt.map(accX));
+    var ys = dvl.util.uniq(dt.map(accY));
+    var yMap = dvl.util.flip(ys);
+    var xMap = {};
+    
+    var s = pv.Scale.quantile(dt, accV).range(1, 5).quantiles(5);
+    
+    var values = ys.map(function() { return 0; });
+    
+    var labels = xs;
+    var vectors = [];
+    for (var i=0; i < xs.length; i++) {
+      var ni = values.slice();
+      vectors.push(ni);
+      xMap[xs[i]] = ni;
+    }
+    
+    for (var i=0; i < dt.length; i++) {
+      var d = dt[i];
+      xMap[accX(d)][yMap[accY(d)]] = s(accV(d));
+    }
+    
+    //for (var i=0; i < labels.length; i++) console.log(labels[i] + ',' + vectors[i].join(','));
+    
+    var root = figue.agglomerate(labels, vectors, figue.EUCLIDIAN_DISTANCE, figue.SINGLE_LINKAGE);
+    
+    var order = [];
+    function explore(n) {
+      if(n.label !== -1) {
+        order.push(n.label);
+      } else {
+        explore(n.right);
+        explore(n.left);
+      }
+    }
+    explore(root);
+    
+    return order;
+  }
+
+  
+  </script>
+</html>
