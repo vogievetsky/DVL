@@ -1529,6 +1529,39 @@ dvl.gen.fromArray = function(data, acc, fn) {
   });
   return gen;
 };
+dvl.gen.fromRowData = dvl.gen.fromArray;
+dvl.gen.fromColumnData = function(data, acc, fn) {
+  var d, gen, makeGen;
+  data = dvl.wrapConstIfNeeded(data);
+  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  gen = dvl.def(null, 'array_generator');
+  d = [];
+  makeGen = function() {
+    var a, dObj, f, g;
+    a = acc.get();
+    f = fn.get();
+    dObj = data.get();
+    if ((a != null) && (f != null) && (dObj != null)) {
+      d = a(dObj);
+      g = function(i) {
+        i = i % d.length;
+        return f(d[i]);
+      };
+      gen.setGen(g, d.length);
+    } else {
+      gen.setGen(null);
+    }
+    return dvl.notify(gen);
+  };
+  dvl.register({
+    fn: makeGen,
+    listen: [data, acc, fn],
+    change: [gen],
+    name: 'array_make_gen'
+  });
+  return gen;
+};
 dvl.gen.equal = function(genA, genB, retTrue, retFalse) {
   var gen, makeGen;
   if (retTrue === void 0) {
@@ -3003,11 +3036,7 @@ dvl.html.table.renderer = {
     var classStr, height, padding, width, x, y;
     classStr = _arg.classStr, width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
     return function(col, dataFn) {
-      var getMinMax, line, make_sparks, svg, sx, sy, xmax, xmin, ymax, ymin;
-      xmin = Infinity;
-      xmax = -Infinity;
-      ymin = Infinity;
-      ymax = -Infinity;
+      var getMinMax, line, make_sparks, svg;
       getMinMax = function(input, attr) {
         var d, i, maxi, maxv, mini, minv, v, _len;
         minv = Infinity;
@@ -3034,26 +3063,20 @@ dvl.html.table.renderer = {
         };
       };
       svg = col.selectAll('svg').data(function(i) {
-        var d, ds, idx, xv, yv, _len;
-        ds = dataFn(i);
-        for (idx = 0, _len = ds.length; idx < _len; idx++) {
-          d = ds[idx];
-          xv = d[x];
-          yv = d[y];
-          xmin = Math.min(xmin, xv);
-          xmax = Math.max(xmax, xv);
-          ymin = Math.min(ymin, yv);
-          ymax = Math.max(ymax, yv);
-        }
-        return [ds];
+        return [dataFn(i)];
       });
-      sx = d3.scale.linear().domain([xmin, xmax]).range([padding, width - padding]);
-      sy = d3.scale.linear().domain([ymin, ymax]).range([height - padding, padding]);
-      line = d3.svg.line().x(function(d) {
-        return sx(d[x]);
-      }).y(function(d) {
-        return sy(d[y]);
-      });
+      line = function(d) {
+        var mmx, mmy, sx, sy;
+        mmx = getMinMax(d, x);
+        mmy = getMinMax(d, y);
+        sx = d3.scale.linear().domain([mmx.minv, mmx.maxv]).range([padding, width - padding]);
+        sy = d3.scale.linear().domain([mmy.minv, mmy.maxv]).range([height - padding, padding]);
+        return d3.svg.line().x(function(dp) {
+          return sx(dp[x]);
+        }).y(function(dp) {
+          return sy(dp[y]);
+        })(d);
+      };
       make_sparks = function(svg) {
         var points, sel;
         sel = svg.selectAll('path').data(function(d) {
@@ -3062,22 +3085,24 @@ dvl.html.table.renderer = {
         sel.enter("svg:path").attr("class", "line").attr("d", line);
         sel.attr("d", line);
         points = svg.selectAll('circle').data(function(d) {
-          var mmx, mmy;
+          var mmx, mmy, sx, sy;
           mmx = getMinMax(d, x);
           mmy = getMinMax(d, y);
-          return [['top', d[mmy.maxi][x], mmy.maxv], ['bottom', d[mmy.mini][x], mmy.minv], ['right', mmx.maxv, d[mmx.maxi][y]], ['left', mmx.minv, d[mmx.mini][y]]];
+          sx = d3.scale.linear().domain([mmx.minv, mmx.maxv]).range([padding, width - padding]);
+          sy = d3.scale.linear().domain([mmy.minv, mmy.maxv]).range([height - padding, padding]);
+          return [['top', sx(d[mmy.maxi][x]), sy(mmy.maxv)], ['bottom', sx(d[mmy.mini][x]), sy(mmy.minv)], ['right', sx(mmx.maxv), sy(d[mmx.maxi][y])], ['left', sx(mmx.minv), sy(d[mmx.mini][y])]];
         });
         points.enter("svg:circle").attr("r", 2).attr("class", function(d) {
           return d[0];
         }).attr("cx", function(d) {
-          return sx(d[1]);
+          return d[1];
         }).attr("cy", function(d) {
-          return sy(d[2]);
+          return d[2];
         });
         return points.attr("cx", function(d) {
-          return sx(d[1]);
+          return d[1];
         }).attr("cy", function(d) {
-          return sy(d[2]);
+          return d[2];
         });
       };
       make_sparks(svg);

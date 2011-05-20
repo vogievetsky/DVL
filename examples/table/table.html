@@ -53,7 +53,8 @@ svg.sparkline circle {
   var data = [];
   for (var i=0; i < 15; i++) {
     var arr = [];
-    for (var j=0; j < 100; j++) { arr.push({ x:j/50, y:Math.sin(j/(i+1)) }); }
+    var offset = Math.random() * 100;
+    for (var j=0; j < 100; j++) { arr.push({ x:j/50, y:offset+Math.sin(j/(i+1)) }); }
     data.push({
       a: letters[i * 3  % n],
       b: letters[(i+5) * 11 % n],

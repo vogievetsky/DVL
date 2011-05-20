@@ -1166,6 +1166,34 @@ dvl.gen.fromArray = (data, acc, fn) ->
   dvl.register({fn:makeGen, listen:[data, acc, fn], change:[gen], name:'array_make_gen'})
   return gen
 
+dvl.gen.fromRowData = dvl.gen.fromArray
+dvl.gen.fromColumnData = (data, acc, fn) ->
+  data = dvl.wrapConstIfNeeded(data)
+  acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
+  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
+
+  gen = dvl.def(null, 'array_generator')
+  
+  d = []
+  makeGen = ->
+    a = acc.get()
+    f = fn.get()
+    dObj = data.get()
+    if a? and f? and dObj?
+      d = a(dObj)
+      g = (i) ->
+        i = i % d.length
+        f(d[i])
+      
+      gen.setGen(g, d.length)
+    else
+      gen.setGen(null)
+      
+    dvl.notify(gen)
+
+  dvl.register({fn:makeGen, listen:[data, acc, fn], change:[gen], name:'array_make_gen'})
+  return gen
+
 
 dvl.gen.equal = (genA, genB, retTrue, retFalse) ->
   retTrue  = true  if retTrue  is undefined
@@ -2367,11 +2395,6 @@ dvl.html.table.renderer =
     sel.text(dataFn)
     null
   svgSparkline: ({classStr, width, height, x, y, padding}) -> (col, dataFn) -> 
-    xmin = Infinity
-    xmax = -Infinity
-    ymin = Infinity
-    ymax = -Infinity
-    
     getMinMax = (input, attr) -> 
       minv = Infinity
       mini = -1
@@ -2387,21 +2410,14 @@ dvl.html.table.renderer =
           maxi = i  
       return { mini, maxi, minv, maxv }
     
-    svg = col.selectAll('svg').data((i) ->
-      ds = dataFn(i)
-      for d,idx in ds
-        xv = d[x]
-        yv = d[y]
-        xmin = Math.min(xmin, xv)
-        xmax = Math.max(xmax, xv)
-        ymin = Math.min(ymin, yv)
-        ymax = Math.max(ymax, yv)
-      return [ds]
-    )
+    svg = col.selectAll('svg').data((i) -> [dataFn(i)])
     
-    sx = d3.scale.linear().domain([xmin, xmax]).range([padding, width-padding])
-    sy = d3.scale.linear().domain([ymin, ymax]).range([height-padding, padding])
-    line = d3.svg.line().x((d) -> sx(d[x])).y((d) -> sy(d[y]))
+    line = (d) ->
+      mmx = getMinMax(d, x)
+      mmy = getMinMax(d, y)
+      sx = d3.scale.linear().domain([mmx.minv, mmx.maxv]).range([padding, width-padding])
+      sy = d3.scale.linear().domain([mmy.minv, mmy.maxv]).range([height-padding, padding])
+      return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
     
     make_sparks = (svg) ->
       sel = svg.selectAll('path')
@@ -2417,23 +2433,25 @@ dvl.html.table.renderer =
         .data((d) -> 
           mmx = getMinMax(d, x)
           mmy = getMinMax(d, y)
+          sx = d3.scale.linear().domain([mmx.minv, mmx.maxv]).range([padding, width-padding])
+          sy = d3.scale.linear().domain([mmy.minv, mmy.maxv]).range([height-padding, padding])
           return [
-            ['top',    d[mmy.maxi][x], mmy.maxv]
-            ['bottom', d[mmy.mini][x], mmy.minv]
-            ['right',  mmx.maxv, d[mmx.maxi][y]]
-            ['left',   mmx.minv, d[mmx.mini][y]]
+            ['top',    sx(d[mmy.maxi][x]), sy(mmy.maxv)]
+            ['bottom', sx(d[mmy.mini][x]), sy(mmy.minv)]
+            ['right',  sx(mmx.maxv), sy(d[mmx.maxi][y])]
+            ['left',   sx(mmx.minv), sy(d[mmx.mini][y])]
           ]
         )
       
       points.enter("svg:circle")
         .attr("r", 2)
         .attr("class", (d) -> d[0])
-        .attr("cx", (d) -> sx(d[1]))
-        .attr("cy", (d) -> sy(d[2]))
+        .attr("cx", (d) -> d[1])
+        .attr("cy", (d) -> d[2])
         
       points
-        .attr("cx", (d) -> sx(d[1]))
-        .attr("cy", (d) -> sy(d[2]))
+        .attr("cx", (d) -> d[1])
+        .attr("cy", (d) -> d[2])
     
     make_sparks(svg)
     make_sparks(svg.enter('svg:svg').attr('class', classStr).attr('width', width).attr('height', height))
