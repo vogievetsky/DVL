@@ -23,6 +23,17 @@ td {
   border: 1px solid #ccc;
 }
 
+svg.sparkline path {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+svg.sparkline circle {
+  fill: red;
+  stroke: none;
+}
+
     </style>
 
   </head>
@@ -41,11 +52,14 @@ td {
   var n = letters.length;
   var data = [];
   for (var i=0; i < 15; i++) {
+    var arr = [];
+    for (var j=0; j < 100; j++) { arr.push({ x:j/50, y:Math.sin(j/(i+1)) }); }
     data.push({
       a: letters[i * 3  % n],
       b: letters[(i+5) * 11 % n],
       c: Math.random(),
-      d: Math.random()
+      d: Math.random(),
+      sparkline: arr
     });
   }
   data = dvl.def(data, 'data');
@@ -68,7 +82,8 @@ td {
     columns: [
       { id:'a', title:'A', gen: dvl.gen.fromArray(data, dvl.acc('a')) },
       { id:'b', title:'B', gen: dvl.gen.fromArray(data, dvl.acc('b')) },
-      { id:'c', title:'C', gen: dvl.gen.fromArray(data, dvl.acc('c')) }
+      { id:'c', title:'C', gen: dvl.gen.fromArray(data, dvl.acc('c')), renderer:dvl.html.table.renderer.aLink({linkGen: dvl.gen.fromArray(data, dvl.acc('b')) }) },
+      { id:'s', title:'Sparkline', gen: dvl.gen.fromArray(data, dvl.acc('sparkline')), renderer:dvl.html.table.renderer.svgSparkline({width:100, height:14, x:"x", y:"y", classStr:"sparkline", padding:3}) },
     ]
   });
   

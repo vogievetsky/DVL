@@ -2317,30 +2317,29 @@ dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick,
 
     for col in columns
       gen = col.gen.gen();
-
+      ren = if dvl.typeOf(col.renderer) is 'function' then col.renderer else dvl.html.table.renderer[col.renderer or 'html']
+      ren(sel.select('td.' + col.uniquClass), gen)
+      
+      #b.selectAll('tr > td.' + col.uniquClass)
+      
+      ###
       if gen
+        
         tds = b.selectAll('tr > td.' + col.uniquClass)
-        if col.bars
-          divs = tds.selectAll('div').data((d, i) -> [i])
-          divs.enter('div')
-            .attr('class', col.bars)
-            .style('width', (i) -> gen(r[i]) + 'px')
-          divs
-            .style('width', (i) -> gen(r[i]) + 'px')
+        
+        if col.link and col.link.gen()
+          links = tds.selectAll('a').data((d, i) -> [i])
+
+          update = (o) ->
+            o.attr('href', (i) -> col.link.gen()(r[i]))
+            o.on('click', col.click) if col.click
+            o.text((i) -> gen(r[i]))
+
+          update(links.enter('a'))
+          update(links)
         else
-          if col.link and col.link.gen()
-            links = tds.selectAll('a').data((d, i) -> [i])
-
-            update = (o) ->
-              o.attr('href', (i) -> col.link.gen()(r[i]))
-              o.on('click', col.click) if col.click
-              o.text((i) -> gen(r[i]))
-
-            update(links.enter('a'))
-            update(links)
-          else
-            tds.html((d, i) -> gen(r[i]))
-
+          tds.html((d, i) -> gen(r[i]))
+      ###
     null
   
   dvl.register({fn:makeTable, listen:listen, name:'table_maker'})
@@ -2350,11 +2349,94 @@ dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick,
     sortOrder
   }
 
-
-# flat 1
-# 1 bedford gardens
-# London
-
-# Relevant: Chris Weaver InfoVis 2004 / Thesis
-
-# My number is 0723172779, which I'm guessing is 0027723172779 for Skype
+dvl.html.table.renderer = 
+  text: (col, dataFn) ->
+    col.text(dataFn)
+    null
+  html: (col, dataFn) ->
+    col.html(dataFn)
+    null
+  aLink: ({linkGen}) -> (col, dataFn) -> 
+    sel = col.selectAll('a').data((d) -> [d])
+    sel.enter('a').attr('href', linkGen.gen()).text(dataFn)
+    sel.attr('href', linkGen.gen()).text(dataFn)
+    null
+  spanLink: ({clickFn}) -> (col, dataFn) -> 
+    sel = col.selectAll('span').data((d) -> [d])
+    sel.enter('span').on('click', clickFn).text(dataFn)
+    sel.text(dataFn)
+    null
+  svgSparkline: ({classStr, width, height, x, y, padding}) -> (col, dataFn) -> 
+    xmin = Infinity
+    xmax = -Infinity
+    ymin = Infinity
+    ymax = -Infinity
+    
+    getMinMax = (input, attr) -> 
+      minv = Infinity
+      mini = -1
+      maxv = -Infinity
+      maxi = -1
+      for d,i in input
+        v = d[attr]
+        if v < minv
+          minv = v
+          mini = i
+        if maxv < v
+          maxv = v
+          maxi = i  
+      return { mini, maxi, minv, maxv }
+    
+    svg = col.selectAll('svg').data((i) ->
+      ds = dataFn(i)
+      for d,idx in ds
+        xv = d[x]
+        yv = d[y]
+        xmin = Math.min(xmin, xv)
+        xmax = Math.max(xmax, xv)
+        ymin = Math.min(ymin, yv)
+        ymax = Math.max(ymax, yv)
+      return [ds]
+    )
+    
+    sx = d3.scale.linear().domain([xmin, xmax]).range([padding, width-padding])
+    sy = d3.scale.linear().domain([ymin, ymax]).range([height-padding, padding])
+    line = d3.svg.line().x((d) -> sx(d[x])).y((d) -> sy(d[y]))
+    
+    make_sparks = (svg) ->
+      sel = svg.selectAll('path')
+        .data((d) -> [d])
+    
+      sel.enter("svg:path")
+        .attr("class", "line")
+        .attr("d", line)
+      
+      sel.attr("d", line)
+      
+      points = svg.selectAll('circle')
+        .data((d) -> 
+          mmx = getMinMax(d, x)
+          mmy = getMinMax(d, y)
+          return [
+            ['top',    d[mmy.maxi][x], mmy.maxv]
+            ['bottom', d[mmy.mini][x], mmy.minv]
+            ['right',  mmx.maxv, d[mmx.maxi][y]]
+            ['left',   mmx.minv, d[mmx.mini][y]]
+          ]
+        )
+      
+      points.enter("svg:circle")
+        .attr("r", 2)
+        .attr("class", (d) -> d[0])
+        .attr("cx", (d) -> sx(d[1]))
+        .attr("cy", (d) -> sy(d[2]))
+        
+      points
+        .attr("cx", (d) -> sx(d[1]))
+        .attr("cy", (d) -> sy(d[2]))
+    
+    make_sparks(svg)
+    make_sparks(svg.enter('svg:svg').attr('class', classStr).attr('width', width).attr('height', height))
+    null
+    
+    

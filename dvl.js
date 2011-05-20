@@ -2849,7 +2849,7 @@ dvl.html.table = function(_arg) {
     return length;
   };
   makeTable = function() {
-    var c, col, dir, divs, gen, length, limit, links, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, tds, update, _i, _j, _len, _len2;
+    var c, col, dir, gen, length, limit, numeric, r, ren, row, sortCol, sortFn, sortGen, sortOnId, _i, _j, _len, _len2;
     length = tableLength();
     r = pv.range(length);
     if (visible.hasChanged()) {
@@ -2931,43 +2931,26 @@ dvl.html.table = function(_arg) {
     for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
       col = columns[_j];
       gen = col.gen.gen();
-      if (gen) {
-        tds = b.selectAll('tr > td.' + col.uniquClass);
-        if (col.bars) {
-          divs = tds.selectAll('div').data(function(d, i) {
-            return [i];
-          });
-          divs.enter('div').attr('class', col.bars).style('width', function(i) {
-            return gen(r[i]) + 'px';
-          });
-          divs.style('width', function(i) {
-            return gen(r[i]) + 'px';
-          });
-        } else {
-          if (col.link && col.link.gen()) {
-            links = tds.selectAll('a').data(function(d, i) {
-              return [i];
-            });
-            update = function(o) {
-              o.attr('href', function(i) {
-                return col.link.gen()(r[i]);
-              });
-              if (col.click) {
-                o.on('click', col.click);
-              }
-              return o.text(function(i) {
-                return gen(r[i]);
-              });
-            };
-            update(links.enter('a'));
-            update(links);
-          } else {
-            tds.html(function(d, i) {
-              return gen(r[i]);
-            });
-          }
-        }
-      }
+      ren = dvl.typeOf(col.renderer) === 'function' ? col.renderer : dvl.html.table.renderer[col.renderer || 'html'];
+      ren(sel.select('td.' + col.uniquClass), gen);
+      /*
+      if gen
+
+        tds = b.selectAll('tr > td.' + col.uniquClass)
+
+        if col.link and col.link.gen()
+          links = tds.selectAll('a').data((d, i) -> [i])
+
+          update = (o) ->
+            o.attr('href', (i) -> col.link.gen()(r[i]))
+            o.on('click', col.click) if col.click
+            o.text((i) -> gen(r[i]))
+
+          update(links.enter('a'))
+          update(links)
+        else
+          tds.html((d, i) -> gen(r[i]))
+      */
     }
     return null;
   };
@@ -2980,4 +2963,126 @@ dvl.html.table = function(_arg) {
     sortOn: sortOn,
     sortOrder: sortOrder
   };
+};
+dvl.html.table.renderer = {
+  text: function(col, dataFn) {
+    col.text(dataFn);
+    return null;
+  },
+  html: function(col, dataFn) {
+    col.html(dataFn);
+    return null;
+  },
+  aLink: function(_arg) {
+    var linkGen;
+    linkGen = _arg.linkGen;
+    return function(col, dataFn) {
+      var sel;
+      sel = col.selectAll('a').data(function(d) {
+        return [d];
+      });
+      sel.enter('a').attr('href', linkGen.gen()).text(dataFn);
+      sel.attr('href', linkGen.gen()).text(dataFn);
+      return null;
+    };
+  },
+  spanLink: function(_arg) {
+    var clickFn;
+    clickFn = _arg.clickFn;
+    return function(col, dataFn) {
+      var sel;
+      sel = col.selectAll('span').data(function(d) {
+        return [d];
+      });
+      sel.enter('span').on('click', clickFn).text(dataFn);
+      sel.text(dataFn);
+      return null;
+    };
+  },
+  svgSparkline: function(_arg) {
+    var classStr, height, padding, width, x, y;
+    classStr = _arg.classStr, width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
+    return function(col, dataFn) {
+      var getMinMax, line, make_sparks, svg, sx, sy, xmax, xmin, ymax, ymin;
+      xmin = Infinity;
+      xmax = -Infinity;
+      ymin = Infinity;
+      ymax = -Infinity;
+      getMinMax = function(input, attr) {
+        var d, i, maxi, maxv, mini, minv, v, _len;
+        minv = Infinity;
+        mini = -1;
+        maxv = -Infinity;
+        maxi = -1;
+        for (i = 0, _len = input.length; i < _len; i++) {
+          d = input[i];
+          v = d[attr];
+          if (v < minv) {
+            minv = v;
+            mini = i;
+          }
+          if (maxv < v) {
+            maxv = v;
+            maxi = i;
+          }
+        }
+        return {
+          mini: mini,
+          maxi: maxi,
+          minv: minv,
+          maxv: maxv
+        };
+      };
+      svg = col.selectAll('svg').data(function(i) {
+        var d, ds, idx, xv, yv, _len;
+        ds = dataFn(i);
+        for (idx = 0, _len = ds.length; idx < _len; idx++) {
+          d = ds[idx];
+          xv = d[x];
+          yv = d[y];
+          xmin = Math.min(xmin, xv);
+          xmax = Math.max(xmax, xv);
+          ymin = Math.min(ymin, yv);
+          ymax = Math.max(ymax, yv);
+        }
+        return [ds];
+      });
+      sx = d3.scale.linear().domain([xmin, xmax]).range([padding, width - padding]);
+      sy = d3.scale.linear().domain([ymin, ymax]).range([height - padding, padding]);
+      line = d3.svg.line().x(function(d) {
+        return sx(d[x]);
+      }).y(function(d) {
+        return sy(d[y]);
+      });
+      make_sparks = function(svg) {
+        var points, sel;
+        sel = svg.selectAll('path').data(function(d) {
+          return [d];
+        });
+        sel.enter("svg:path").attr("class", "line").attr("d", line);
+        sel.attr("d", line);
+        points = svg.selectAll('circle').data(function(d) {
+          var mmx, mmy;
+          mmx = getMinMax(d, x);
+          mmy = getMinMax(d, y);
+          return [['top', d[mmy.maxi][x], mmy.maxv], ['bottom', d[mmy.mini][x], mmy.minv], ['right', mmx.maxv, d[mmx.maxi][y]], ['left', mmx.minv, d[mmx.mini][y]]];
+        });
+        points.enter("svg:circle").attr("r", 2).attr("class", function(d) {
+          return d[0];
+        }).attr("cx", function(d) {
+          return sx(d[1]);
+        }).attr("cy", function(d) {
+          return sy(d[2]);
+        });
+        return points.attr("cx", function(d) {
+          return sx(d[1]);
+        }).attr("cy", function(d) {
+          return sy(d[2]);
+        });
+      };
+      make_sparks(svg);
+      make_sparks(svg.enter('svg:svg').attr('class', classStr).attr('width', width).attr('height', height));
+      return null;
+    };
+  }
 };
