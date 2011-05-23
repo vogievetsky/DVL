@@ -78,7 +78,7 @@ dvl.util.flip = function(array) {
   return map;
 };
 (function() {
-  var array_ctor, bfsUpdate, bfsZero, changed, changed_more, constants, date_ctor, initRun, lastRun, levelPriorityQueue, list, nextObjId, regex_ctor, registerers, saveInitRun, uniqById, variables;
+  var array_ctor, bfsUpdate, bfsZero, changed, changed_more, constants, date_ctor, dvl_const, dvl_def, dvl_function_object, initRun, lastRun, levelPriorityQueue, list, nextObjId, regex_ctor, registerers, saveInitRun, uniqById, variables;
   array_ctor = (new Array).constructor;
   date_ctor = (new Date).constructor;
   regex_ctor = (new RegExp).constructor;
@@ -116,220 +116,223 @@ dvl.util.flip = function(array) {
   initRun = false;
   constants = {};
   variables = {};
-  dvl["const"] = function(value, name) {
-    var gen, id, len, v;
-    name || (name = 'obj');
-    id = name + '_const' + nextObjId;
-    v = {
-      id: id,
-      toString: function() {
-        return "|" + id + ":" + value + "|";
-      },
-      set: function() {
-        return v;
-      },
-      setLazy: function() {
-        return v;
-      },
-      get: function() {
-        return value;
-      },
-      getPrev: function() {
-        return value;
-      },
-      hasChanged: function() {
-        return initRun;
-      },
-      resetChanged: function() {
-        return null;
-      },
-      notify: function() {
-        return null;
-      },
-      remove: function() {
-        return null;
+  dvl_const = (function() {
+    function dvl_const(value, name) {
+      this.value = value;
+      this.name = name;
+      this.name || (this.name = 'obj');
+      this.id = this.name + '_const' + nextObjId;
+      constants[this.id] = this;
+      nextObjId += 1;
+      return this;
+    }
+    dvl_const.prototype.toString = function() {
+      return "|" + this.id + ":" + this.value + "|";
+    };
+    dvl_const.prototype.set = function() {
+      return this;
+    };
+    dvl_const.prototype.setLazy = function() {
+      return this;
+    };
+    dvl_const.prototype.get = function() {
+      return this.value;
+    };
+    dvl_const.prototype.getPrev = function() {
+      return this.value;
+    };
+    dvl_const.prototype.hasChanged = function() {
+      return initRun;
+    };
+    dvl_const.prototype.resetChanged = function() {
+      return null;
+    };
+    dvl_const.prototype.notify = function() {
+      return null;
+    };
+    dvl_const.prototype.remove = function() {
+      return null;
+    };
+    dvl_const.prototype.push = function(value) {
+      return null;
+    };
+    dvl_const.prototype.shift = function() {
+      return;
+    };
+    dvl_const.prototype.gen = function() {
+      var that;
+      if (dvl.typeOf(this.value) === 'array') {
+        that = this;
+        return function(i) {
+          return that.value[i];
+        };
+      } else {
+        return this.value;
       }
     };
-    if (dvl.typeOf(value) === 'array') {
-      gen = function(i) {
-        return value[i];
-      };
-      len = value.length;
-      v.push = function(value) {
-        return null;
-      };
-      v.shift = function() {
-        return;
-      };
-    } else {
-      gen = function() {
-        return value;
-      };
-      len = Infinity;
-    }
-    v.gen = function() {
-      return gen;
+    dvl_const.prototype.len = function() {
+      if (dvl.typeOf(this.value) === 'array') {
+        return this.value.length;
+      } else {
+        return Infinity;
+      }
     };
-    v.genPrev = function() {
-      return gen;
-    };
-    v.len = function() {
-      return len;
-    };
-    constants[id] = v;
-    nextObjId += 1;
-    return v;
+    return dvl_const;
+  })();
+  dvl["const"] = function(value, name) {
+    return new dvl_const(value, name);
   };
-  dvl.def = function(value, name) {
-    var changed, gen, genPrev, id, lazy, len, prev, resolveLazy, v;
-    name || (name = 'obj');
-    id = name + '_' + nextObjId;
-    prev = null;
-    changed = false;
-    gen = void 0;
-    genPrev = void 0;
-    len = -1;
-    lazy = null;
-    resolveLazy = function() {
+  dvl_def = (function() {
+    function dvl_def(value, name) {
+      this.value = value;
+      this.name = name;
+      this.name || (this.name = 'obj');
+      this.id = this.name + '_' + nextObjId;
+      this.prev = null;
+      this.changed = false;
+      this.vgen = void 0;
+      this.vgenPrev = void 0;
+      this.vlen = -1;
+      this.lazy = null;
+      this.listeners = [];
+      this.changers = [];
+      variables[this.id] = this;
+      nextObjId++;
+      return this;
+    }
+    dvl_def.prototype.resolveLazy = function() {
       var val;
-      if (lazy) {
-        val = lazy();
-        if (value === val && dvl.typeOf(val) === "object") {
-          throw "lazy return must be new object in " + id;
+      if (this.lazy) {
+        val = this.lazy();
+        if (this.value === val && dvl.typeOf(val) === "object") {
+          throw "lazy return must be new object in " + this.id;
         }
-        prev = val;
-        value = val;
+        this.prev = val;
+        this.value = val;
       }
       return null;
     };
-    v = {
-      id: id,
-      toString: function() {
-        return "|" + id + ":" + value + "|";
-      },
-      listeners: [],
-      changers: [],
-      hasChanged: function() {
-        return initRun || changed;
-      },
-      resetChanged: function() {
-        changed = false;
-        return null;
-      },
-      set: function(val) {
-        if ((val != null) && value === val && dvl.typeOf(val) === "object") {
-          throw "dvl.set: must be new object in " + id;
+    dvl_def.prototype.toString = function() {
+      return "|" + this.id + ":" + this.value + "|";
+    };
+    dvl_def.prototype.hasChanged = function() {
+      return initRun || this.changed;
+    };
+    dvl_def.prototype.resetChanged = function() {
+      this.changed = false;
+      return this;
+    };
+    dvl_def.prototype.set = function(val) {
+      if ((val != null) && this.value === val && dvl.typeOf(val) === "object") {
+        throw "must be new object in " + this.id;
+      }
+      if (!this.changed) {
+        this.prev = this.value;
+      }
+      this.value = val;
+      this.vgen = void 0;
+      this.changed = true;
+      return this;
+    };
+    dvl_def.prototype.setLazy = function(fn) {
+      this.lazy = fn;
+      this.changed = true;
+      return this;
+    };
+    dvl_def.prototype.setGen = function(g, l) {
+      if (g === null) {
+        l = 0;
+      } else {
+        if (l === void 0) {
+          l = Infinity;
         }
-        if (!changed) {
-          prev = value;
-        }
-        value = val;
-        gen = void 0;
-        changed = true;
-        return v;
-      },
-      setLazy: function(fn) {
-        lazy = fn;
-        changed = true;
-        return v;
-      },
-      setGen: function(g, l) {
-        if (g === null) {
-          l = 0;
-        } else {
-          if (l === void 0) {
-            l = Infinity;
-          }
-        }
-        if (!changed) {
-          genPrev = gen;
-        }
-        gen = g;
-        len = l;
-        changed = true;
-        return v;
-      },
-      push: function(val) {
-        value.push(val);
-        changed = true;
-        return null;
-      },
-      shift: function() {
-        var val;
-        val = value.shift();
-        changed = true;
-        return val;
-      },
-      get: function() {
-        resolveLazy();
-        return value;
-      },
-      getPrev: function() {
-        resolveLazy();
-        if (prev && changed) {
-          return prev;
-        } else {
-          return value;
-        }
-      },
-      gen: function() {
-        if (gen !== void 0) {
-          return gen;
-        } else {
-          if (dvl.typeOf(value) === 'array') {
-            return function(i) {
-              return value[i];
-            };
-          } else {
-            return function() {
-              return value;
-            };
-          }
-        }
-      },
-      genPrev: function() {
-        if (genPrev && changed) {
-          return genPrev;
-        } else {
-          return v.gen();
-        }
-      },
-      len: function() {
-        if (len >= 0) {
-          return len;
-        } else {
-          if (value != null) {
-            if (dvl.typeOf(value) === 'array') {
-              return value.length;
-            } else {
-              return Infinity;
-            }
-          } else {
-            return 0;
-          }
-        }
-      },
-      notify: function() {
-        return dvl.notify(v);
-      },
-      remove: function() {
-        var k;
-        if (v.listeners.length > 0) {
-          throw "Cannot remove variable " + id + " because it has listeners.";
-        }
-        if (v.changers.length > 0) {
-          throw "Cannot remove variable " + id + " because it has changers.";
-        }
-        delete variables[id];
-        for (k in v) {
-          delete v[k];
-        }
-        return null;
+      }
+      if (!this.changed) {
+        this.vgenPrev = this.vgen;
+      }
+      this.vgen = g;
+      this.vlen = l;
+      this.changed = true;
+      return this;
+    };
+    dvl_def.prototype.push = function(val) {
+      this.value.push(val);
+      this.changed = true;
+      return null;
+    };
+    dvl_def.prototype.shift = function() {
+      this.val = this.value.shift();
+      this.changed = true;
+      return val;
+    };
+    dvl_def.prototype.get = function() {
+      this.resolveLazy();
+      return this.value;
+    };
+    dvl_def.prototype.getPrev = function() {
+      this.resolveLazy();
+      if (this.prev && this.changed) {
+        return this.prev;
+      } else {
+        return this.value;
       }
     };
-    variables[id] = v;
-    nextObjId += 1;
-    return v;
+    dvl_def.prototype.gen = function() {
+      var that;
+      if (this.vgen !== void 0) {
+        return this.vgen;
+      } else {
+        if (dvl.typeOf(this.value) === 'array') {
+          that = this;
+          return function(i) {
+            return that.value[i];
+          };
+        } else {
+          return function() {
+            return value;
+          };
+        }
+      }
+    };
+    dvl_def.prototype.genPrev = function() {
+      if (this.vgenPrev && this.changed) {
+        return this.vgenPrev;
+      } else {
+        return this.gen();
+      }
+    };
+    dvl_def.prototype.len = function() {
+      if (this.vlen >= 0) {
+        return this.vlen;
+      } else {
+        if (this.value != null) {
+          if (dvl.typeOf(this.value) === 'array') {
+            return this.value.length;
+          } else {
+            return Infinity;
+          }
+        } else {
+          return 0;
+        }
+      }
+    };
+    dvl_def.prototype.notify = function() {
+      return dvl.notify(this);
+    };
+    dvl_def.prototype.remove = function() {
+      if (this.listeners.length > 0) {
+        throw "Cannot remove variable " + this.id + " because it has listeners.";
+      }
+      if (this.changers.length > 0) {
+        throw "Cannot remove variable " + this.id + " because it has changers.";
+      }
+      delete variables[id];
+      return null;
+    };
+    return dvl_def;
+  })();
+  dvl.def = function(value, name) {
+    return new dvl_def(value, name);
   };
   dvl.knows = function(v) {
     return v && v.id && (variables[v.id] !== void 0 || constants[v.id] !== void 0);
@@ -396,6 +399,74 @@ dvl.util.flip = function(array) {
     }
     return null;
   };
+  dvl_function_object = (function() {
+    function dvl_function_object(id, ctx, fun, listen, change) {
+      this.id = id;
+      this.ctx = ctx;
+      this.fun = fun;
+      this.listen = listen;
+      this.change = change;
+      this.updates = [];
+      this.level = 0;
+      return this;
+    }
+    dvl_function_object.prototype.addChange = function(v) {
+      var lis, _i, _len, _ref;
+      if (!(v.listeners && v.changers)) {
+        return this;
+      }
+      this.change.push(v);
+      v.changers.push(this);
+      _ref = v.listeners;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        lis = _ref[_i];
+        this.updates.push(lis);
+      }
+      bfsUpdate([this]);
+      return this;
+    };
+    dvl_function_object.prototype.addListen = function(v) {
+      var chng, _i, _len, _ref;
+      if (!(v.listeners && v.changers)) {
+        return this;
+      }
+      this.listen.push(v);
+      v.listeners.push(this);
+      _ref = v.chnagers;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        chng = _ref[_i];
+        chng.updates.push(this);
+      }
+      bfsUpdate([this]);
+      return this;
+    };
+    dvl_function_object.prototype.remove = function() {
+      var k, l, queue, v, _i, _j, _len, _len2, _ref, _ref2;
+      delete registerers[this.id];
+      bfsZero([this]);
+      queue = [];
+      for (k in registerers) {
+        l = registerers[k];
+        if (dvl.intersectSize(l.change, this.listen) > 0) {
+          queue.push(l);
+          l.updates.splice(l.updates.indexOf(l), 1);
+        }
+      }
+      _ref = this.change;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        v = _ref[_i];
+        v.changers.splice(v.changers.indexOf(this), 1);
+      }
+      _ref2 = this.listen;
+      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+        v = _ref2[_j];
+        v.listeners.splice(v.listeners.indexOf(this), 1);
+      }
+      bfsUpdate(queue);
+      return null;
+    };
+    return dvl_function_object;
+  })();
   dvl.register = function(options) {
     var change, ctx, fo, fun, id, k, l, listen, v, _i, _j, _len, _len2;
     ctx = options.ctx;
@@ -416,18 +487,7 @@ dvl.util.flip = function(array) {
     }
     nextObjId += 1;
     id = (options.name || 'fun') + '_' + nextObjId;
-    fo = {
-      id: id,
-      ctx: ctx,
-      fun: fun,
-      listen: listen,
-      change: change,
-      updates: [],
-      level: 0,
-      remove: function() {
-        return dvl.removeFo(fo);
-      }
-    };
+    fo = new dvl_function_object(id, ctx, fun, listen, change);
     for (_i = 0, _len = listen.length; _i < _len; _i++) {
       v = listen[_i];
       if (!v) {
@@ -460,68 +520,6 @@ dvl.util.flip = function(array) {
     }
     initRun = false;
     return fo;
-  };
-  dvl.addChangeToFo = function(fo, v) {
-    var lis, _i, _len, _ref;
-    if (!(v.listeners && v.changers)) {
-      return;
-    }
-    fo.change.push(v);
-    v.changers.push(fo);
-    _ref = v.listeners;
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      lis = _ref[_i];
-      fo.updates.push(lis);
-    }
-    bfsUpdate([fo]);
-    return fo;
-  };
-  dvl.addListenToFo = function(fo, v) {
-    var chng, _i, _len, _ref;
-    if (!(v.listeners && v.changers)) {
-      return;
-    }
-    fo.listen.push(v);
-    v.listeners.push(fo);
-    _ref = v.chnagers;
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      chng = _ref[_i];
-      chng.updates.push(fo);
-    }
-    bfsUpdate([fo]);
-    return fo;
-  };
-  dvl.removeFo = function(fo) {
-    var k, l, newRegisterers, queue, v, _i, _j, _len, _len2, _len3, _ref, _ref2;
-    newRegisterers = [];
-    for (l = 0, _len = registerers.length; l < _len; l++) {
-      k = registerers[l];
-      if (l === fo) {
-        delete registerers[k];
-        break;
-      }
-    }
-    bfsZero([fo]);
-    queue = [];
-    for (k in registerers) {
-      l = registerers[k];
-      if (dvl.intersectSize(l.change, fo.listen) > 0) {
-        queue.push(l);
-        l.updates.splice(l.updates.indexOf(l), 1);
-      }
-    }
-    _ref = fo.change;
-    for (_i = 0, _len2 = _ref.length; _i < _len2; _i++) {
-      v = _ref[_i];
-      v.changers.splice(v.changers.indexOf(fo), 1);
-    }
-    _ref2 = fo.listen;
-    for (_j = 0, _len3 = _ref2.length; _j < _len3; _j++) {
-      v = _ref2[_j];
-      v.listeners.splice(v.listeners.indexOf(fo), 1);
-    }
-    bfsUpdate(queue);
-    return null;
   };
   dvl.clearAll = function() {
     var k, l, v;

@@ -83,7 +83,7 @@ tests.push({
     });
     
     flags = 0;
-    dvl.addChangeToFo(fo3, g);
+    fo3.addChange(g);
     fo3_notify.push(g);
     
     dvl.notify(a, b);

@@ -91,134 +91,136 @@ dvl.util.flip = (array) ->
   
   constants = {}
   variables = {}
-
-  dvl.const = (value, name) ->
-    name or= 'obj'
-    id = name + '_const' + nextObjId
-      
-    v =
-      id: id
-      toString: -> "|#{id}:#{value}|"
-      set: -> v
-      setLazy: -> v
-      get: -> value
-      getPrev: -> value
-      hasChanged: -> initRun
-      resetChanged: -> null
-      notify: -> null
-      remove: -> null
-
-    if dvl.typeOf(value) == 'array'
-      gen = (i) -> value[i]
-      len = value.length
-      v.push = (value) -> null
-      v.shift = -> undefined
-    else
-      gen = -> value
-      len = Infinity
-      
-    v.gen = -> gen
-    v.genPrev = -> gen
-    v.len = -> len
-
-    constants[id] = v
-    nextObjId += 1
-    return v
-
-  dvl.def = (value, name) ->
-    name or= 'obj'
-    id = name + '_' + nextObjId
-    prev = null
-    changed = false
-    gen = undefined
-    genPrev = undefined
-    len = -1
-    lazy = null
+  
+  class dvl_const
+    constructor: (@value, @name) ->
+      @name or= 'obj'
+      @id = @name + '_const' + nextObjId
+      constants[@id] = this
+      nextObjId += 1
+      return this
     
-    resolveLazy = ->
-      if lazy
-        val = lazy()
-        throw "lazy return must be new object in #{id}" if value == val and dvl.typeOf(val) is "object"
-        prev = val
-        value = val
+    toString: -> "|#{@id}:#{@value}|"
+    set: -> this
+    setLazy: -> this
+    get: -> @value
+    getPrev: -> @value
+    hasChanged: -> initRun
+    resetChanged: -> null
+    notify: -> null
+    remove: -> null
+    push: (value) -> null
+    shift: -> undefined
+    gen: -> 
+      if dvl.typeOf(@value) == 'array'
+        that = this
+        (i) -> that.value[i]
+      else
+        @value
+    len: ->
+      if dvl.typeOf(@value) == 'array'
+        @value.length
+      else
+        Infinity
+
+  dvl.const = (value, name) -> new dvl_const(value, name)
+  
+  class dvl_def
+    constructor: (@value, @name) ->
+      @name or= 'obj'
+      @id = @name + '_' + nextObjId
+      @prev = null
+      @changed = false
+      @vgen = undefined
+      @vgenPrev = undefined
+      @vlen = -1
+      @lazy = null
+      @listeners = []
+      @changers = []
+      variables[@id] = this
+      nextObjId++
+      return this
+      
+    resolveLazy: ->
+      if @lazy
+        val = @lazy()
+        throw "lazy return must be new object in #{@id}" if @value == val and dvl.typeOf(val) is "object"
+        @prev = val
+        @value = val
       null
     
-    v =
-      id: id
-      toString: -> "|#{id}:#{value}|"
-      listeners: []
-      changers: []
-      hasChanged: -> initRun or changed
-      resetChanged: ->
-        changed = false
-        null
-      set: (val) ->
-        throw "dvl.set: must be new object in #{id}" if val? and value == val and dvl.typeOf(val) is "object"
-        prev = value unless changed
-        value = val
-        gen = undefined
-        changed = true
-        return v
-      setLazy: (fn) ->
-        lazy = fn
-        changed = true
-        return v
-      setGen: (g, l) ->
-        if g is null
-          l = 0
+    toString: -> "|#{@id}:#{@value}|"
+    hasChanged: -> initRun or @changed
+    resetChanged: ->
+      @changed = false
+      return this
+    set: (val) ->
+      throw "must be new object in #{@id}" if val? and @value is val and dvl.typeOf(val) is "object"
+      @prev = @value unless @changed
+      @value = val
+      @vgen = undefined
+      @changed = true
+      return this
+    setLazy: (fn) ->
+      @lazy = fn
+      @changed = true
+      return this
+    setGen: (g, l) ->
+      if g is null
+        l = 0
+      else
+        l = Infinity if l is undefined 
+      @vgenPrev = @vgen unless @changed
+      @vgen = g
+      @vlen = l
+      @changed = true
+      return this
+    push: (val) ->
+      @value.push val
+      @changed = true
+      # TODO: make prev work
+      null
+    shift: ->
+      # TODO: make prev work
+      @val = @value.shift()
+      @changed = true
+      return val
+    get: ->
+      @resolveLazy()
+      return @value
+    getPrev: ->
+      @resolveLazy()
+      if @prev and @changed then @prev else @value
+    gen: ->
+      if @vgen != undefined
+        return @vgen
+      else
+        if dvl.typeOf(@value) == 'array'
+          that = this
+          return ((i) -> that.value[i])
+        else  
+          return (-> value)
+    genPrev: ->
+      if @vgenPrev and @changed then @vgenPrev else @gen()
+    len: ->
+      if @vlen >= 0
+        return @vlen
+      else
+        if @value?
+          return if dvl.typeOf(@value) == 'array' then @value.length else Infinity
         else
-          l = Infinity if l is undefined 
-        genPrev = gen unless changed
-        gen = g
-        len = l
-        changed = true
-        return v
-      push: (val) ->
-        value.push val
-        changed = true
-        # TODO: make prev work
-        null
-      shift: ->
-        # TODO: make prev work
-        val = value.shift()
-        changed = true
-        return val
-      get: ->
-        resolveLazy()
-        return value
-      getPrev: ->
-        resolveLazy()
-        if prev and changed then prev else value
-      gen: ->
-        if gen != undefined
-          return gen
-        else
-          return if dvl.typeOf(value) == 'array' then ((i) -> value[i]) else (-> value)
-      genPrev: ->
-        if genPrev and changed then genPrev else v.gen()
-      len: ->
-        if len >= 0
-          return len
-        else
-          if value?
-            return if dvl.typeOf(value) == 'array' then value.length else Infinity
-          else
-            return 0
-      notify: ->
-        dvl.notify(v)
-      remove: ->
-        if v.listeners.length > 0
-          throw "Cannot remove variable #{id} because it has listeners."
-        if v.changers.length > 0
-          throw "Cannot remove variable #{id} because it has changers."
-        delete variables[id]
-        for k of v
-          delete v[k]
-        return null
-            
-    variables[id] = v
-    nextObjId += 1
-    return v
+          return 0
+    notify: ->
+      dvl.notify(this)
+    remove: ->
+      if @listeners.length > 0
+        throw "Cannot remove variable #{@id} because it has listeners."
+      if @changers.length > 0
+        throw "Cannot remove variable #{@id} because it has changers."
+      delete variables[id]
+      return null
+
+  dvl.def = (value, name) -> new dvl_def(value, name)
   
   dvl.knows = (v) ->
     return v and v.id and (variables[v.id] != undefined or constants[v.id] != undefined)
@@ -265,6 +267,54 @@ dvl.util.flip = (array) ->
     return null
   
   
+  class dvl_function_object
+    constructor: (@id, @ctx, @fun, @listen, @change) ->
+      @updates = []
+      @level = 0
+      return this
+      
+    addChange: (v) ->
+      return this unless v.listeners and v.changers
+
+      @change.push(v)
+      v.changers.push(this)
+      @updates.push(lis) for lis in v.listeners
+
+      bfsUpdate([this])
+      return this
+
+    addListen: (v) ->
+      return this unless v.listeners and v.changers
+
+      @listen.push(v)
+      v.listeners.push(this)
+      chng.updates.push(this) for chng in v.chnagers
+
+      bfsUpdate([this])
+      return this
+
+    remove: ->
+      # Find the register object
+      delete registerers[@id]
+      
+      bfsZero([this])
+
+      queue = []
+      for k, l of registerers
+        if dvl.intersectSize(l.change, @listen) > 0
+          queue.push l
+          l.updates.splice(l.updates.indexOf(l), 1)
+
+      for v in @change
+        v.changers.splice(v.changers.indexOf(this), 1)
+
+      for v in @listen
+        v.listeners.splice(v.listeners.indexOf(this), 1)
+
+      bfsUpdate(queue)
+      return null
+    
+  
   dvl.register = (options) -> 
     ctx = options.ctx
     fun = options.fn
@@ -284,15 +334,7 @@ dvl.util.flip = (array) ->
     # Make function/context holder object; set level to 0
     nextObjId += 1
     id = (options.name or 'fun') + '_' + nextObjId
-    fo = 
-      id: id
-      ctx: ctx
-      fun: fun
-      listen: listen
-      change: change
-      updates: []
-      level: 0
-      remove: -> dvl.removeFo(fo)
+    fo = new dvl_function_object(id, ctx, fun, listen, change)
 
     # Append listen and change to variables
     for v in listen
@@ -318,55 +360,7 @@ dvl.util.flip = (array) ->
     fun.apply(ctx) unless options.noRun
     initRun = false
     return fo 
-    
-  
-  dvl.addChangeToFo = (fo, v) ->
-    return unless v.listeners and v.changers
-  
-    fo.change.push(v)
-    v.changers.push(fo)
-    fo.updates.push(lis) for lis in v.listeners
-    
-    bfsUpdate([fo])
-    return fo
 
-
-  dvl.addListenToFo = (fo, v) ->
-    return unless v.listeners and v.changers
-
-    fo.listen.push(v)
-    v.listeners.push(fo)
-    chng.updates.push(fo) for chng in v.chnagers
-
-    bfsUpdate([fo])
-    return fo
-        
-
-  dvl.removeFo = (fo) ->
-    # Find the register object
-    newRegisterers = []
-    for k, l in registerers
-      if l is fo
-        delete registerers[k]
-        break;
-    
-    bfsZero([fo])
-    
-    queue = []
-    for k, l of registerers
-      if dvl.intersectSize(l.change, fo.listen) > 0
-        queue.push l
-        l.updates.splice(l.updates.indexOf(l), 1)
-
-    for v in fo.change
-      v.changers.splice(v.changers.indexOf(fo), 1)
- 
-    for v in fo.listen
-      v.listeners.splice(v.listeners.indexOf(fo), 1)
-
-    bfsUpdate(queue)
-    null
-        
   
   dvl.clearAll = ->
     # disolve the graph to make the garbage collection job as easy as possibe

@@ -13,7 +13,7 @@ tests.push({
       name: "listener"
     });
     
-    dvl.removeFo(fo);
+    fo.remove();
     
     //dvl.postGraph();
     
