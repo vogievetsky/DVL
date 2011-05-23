@@ -288,7 +288,7 @@ dvl.util.flip = (array) ->
 
       @listen.push(v)
       v.listeners.push(this)
-      chng.updates.push(this) for chng in v.chnagers
+      chng.updates.push(this) for chng in v.changers
 
       bfsUpdate([this])
       return this

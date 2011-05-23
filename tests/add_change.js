@@ -1,5 +1,5 @@
 tests.push({
-  name: "Add changers registering",
+  name: "Add change",
   test: function(debug, first) {
     var ok = true;
     

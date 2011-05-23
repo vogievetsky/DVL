@@ -432,7 +432,7 @@ dvl.util.flip = function(array) {
       }
       this.listen.push(v);
       v.listeners.push(this);
-      _ref = v.chnagers;
+      _ref = v.changers;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         chng = _ref[_i];
         chng.updates.push(this);
