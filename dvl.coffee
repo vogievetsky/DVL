@@ -41,7 +41,7 @@ debug = ->
   arguments[0]
 
 window.dvl =
-  version: '0.69'
+  version: '0.70'
   
 dvl.util = {}
 
@@ -98,6 +98,7 @@ dvl.util.flip = (array) ->
       
     v =
       id: id
+      toString: -> "|#{id}:#{value}|"
       set: -> v
       setLazy: -> v
       get: -> value
@@ -144,6 +145,7 @@ dvl.util.flip = (array) ->
     
     v =
       id: id
+      toString: -> "|#{id}:#{value}|"
       listeners: []
       changers: []
       hasChanged: -> initRun or changed
@@ -229,7 +231,7 @@ dvl.util.flip = (array) ->
     v = null if v is undefined
     if dvl.knows(v) then v else dvl.def(v, name)
 
-  registerers = []
+  registerers = {}
   
   # filter out undefineds and nulls and constants also make unique
   uniqById = (vs) ->
@@ -271,8 +273,8 @@ dvl.util.flip = (array) ->
       throw 'fn must be a function'
   
     # Check to see if (ctx, fu) already exists, raise error for now
-    for l in registerers
-      throw 'Called twice' if l.ctx == ctx and l.fun == fun      
+    for k, l of registerers
+      throw 'called twice' if l.ctx == ctx and l.fun == fun      
     
     listen = uniqById(options.listen)
     change = uniqById(options.change)
@@ -290,7 +292,7 @@ dvl.util.flip = (array) ->
       change: change
       updates: []
       level: 0
-      remove: -> dvl.removeFn(fun)
+      remove: -> dvl.removeFo(fo)
 
     # Append listen and change to variables
     for v in listen
@@ -302,48 +304,65 @@ dvl.util.flip = (array) ->
       v.changers.push fo  
 
     # Update dependancy graph
-    for l in registerers
+    for k, l of registerers
       if dvl.intersectSize(change, l.listen) > 0
         fo.updates.push l 
       if dvl.intersectSize(listen, l.change) > 0
         l.updates.push fo 
         fo.level = Math.max(fo.level, l.level+1)
 
-    registerers.push fo
+    registerers[id] = fo
   
     bfsUpdate([fo])
     initRun = true
     fun.apply(ctx) unless options.noRun
     initRun = false
     return fo 
-
-
-  dvl.removeFn = (fn) ->
-    # Find the register object
-    found = null
-    newRegisterers = []
-    for l in registerers
-      if l.fun == fn
-        found = l
-      else
-        newRegisterers.push l
-        
-    return unless found
-    registerers = newRegisterers
     
-    bfsZero([found])
+  
+  dvl.addChangeToFo = (fo, v) ->
+    return unless v.listeners and v.changers
+  
+    fo.change.push(v)
+    v.changers.push(fo)
+    fo.updates.push(lis) for lis in v.listeners
+    
+    bfsUpdate([fo])
+    return fo
+
+
+  dvl.addListenToFo = (fo, v) ->
+    return unless v.listeners and v.changers
+
+    fo.listen.push(v)
+    v.listeners.push(fo)
+    chng.updates.push(fo) for chng in v.chnagers
+
+    bfsUpdate([fo])
+    return fo
+        
+
+  dvl.removeFo = (fo) ->
+    # Find the register object
+    newRegisterers = []
+    for k, l in registerers
+      if l is fo
+        delete registerers[k]
+        break;
+    
+    bfsZero([fo])
     
     queue = []
-    for l in registerers
-      if dvl.intersectSize(l.change, found.listen) > 0
+    for k, l of registerers
+      if dvl.intersectSize(l.change, fo.listen) > 0
         queue.push l
         l.updates.splice(l.updates.indexOf(l), 1)
 
-    for v in found.change
-      v.changers.splice(v.changers.indexOf(found), 1)
+    for v in fo.change
+      v.changers.splice(v.changers.indexOf(fo), 1)
  
-    for v in found.listen
-      v.listeners.splice(v.listeners.indexOf(found), 1)
+    for v in fo.listen
+      v.listeners.splice(v.listeners.indexOf(fo), 1)
 
     bfsUpdate(queue)
     null
@@ -351,7 +370,7 @@ dvl.util.flip = (array) ->
   
   dvl.clearAll = ->
     # disolve the graph to make the garbage collection job as easy as possibe
-    for l in registerers
+    for k, l of registerers
       l.listen = l.change = l.updates = null
     
     for k, v of variables
@@ -362,7 +381,7 @@ dvl.util.flip = (array) ->
     initRun = false
     constants = {}
     variables = {}
-    registerers = []
+    registerers = {}
     null
 
 
@@ -415,7 +434,7 @@ dvl.util.flip = (array) ->
         changed_more.push v
     else      
       # reset visited
-      l.visited = false for l in registerers
+      l.visited = false for k, l of registerers
 
       queue = levelPriorityQueue()
       for v in vs
@@ -445,7 +464,7 @@ dvl.util.flip = (array) ->
   ## 
   ##  Renders the variable graph into dot
   ##
-  dvl.graphToDot = (lastTrace) ->
+  dvl.graphToDot = (lastTrace, showId) ->
     execOrder = {}
     if lastTrace and lastRun
       for pos, id of lastRun
@@ -453,14 +472,17 @@ dvl.util.flip = (array) ->
     
     nameMap = {}
     
-    for l in registerers
-      funName = l.id + ' (' + l.level + ')'
+    for k, l of registerers
+      funName = l.id;
+      funName = funName.replace(/_\d+/, '') unless showId
+      funName = funName + ' (' + l.level + ')'
       # funName += ' [[' + execOrder[l.id] + ']]' if execOrder[l.id]
       funName = '"' + funName + '"'
       nameMap[l.id] = funName
     
     for id,v of variables
       varName = id
+      varName = varName.replace(/_\d+/, '') unless showId
       # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]
       varName = '"' + varName + '"'
       nameMap[id] = varName
@@ -474,7 +496,7 @@ dvl.util.flip = (array) ->
       color = if execOrder[id] then 'red' else 'black'
       dot.push "  #{nameMap[id]} [color=#{color}];"
       
-    for l in registerers
+    for k, l of registerers
       levels[l.level] or= []
       levels[l.level].push nameMap[l.id]
       color = if execOrder[l.id] then 'red' else 'black'
@@ -493,15 +515,15 @@ dvl.util.flip = (array) ->
     dot.push '}'
     return dot.join('\n')
     
-  dvl.postGraph = (file) ->
+  dvl.postGraph = (file, showId) ->
     file or= 'dvl_graph'
-    g = dvl.graphToDot(false)
+    g = dvl.graphToDot(false, showId)
     jQuery.post('http://localhost:8124/' + file, g)
     null
     
-  dvl.postLatest = (file) ->
+  dvl.postLatest = (file, showId) ->
     file or= 'dvl_graph_latest'
-    g = dvl.graphToDot(true)
+    g = dvl.graphToDot(true, showId)
     jQuery.post('http://localhost:8124/' + file, g)
     null
 
@@ -2347,27 +2369,7 @@ dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick,
       gen = col.gen.gen();
       ren = if dvl.typeOf(col.renderer) is 'function' then col.renderer else dvl.html.table.renderer[col.renderer or 'html']
       ren(sel.select('td.' + col.uniquClass), gen)
-      
-      #b.selectAll('tr > td.' + col.uniquClass)
-      
-      ###
-      if gen
-        
-        tds = b.selectAll('tr > td.' + col.uniquClass)
-        
-        if col.link and col.link.gen()
-          links = tds.selectAll('a').data((d, i) -> [i])
 
-          update = (o) ->
-            o.attr('href', (i) -> col.link.gen()(r[i]))
-            o.on('click', col.click) if col.click
-            o.text((i) -> gen(r[i]))
-
-          update(links.enter('a'))
-          update(links)
-        else
-          tds.html((d, i) -> gen(r[i]))
-      ###
     null
   
   dvl.register({fn:makeTable, listen:listen, name:'table_maker'})
@@ -2389,9 +2391,9 @@ dvl.html.table.renderer =
     sel.enter('a').attr('href', linkGen.gen()).text(dataFn)
     sel.attr('href', linkGen.gen()).text(dataFn)
     null
-  spanLink: ({clickFn}) -> (col, dataFn) -> 
+  spanLink: ({click}) -> (col, dataFn) -> 
     sel = col.selectAll('span').data((d) -> [d])
-    sel.enter('span').on('click', clickFn).text(dataFn)
+    sel.enter('span').attr('class', 'span_link').on('click', click).text(dataFn)
     sel.text(dataFn)
     null
   svgSparkline: ({classStr, width, height, x, y, padding}) -> (col, dataFn) -> 

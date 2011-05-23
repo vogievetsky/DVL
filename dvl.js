@@ -51,7 +51,7 @@ debug = function() {
   return arguments[0];
 };
 window.dvl = {
-  version: '0.69'
+  version: '0.70'
 };
 dvl.util = {};
 dvl.util.uniq = function(array) {
@@ -122,6 +122,9 @@ dvl.util.flip = function(array) {
     id = name + '_const' + nextObjId;
     v = {
       id: id,
+      toString: function() {
+        return "|" + id + ":" + value + "|";
+      },
       set: function() {
         return v;
       },
@@ -201,6 +204,9 @@ dvl.util.flip = function(array) {
     };
     v = {
       id: id,
+      toString: function() {
+        return "|" + id + ":" + value + "|";
+      },
       listeners: [],
       changers: [],
       hasChanged: function() {
@@ -348,7 +354,7 @@ dvl.util.flip = function(array) {
       return dvl.def(v, name);
     }
   };
-  registerers = [];
+  registerers = {};
   uniqById = function(vs) {
     var res, seen, v, _i, _len;
     res = [];
@@ -391,16 +397,16 @@ dvl.util.flip = function(array) {
     return null;
   };
   dvl.register = function(options) {
-    var change, ctx, fo, fun, id, l, listen, v, _i, _j, _k, _l, _len, _len2, _len3, _len4;
+    var change, ctx, fo, fun, id, k, l, listen, v, _i, _j, _len, _len2;
     ctx = options.ctx;
     fun = options.fn;
     if (typeof fun !== 'function') {
       throw 'fn must be a function';
     }
-    for (_i = 0, _len = registerers.length; _i < _len; _i++) {
-      l = registerers[_i];
+    for (k in registerers) {
+      l = registerers[k];
       if (l.ctx === ctx && l.fun === fun) {
-        throw 'Called twice';
+        throw 'called twice';
       }
     }
     listen = uniqById(options.listen);
@@ -419,25 +425,25 @@ dvl.util.flip = function(array) {
       updates: [],
       level: 0,
       remove: function() {
-        return dvl.removeFn(fun);
+        return dvl.removeFo(fo);
       }
     };
-    for (_j = 0, _len2 = listen.length; _j < _len2; _j++) {
-      v = listen[_j];
+    for (_i = 0, _len = listen.length; _i < _len; _i++) {
+      v = listen[_i];
       if (!v) {
         throw "No such DVL variable " + id + " in listeners";
       }
       v.listeners.push(fo);
     }
-    for (_k = 0, _len3 = change.length; _k < _len3; _k++) {
-      v = change[_k];
+    for (_j = 0, _len2 = change.length; _j < _len2; _j++) {
+      v = change[_j];
       if (!v) {
         throw "No such DVL variable " + id + " in changers";
       }
       v.changers.push(fo);
     }
-    for (_l = 0, _len4 = registerers.length; _l < _len4; _l++) {
-      l = registerers[_l];
+    for (k in registerers) {
+      l = registerers[k];
       if (dvl.intersectSize(change, l.listen) > 0) {
         fo.updates.push(l);
       }
@@ -446,7 +452,7 @@ dvl.util.flip = function(array) {
         fo.level = Math.max(fo.level, l.level + 1);
       }
     }
-    registerers.push(fo);
+    registerers[id] = fo;
     bfsUpdate([fo]);
     initRun = true;
     if (!options.noRun) {
@@ -455,48 +461,72 @@ dvl.util.flip = function(array) {
     initRun = false;
     return fo;
   };
-  dvl.removeFn = function(fn) {
-    var found, l, newRegisterers, queue, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref, _ref2;
-    found = null;
-    newRegisterers = [];
-    for (_i = 0, _len = registerers.length; _i < _len; _i++) {
-      l = registerers[_i];
-      if (l.fun === fn) {
-        found = l;
-      } else {
-        newRegisterers.push(l);
-      }
-    }
-    if (!found) {
+  dvl.addChangeToFo = function(fo, v) {
+    var lis, _i, _len, _ref;
+    if (!(v.listeners && v.changers)) {
       return;
     }
-    registerers = newRegisterers;
-    bfsZero([found]);
+    fo.change.push(v);
+    v.changers.push(fo);
+    _ref = v.listeners;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      lis = _ref[_i];
+      fo.updates.push(lis);
+    }
+    bfsUpdate([fo]);
+    return fo;
+  };
+  dvl.addListenToFo = function(fo, v) {
+    var chng, _i, _len, _ref;
+    if (!(v.listeners && v.changers)) {
+      return;
+    }
+    fo.listen.push(v);
+    v.listeners.push(fo);
+    _ref = v.chnagers;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      chng = _ref[_i];
+      chng.updates.push(fo);
+    }
+    bfsUpdate([fo]);
+    return fo;
+  };
+  dvl.removeFo = function(fo) {
+    var k, l, newRegisterers, queue, v, _i, _j, _len, _len2, _len3, _ref, _ref2;
+    newRegisterers = [];
+    for (l = 0, _len = registerers.length; l < _len; l++) {
+      k = registerers[l];
+      if (l === fo) {
+        delete registerers[k];
+        break;
+      }
+    }
+    bfsZero([fo]);
     queue = [];
-    for (_j = 0, _len2 = registerers.length; _j < _len2; _j++) {
-      l = registerers[_j];
-      if (dvl.intersectSize(l.change, found.listen) > 0) {
+    for (k in registerers) {
+      l = registerers[k];
+      if (dvl.intersectSize(l.change, fo.listen) > 0) {
         queue.push(l);
         l.updates.splice(l.updates.indexOf(l), 1);
       }
     }
-    _ref = found.change;
-    for (_k = 0, _len3 = _ref.length; _k < _len3; _k++) {
-      v = _ref[_k];
-      v.changers.splice(v.changers.indexOf(found), 1);
+    _ref = fo.change;
+    for (_i = 0, _len2 = _ref.length; _i < _len2; _i++) {
+      v = _ref[_i];
+      v.changers.splice(v.changers.indexOf(fo), 1);
     }
-    _ref2 = found.listen;
-    for (_l = 0, _len4 = _ref2.length; _l < _len4; _l++) {
-      v = _ref2[_l];
-      v.listeners.splice(v.listeners.indexOf(found), 1);
+    _ref2 = fo.listen;
+    for (_j = 0, _len3 = _ref2.length; _j < _len3; _j++) {
+      v = _ref2[_j];
+      v.listeners.splice(v.listeners.indexOf(fo), 1);
     }
     bfsUpdate(queue);
     return null;
   };
   dvl.clearAll = function() {
-    var k, l, v, _i, _len;
-    for (_i = 0, _len = registerers.length; _i < _len; _i++) {
-      l = registerers[_i];
+    var k, l, v;
+    for (k in registerers) {
+      l = registerers[k];
       l.listen = l.change = l.updates = null;
     }
     for (k in variables) {
@@ -507,7 +537,7 @@ dvl.util.flip = function(array) {
     initRun = false;
     constants = {};
     variables = {};
-    registerers = [];
+    registerers = {};
     return null;
   };
   list = null;
@@ -541,7 +571,7 @@ dvl.util.flip = function(array) {
   };
   saveInitRun = null;
   dvl.notify = function() {
-    var cmv, l, queue, v, vs, w, _i, _j, _k, _l, _len, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _m, _n, _o, _p, _ref, _ref2, _results;
+    var cmv, k, l, queue, v, vs, w, _i, _j, _k, _l, _len, _len2, _len3, _len4, _len5, _len6, _len7, _m, _n, _o, _ref, _ref2, _results;
     if (!(arguments.length > 0)) {
       return;
     }
@@ -571,16 +601,16 @@ dvl.util.flip = function(array) {
       }
       return _results;
     } else {
-      for (_k = 0, _len3 = registerers.length; _k < _len3; _k++) {
-        l = registerers[_k];
+      for (k in registerers) {
+        l = registerers[k];
         l.visited = false;
       }
       queue = levelPriorityQueue();
-      for (_l = 0, _len4 = vs.length; _l < _len4; _l++) {
-        v = vs[_l];
+      for (_k = 0, _len3 = vs.length; _k < _len3; _k++) {
+        v = vs[_k];
         _ref = v.listeners;
-        for (_m = 0, _len5 = _ref.length; _m < _len5; _m++) {
-          l = _ref[_m];
+        for (_l = 0, _len4 = _ref.length; _l < _len4; _l++) {
+          l = _ref[_l];
           queue.push(l);
         }
       }
@@ -593,11 +623,11 @@ dvl.util.flip = function(array) {
         changed_more = [];
         lastRun.push(list.id);
         list.fun.apply(list.ctx);
-        for (_n = 0, _len6 = changed_more.length; _n < _len6; _n++) {
-          cmv = changed_more[_n];
+        for (_m = 0, _len5 = changed_more.length; _m < _len5; _m++) {
+          cmv = changed_more[_m];
           _ref2 = cmv.listeners;
-          for (_o = 0, _len7 = _ref2.length; _o < _len7; _o++) {
-            w = _ref2[_o];
+          for (_n = 0, _len6 = _ref2.length; _n < _len6; _n++) {
+            w = _ref2[_n];
             if (!w.visited) {
               queue.push(w);
             }
@@ -606,15 +636,15 @@ dvl.util.flip = function(array) {
       }
       list = null;
       changed_more = null;
-      for (_p = 0, _len8 = changed.length; _p < _len8; _p++) {
-        v = changed[_p];
+      for (_o = 0, _len7 = changed.length; _o < _len7; _o++) {
+        v = changed[_o];
         v.resetChanged();
       }
       return initRun = saveInitRun;
     }
   };
-  dvl.graphToDot = function(lastTrace) {
-    var color, dot, execOrder, funName, id, l, level, levels, nameMap, pos, v, varName, w, _i, _j, _k, _l, _len, _len2, _len3, _len4, _len5, _m, _name, _ref, _ref2;
+  dvl.graphToDot = function(lastTrace, showId) {
+    var color, dot, execOrder, funName, id, k, l, level, levels, nameMap, pos, v, varName, w, _i, _j, _k, _len, _len2, _len3, _name, _ref, _ref2;
     execOrder = {};
     if (lastTrace && lastRun) {
       for (pos in lastRun) {
@@ -623,15 +653,22 @@ dvl.util.flip = function(array) {
       }
     }
     nameMap = {};
-    for (_i = 0, _len = registerers.length; _i < _len; _i++) {
-      l = registerers[_i];
-      funName = l.id + ' (' + l.level + ')';
+    for (k in registerers) {
+      l = registerers[k];
+      funName = l.id;
+      if (!showId) {
+        funName = funName.replace(/_\d+/, '');
+      }
+      funName = funName + ' (' + l.level + ')';
       funName = '"' + funName + '"';
       nameMap[l.id] = funName;
     }
     for (id in variables) {
       v = variables[id];
       varName = id;
+      if (!showId) {
+        varName = varName.replace(/_\d+/, '');
+      }
       varName = '"' + varName + '"';
       nameMap[id] = varName;
     }
@@ -644,43 +681,43 @@ dvl.util.flip = function(array) {
       color = execOrder[id] ? 'red' : 'black';
       dot.push("  " + nameMap[id] + " [color=" + color + "];");
     }
-    for (_j = 0, _len2 = registerers.length; _j < _len2; _j++) {
-      l = registerers[_j];
+    for (k in registerers) {
+      l = registerers[k];
       levels[_name = l.level] || (levels[_name] = []);
       levels[l.level].push(nameMap[l.id]);
       color = execOrder[l.id] ? 'red' : 'black';
       dot.push("  " + nameMap[l.id] + " [shape=box,color=" + color + "];");
       _ref = l.listen;
-      for (_k = 0, _len3 = _ref.length; _k < _len3; _k++) {
-        v = _ref[_k];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        v = _ref[_i];
         color = execOrder[v.id] && execOrder[l.id] ? 'red' : 'black';
         dot.push("  " + nameMap[v.id] + " -> " + nameMap[l.id] + " [color=" + color + "];");
       }
       _ref2 = l.change;
-      for (_l = 0, _len4 = _ref2.length; _l < _len4; _l++) {
-        w = _ref2[_l];
+      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+        w = _ref2[_j];
         color = execOrder[l.id] && execOrder[w.id] ? 'red' : 'black';
         dot.push("  " + nameMap[l.id] + " -> " + nameMap[w.id] + " [color=" + color + "];");
       }
     }
-    for (_m = 0, _len5 = levels.length; _m < _len5; _m++) {
-      level = levels[_m];
+    for (_k = 0, _len3 = levels.length; _k < _len3; _k++) {
+      level = levels[_k];
       dot.push('{ rank = same; ' + level.join('; ') + '; }');
     }
     dot.push('}');
     return dot.join('\n');
   };
-  dvl.postGraph = function(file) {
+  dvl.postGraph = function(file, showId) {
     var g;
     file || (file = 'dvl_graph');
-    g = dvl.graphToDot(false);
+    g = dvl.graphToDot(false, showId);
     jQuery.post('http://localhost:8124/' + file, g);
     return null;
   };
-  return dvl.postLatest = function(file) {
+  return dvl.postLatest = function(file, showId) {
     var g;
     file || (file = 'dvl_graph_latest');
-    g = dvl.graphToDot(true);
+    g = dvl.graphToDot(true, showId);
     jQuery.post('http://localhost:8124/' + file, g);
     return null;
   };
@@ -2966,24 +3003,6 @@ dvl.html.table = function(_arg) {
       gen = col.gen.gen();
       ren = dvl.typeOf(col.renderer) === 'function' ? col.renderer : dvl.html.table.renderer[col.renderer || 'html'];
       ren(sel.select('td.' + col.uniquClass), gen);
-      /*
-      if gen
-
-        tds = b.selectAll('tr > td.' + col.uniquClass)
-
-        if col.link and col.link.gen()
-          links = tds.selectAll('a').data((d, i) -> [i])
-
-          update = (o) ->
-            o.attr('href', (i) -> col.link.gen()(r[i]))
-            o.on('click', col.click) if col.click
-            o.text((i) -> gen(r[i]))
-
-          update(links.enter('a'))
-          update(links)
-        else
-          tds.html((d, i) -> gen(r[i]))
-      */
     }
     return null;
   };
@@ -3020,14 +3039,14 @@ dvl.html.table.renderer = {
     };
   },
   spanLink: function(_arg) {
-    var clickFn;
-    clickFn = _arg.clickFn;
+    var click;
+    click = _arg.click;
     return function(col, dataFn) {
       var sel;
       sel = col.selectAll('span').data(function(d) {
         return [d];
       });
-      sel.enter('span').on('click', clickFn).text(dataFn);
+      sel.enter('span').attr('class', 'span_link').on('click', click).text(dataFn);
       sel.text(dataFn);
       return null;
     };

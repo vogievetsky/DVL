@@ -1,4 +1,4 @@
-{
+tests.push({
   name: "Basic registering",
   test: function(debug) {
     var changeMe = dvl.def(0, "change_me");
@@ -18,4 +18,4 @@
     
     return called == 2;
   }
-}
+});

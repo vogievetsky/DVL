@@ -9,7 +9,14 @@
     <script type="text/javascript" src="../protovis-r3.2.js"></script>
     <script type="text/javascript" src="../sprintf.js"></script>
     <script type="text/javascript" src="../dvl.js"></script>
-    <script type="text/javascript" src="tests.js"></script>
+    
+    <script type="text/javascript">var tests = [];</script>
+    <script type="text/javascript" src="register.js"></script>
+    <script type="text/javascript" src="register2.js"></script>
+    <script type="text/javascript" src="unregister.js"></script>
+    <script type="text/javascript" src="unregister2.js"></script>
+    <script type="text/javascript" src="add_changer.js"></script>
+    
     <style type="text/css">
 
 body {
@@ -47,17 +54,13 @@ body {
       
       var test = tests[i];
       
-      try {
-        var ok = (test.test(dummy) == true);
-        passed += ok
-        if(ok) {
-          output("Test: " + test.name + " / Yes");
-        } else {
-          output("Test: " + test.name + " / No :-(");
-        }
-      } catch(e) {
-        output("Error in: " + test.name);
-        // ?
+      var ok = (test.test(dummy, true) == true);
+      passed += ok
+      if(ok) {
+        output("Test: " + test.name + " / Yes");
+      } else {
+        output("Test: " + test.name + " / No :-(");
+        test.test(output, false);
       }
       
       i++

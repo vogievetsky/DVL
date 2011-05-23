@@ -1,20 +1,19 @@
-{
+tests.push({
   name: "Basic unregistering",
   test: function(debug) {
     var changeMe = dvl.def(0, "change_me");
     
     var called = 0;
-    var listener = function() {
-      called++;
-    }
-    
-    dvl.register({
-      fn: listener,
+
+    var fo = dvl.register({
+      fn: function() {
+        called++;
+      },
       listen: [changeMe],
       name: "listener"
     });
     
-    dvl.removeFn(listener);
+    dvl.removeFo(fo);
     
     //dvl.postGraph();
     
@@ -22,4 +21,4 @@
     
     return called == 1;
   }
-}
+});

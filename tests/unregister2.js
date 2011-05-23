@@ -1,4 +1,4 @@
-{
+tests.push({
   name: "Advanced unregistering",
   test: function(debug) {
     var ok = true;
@@ -110,4 +110,4 @@
     
     return ok;
   }
-}
+});

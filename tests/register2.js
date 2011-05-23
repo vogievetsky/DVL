@@ -1,4 +1,4 @@
-{
+tests.push({
   name: "Advanced registering",
   test: function(debug) {
     var ok = true;
@@ -11,9 +11,10 @@
     var f = dvl.def(0, "f");
     
     var flags = 0;
-    
+
     // 1
-    dvl.register({
+    var fo1 = dvl.register({
+      name: 'fo1',
       fn: function() {
         flags += 1;
         dvl.notify(c, d);
@@ -23,7 +24,8 @@
     });
     
     // 10
-    dvl.register({
+    var fo2 = dvl.register({
+      name: 'fo2',
       fn: function() {
         flags += 10;
         dvl.notify(d, e);
@@ -33,7 +35,8 @@
     });
 
     // 100
-    dvl.register({
+    var fo3 = dvl.register({
+      name: 'fo3',
       fn: function() {
         flags += 100;
         dvl.notify(f);
@@ -43,7 +46,8 @@
     });
     
     // 1000
-    dvl.register({
+    var fo4 = dvl.register({
+      name: 'fo4',
       fn: function() {
         flags += 1000;
         dvl.notify(f);
@@ -53,7 +57,8 @@
     });
  
     // 10000
-    dvl.register({
+    var fo5 = dvl.register({
+      name: 'fo5',
       fn: function() {
         flags += 10000;
       },
@@ -141,4 +146,4 @@
             
     return ok;
   }
-}
+});
