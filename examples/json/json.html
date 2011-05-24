@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DVL JSON test</title>
+    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />	
+    <script type="text/javascript" src="../../js/jquery-1.4.4.min.js"></script>
+    <script type="text/javascript" src="../../js/jquery-ui-1.8.7.custom.js"></script>
+    <script type="text/javascript" src="../../d3.js"></script>
+    <script type="text/javascript" src="../../protovis-r3.2.js"></script>
+    <script type="text/javascript" src="../../sprintf.js"></script>
+    <script type="text/javascript" src="../../dvl.js"></script>
+
+  </head>
+  <body>
+    <button onclick="v1.set(v1.get()+1).notify()">change 1</button>
+    <button onclick="v2.set(v2.get()+2).notify()">change 2</button>
+    <button onclick="dvl.notify( v1.set(v1.get()+1),v2.set(v2.get()+2) )">change 1 and 2</button>
+    <button onclick="inter()">Run interference check</button>
+  </body>
+  <script type="text/javascript">
+  
+  var v1 = dvl.def(100, 'value1');
+  var v2 = dvl.def(240, 'value2');
+  
+  var url1 = dvl.apply({ args:v1, fn:function(v) { return 'http://localhost:8900?value=' + v + '&sleep=2000&callback=?'; } });
+  var url2 = dvl.apply({ args:v2, fn:function(v) { return 'http://localhost:8900?value=' + v + '&sleep=4000&callback=?'; } });
+  
+  var ret1 = dvl.json2({ url:url1, type:'jsonp' });
+  var ret2 = dvl.json2({ url:url2, type:'jsonp' });
+
+  var sum = dvl.apply({
+    args: [ret1, ret2],
+    fn: function(a, b) {
+      return parseInt(a, 10) + parseInt(b, 10);
+    }
+  })
+
+  dvl.debug("ret1", ret1);
+  dvl.debug("ret2", ret2);
+  dvl.debug("sum:", sum);
+  
+  
+  var interUrl = dvl.def(null, 'inter');
+  var interRes = dvl.json2({ url:interUrl, type:'jsonp' });
+  dvl.debug("inter:", interRes);
+  
+  function inter() {
+    interUrl.set('http://localhost:8900?value=first&sleep=4000&callback=?').notify();
+    setTimeout(function() {
+      interUrl.set('http://localhost:8900?value=second&sleep=2000&callback=?').notify();
+    }, 500);
+  }
+  
+  </script>
+</html>

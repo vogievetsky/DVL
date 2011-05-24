@@ -92,7 +92,7 @@ dvl.util.flip = (array) ->
   constants = {}
   variables = {}
   
-  class dvl_const
+  class DVLConst
     constructor: (@value, @name) ->
       @name or= 'obj'
       @id = @name + '_const' + nextObjId
@@ -123,9 +123,9 @@ dvl.util.flip = (array) ->
       else
         Infinity
 
-  dvl.const = (value, name) -> new dvl_const(value, name)
+  dvl.const = (value, name) -> new DVLConst(value, name)
   
-  class dvl_def
+  class DVLDef
     constructor: (@value, @name) ->
       @name or= 'obj'
       @id = @name + '_' + nextObjId
@@ -220,7 +220,7 @@ dvl.util.flip = (array) ->
       delete variables[id]
       return null
 
-  dvl.def = (value, name) -> new dvl_def(value, name)
+  dvl.def = (value, name) -> new DVLDef(value, name)
   
   dvl.knows = (v) ->
     return v and v.id and (variables[v.id] != undefined or constants[v.id] != undefined)
@@ -729,6 +729,115 @@ dvl.recorder = (options) ->
 
   dvl.register({fn:record, listen:[data], change:[array], name:'recorder'})
   return array
+
+#
+# ~url:  the url to fetch
+#
+dvl.json2 = (->
+  requestNumber = 0
+  nextQueryId = 0
+  initQueue = []
+  queries = {}
+  requests = {}
+  
+  maybeDone = (reqNum) ->
+    request = if reqNum isnt -1 then requests[reqNum] else initQueue
+    
+    for q in request
+      return if q.status isnt 'ready'
+    
+    notify = []
+    for q in request
+      if q.data isnt undefined
+        q.res.set(q.data)
+        notify.push(q.res)
+        q.stauts = ''
+        delete q.data
+    
+    delete requests[reqNum] 
+    dvl.notify.apply(null, notify)
+    
+  getData = (data) ->
+    q = this.q
+    if this.url is q.url.get()
+      if q.map
+        m = q.map
+        mappedData = []
+        for d, i in data
+          md = m(d)
+          mappedData.push md if md isnt undefined
+        data = mappedData
+    
+      if q.fn
+        data = g.fn(data) 
+
+      q.data = data
+      q.status = 'ready'
+    
+    maybeDone(this.reqNum)
+    
+  getError = () ->
+    g = this.q
+    if this.url is q.url.get()
+      g.data = null
+      q.status = 'ready'
+    maybeDone(this.reqNum)
+  
+  makeRequest = (q, reqNum) ->
+    q.status = 'requesting'
+    url = q.url.get()
+    jQuery.ajax
+      url: url
+      type: 'GET'
+      dataType: 'json'
+      success: getData
+      error: getError
+      context: { q:q, reqNum:reqNum, url:url }
+  
+  inputChange = ->
+    bundle = []
+    for id, q of queries
+      if q.status is 'virgin'
+        if q.url.get()
+          initQueue.push q
+          makeRequest(q, -1)
+        else
+          q.status = ''
+      else if q.url.hasChanged()
+        bundle.push(q)
+    
+    if bundle.length > 0
+      ++requestNumber
+      requests[requestNumber] = bundle
+      makeRequest(q, requestNumber) for q in bundle
+  
+  fo = null
+  addHoock = (listen, change) ->
+    if fo
+      fo.addListen(listen).addChange(change)
+      inputChange()
+    else
+      fo = dvl.register({fn:inputChange, listen:[listen], change:[change] })
+  
+  return ({url, type, map, fn}) ->
+    throw 'it does not make sense to not have a url' unless url
+    throw 'the map function must be non dvl function' if map and dvl.knows(map)
+    throw 'the fn function must be non dvl function' if fn and dvl.knows(fn)
+    nextQueryId++
+    url = dvl.wrapConstIfNeeded(url)
+    q = {
+      id: nextQueryId
+      url: url
+      res: dvl.def(null, 'json_res')
+      status: 'virgin'
+      type: type || 'json'
+    }
+    q.map = map if map
+    q.fn = fn if fn
+    queries[q.id] = q
+    addHoock(url, q.res)
+    return q.res
+)()
 
 
 dvl.json = (options) ->

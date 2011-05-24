@@ -78,7 +78,7 @@ dvl.util.flip = function(array) {
   return map;
 };
 (function() {
-  var array_ctor, bfsUpdate, bfsZero, changed, changed_more, constants, date_ctor, dvl_const, dvl_def, dvl_function_object, initRun, lastRun, levelPriorityQueue, list, nextObjId, regex_ctor, registerers, saveInitRun, uniqById, variables;
+  var DVLConst, DVLDef, array_ctor, bfsUpdate, bfsZero, changed, changed_more, constants, date_ctor, dvl_function_object, initRun, lastRun, levelPriorityQueue, list, nextObjId, regex_ctor, registerers, saveInitRun, uniqById, variables;
   array_ctor = (new Array).constructor;
   date_ctor = (new Date).constructor;
   regex_ctor = (new RegExp).constructor;
@@ -116,8 +116,8 @@ dvl.util.flip = function(array) {
   initRun = false;
   constants = {};
   variables = {};
-  dvl_const = (function() {
-    function dvl_const(value, name) {
+  DVLConst = (function() {
+    function DVLConst(value, name) {
       this.value = value;
       this.name = name;
       this.name || (this.name = 'obj');
@@ -126,40 +126,40 @@ dvl.util.flip = function(array) {
       nextObjId += 1;
       return this;
     }
-    dvl_const.prototype.toString = function() {
+    DVLConst.prototype.toString = function() {
       return "|" + this.id + ":" + this.value + "|";
     };
-    dvl_const.prototype.set = function() {
+    DVLConst.prototype.set = function() {
       return this;
     };
-    dvl_const.prototype.setLazy = function() {
+    DVLConst.prototype.setLazy = function() {
       return this;
     };
-    dvl_const.prototype.get = function() {
+    DVLConst.prototype.get = function() {
       return this.value;
     };
-    dvl_const.prototype.getPrev = function() {
+    DVLConst.prototype.getPrev = function() {
       return this.value;
     };
-    dvl_const.prototype.hasChanged = function() {
+    DVLConst.prototype.hasChanged = function() {
       return initRun;
     };
-    dvl_const.prototype.resetChanged = function() {
+    DVLConst.prototype.resetChanged = function() {
       return null;
     };
-    dvl_const.prototype.notify = function() {
+    DVLConst.prototype.notify = function() {
       return null;
     };
-    dvl_const.prototype.remove = function() {
+    DVLConst.prototype.remove = function() {
       return null;
     };
-    dvl_const.prototype.push = function(value) {
+    DVLConst.prototype.push = function(value) {
       return null;
     };
-    dvl_const.prototype.shift = function() {
+    DVLConst.prototype.shift = function() {
       return;
     };
-    dvl_const.prototype.gen = function() {
+    DVLConst.prototype.gen = function() {
       var that;
       if (dvl.typeOf(this.value) === 'array') {
         that = this;
@@ -170,20 +170,20 @@ dvl.util.flip = function(array) {
         return this.value;
       }
     };
-    dvl_const.prototype.len = function() {
+    DVLConst.prototype.len = function() {
       if (dvl.typeOf(this.value) === 'array') {
         return this.value.length;
       } else {
         return Infinity;
       }
     };
-    return dvl_const;
+    return DVLConst;
   })();
   dvl["const"] = function(value, name) {
-    return new dvl_const(value, name);
+    return new DVLConst(value, name);
   };
-  dvl_def = (function() {
-    function dvl_def(value, name) {
+  DVLDef = (function() {
+    function DVLDef(value, name) {
       this.value = value;
       this.name = name;
       this.name || (this.name = 'obj');
@@ -200,7 +200,7 @@ dvl.util.flip = function(array) {
       nextObjId++;
       return this;
     }
-    dvl_def.prototype.resolveLazy = function() {
+    DVLDef.prototype.resolveLazy = function() {
       var val;
       if (this.lazy) {
         val = this.lazy();
@@ -212,17 +212,17 @@ dvl.util.flip = function(array) {
       }
       return null;
     };
-    dvl_def.prototype.toString = function() {
+    DVLDef.prototype.toString = function() {
       return "|" + this.id + ":" + this.value + "|";
     };
-    dvl_def.prototype.hasChanged = function() {
+    DVLDef.prototype.hasChanged = function() {
       return initRun || this.changed;
     };
-    dvl_def.prototype.resetChanged = function() {
+    DVLDef.prototype.resetChanged = function() {
       this.changed = false;
       return this;
     };
-    dvl_def.prototype.set = function(val) {
+    DVLDef.prototype.set = function(val) {
       if ((val != null) && this.value === val && dvl.typeOf(val) === "object") {
         throw "must be new object in " + this.id;
       }
@@ -234,12 +234,12 @@ dvl.util.flip = function(array) {
       this.changed = true;
       return this;
     };
-    dvl_def.prototype.setLazy = function(fn) {
+    DVLDef.prototype.setLazy = function(fn) {
       this.lazy = fn;
       this.changed = true;
       return this;
     };
-    dvl_def.prototype.setGen = function(g, l) {
+    DVLDef.prototype.setGen = function(g, l) {
       if (g === null) {
         l = 0;
       } else {
@@ -255,21 +255,21 @@ dvl.util.flip = function(array) {
       this.changed = true;
       return this;
     };
-    dvl_def.prototype.push = function(val) {
+    DVLDef.prototype.push = function(val) {
       this.value.push(val);
       this.changed = true;
       return null;
     };
-    dvl_def.prototype.shift = function() {
+    DVLDef.prototype.shift = function() {
       this.val = this.value.shift();
       this.changed = true;
       return val;
     };
-    dvl_def.prototype.get = function() {
+    DVLDef.prototype.get = function() {
       this.resolveLazy();
       return this.value;
     };
-    dvl_def.prototype.getPrev = function() {
+    DVLDef.prototype.getPrev = function() {
       this.resolveLazy();
       if (this.prev && this.changed) {
         return this.prev;
@@ -277,7 +277,7 @@ dvl.util.flip = function(array) {
         return this.value;
       }
     };
-    dvl_def.prototype.gen = function() {
+    DVLDef.prototype.gen = function() {
       var that;
       if (this.vgen !== void 0) {
         return this.vgen;
@@ -294,14 +294,14 @@ dvl.util.flip = function(array) {
         }
       }
     };
-    dvl_def.prototype.genPrev = function() {
+    DVLDef.prototype.genPrev = function() {
       if (this.vgenPrev && this.changed) {
         return this.vgenPrev;
       } else {
         return this.gen();
       }
     };
-    dvl_def.prototype.len = function() {
+    DVLDef.prototype.len = function() {
       if (this.vlen >= 0) {
         return this.vlen;
       } else {
@@ -316,10 +316,10 @@ dvl.util.flip = function(array) {
         }
       }
     };
-    dvl_def.prototype.notify = function() {
+    DVLDef.prototype.notify = function() {
       return dvl.notify(this);
     };
-    dvl_def.prototype.remove = function() {
+    DVLDef.prototype.remove = function() {
       if (this.listeners.length > 0) {
         throw "Cannot remove variable " + this.id + " because it has listeners.";
       }
@@ -329,10 +329,10 @@ dvl.util.flip = function(array) {
       delete variables[id];
       return null;
     };
-    return dvl_def;
+    return DVLDef;
   })();
   dvl.def = function(value, name) {
-    return new dvl_def(value, name);
+    return new DVLDef(value, name);
   };
   dvl.knows = function(v) {
     return v && v.id && (variables[v.id] !== void 0 || constants[v.id] !== void 0);
@@ -973,6 +973,157 @@ dvl.recorder = function(options) {
   });
   return array;
 };
+dvl.json2 = (function() {
+  var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries, requestNumber, requests;
+  requestNumber = 0;
+  nextQueryId = 0;
+  initQueue = [];
+  queries = {};
+  requests = {};
+  maybeDone = function(reqNum) {
+    var notify, q, request, _i, _j, _len, _len2;
+    request = reqNum !== -1 ? requests[reqNum] : initQueue;
+    for (_i = 0, _len = request.length; _i < _len; _i++) {
+      q = request[_i];
+      if (q.status !== 'ready') {
+        return;
+      }
+    }
+    notify = [];
+    for (_j = 0, _len2 = request.length; _j < _len2; _j++) {
+      q = request[_j];
+      if (q.data !== void 0) {
+        q.res.set(q.data);
+        notify.push(q.res);
+        q.stauts = '';
+        delete q.data;
+      }
+    }
+    delete requests[reqNum];
+    return dvl.notify.apply(null, notify);
+  };
+  getData = function(data) {
+    var d, i, m, mappedData, md, q, _len;
+    q = this.q;
+    if (this.url === q.url.get()) {
+      if (q.map) {
+        m = q.map;
+        mappedData = [];
+        for (i = 0, _len = data.length; i < _len; i++) {
+          d = data[i];
+          md = m(d);
+          if (md !== void 0) {
+            mappedData.push(md);
+          }
+        }
+        data = mappedData;
+      }
+      if (q.fn) {
+        data = g.fn(data);
+      }
+      q.data = data;
+      q.status = 'ready';
+    }
+    return maybeDone(this.reqNum);
+  };
+  getError = function() {
+    var g;
+    g = this.q;
+    if (this.url === q.url.get()) {
+      g.data = null;
+      q.status = 'ready';
+    }
+    return maybeDone(this.reqNum);
+  };
+  makeRequest = function(q, reqNum) {
+    var url;
+    q.status = 'requesting';
+    url = q.url.get();
+    return jQuery.ajax({
+      url: url,
+      type: 'GET',
+      dataType: 'json',
+      success: getData,
+      error: getError,
+      context: {
+        q: q,
+        reqNum: reqNum,
+        url: url
+      }
+    });
+  };
+  inputChange = function() {
+    var bundle, id, q, _i, _len, _results;
+    bundle = [];
+    for (id in queries) {
+      q = queries[id];
+      if (q.status === 'virgin') {
+        if (q.url.get()) {
+          initQueue.push(q);
+          makeRequest(q, -1);
+        } else {
+          q.status = '';
+        }
+      } else if (q.url.hasChanged()) {
+        bundle.push(q);
+      }
+    }
+    if (bundle.length > 0) {
+      ++requestNumber;
+      requests[requestNumber] = bundle;
+      _results = [];
+      for (_i = 0, _len = bundle.length; _i < _len; _i++) {
+        q = bundle[_i];
+        _results.push(makeRequest(q, requestNumber));
+      }
+      return _results;
+    }
+  };
+  fo = null;
+  addHoock = function(listen, change) {
+    if (fo) {
+      fo.addListen(listen).addChange(change);
+      return inputChange();
+    } else {
+      return fo = dvl.register({
+        fn: inputChange,
+        listen: [listen],
+        change: [change]
+      });
+    }
+  };
+  return function(_arg) {
+    var fn, map, q, type, url;
+    url = _arg.url, type = _arg.type, map = _arg.map, fn = _arg.fn;
+    if (!url) {
+      throw 'it does not make sense to not have a url';
+    }
+    if (map && dvl.knows(map)) {
+      throw 'the map function must be non dvl function';
+    }
+    if (fn && dvl.knows(fn)) {
+      throw 'the fn function must be non dvl function';
+    }
+    nextQueryId++;
+    url = dvl.wrapConstIfNeeded(url);
+    q = {
+      id: nextQueryId,
+      url: url,
+      res: dvl.def(null, 'json_res'),
+      status: 'virgin',
+      type: type || 'json'
+    };
+    if (map) {
+      q.map = map;
+    }
+    if (fn) {
+      q.fn = fn;
+    }
+    queries[q.id] = q;
+    addHoock(url, q.res);
+    return q.res;
+  };
+})();
 dvl.json = function(options) {
   var g, getData, gets, listen, maybeStop, opt, query, ret, waitForCount, _i, _len;
   if (dvl.typeOf(options) !== 'array') {
