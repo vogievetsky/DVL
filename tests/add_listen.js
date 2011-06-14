@@ -77,7 +77,12 @@ tests.push({
     
     flags = 0;
     fo2.addListen(g);
+    if (flags != 11110) {
+      ok = false;
+      debug("Bad run on addListener [g] (" + flags + ")") 
+    }
     
+    flags = 0;
     g.notify();
     if (flags != 11110) {
       ok = false;

@@ -5,16 +5,13 @@ throw 'd3 is needed for now.' unless d3
 throw 'protovis is needed for now.' unless pv
 throw 'jQuery is needed for now.' unless jQuery
 
-`if (!Array.prototype.filter)
-{
-  Array.prototype.filter = function(fun /*, thisp*/)
-  {
+`if (!Array.prototype.filter) {
+  Array.prototype.filter = function(fun, thisp) {
     var len = this.length;
     if (typeof fun != 'function')
       throw new TypeError();
 
     var res = new Array();
-    var thisp = arguments[1];
     for (var i = 0; i < len; i++)
     {
       if (i in this)
@@ -24,7 +21,6 @@ throw 'jQuery is needed for now.' unless jQuery
           res.push(val);
       }
     }
-
     return res;
   };
 }`
@@ -41,29 +37,47 @@ debug = ->
   arguments[0]
 
 window.dvl =
-  version: '0.70'
+  version: '0.75'
   
-dvl.util = {}
+dvl.util = {
+  uniq: (array) ->
+    seen = {}
+    uniq = []
+    for a in array
+      uniq.push a unless seen[a]
+      seen[a] = 1
+  
+    return uniq  
+  
+  
+  flip: (array) ->
+    map = {};
+    i = 0;
+    while i < array.length
+      map[array[i]] = i
+      i++
+  
+    return map
 
-dvl.util.uniq = (array) ->
-  seen = {}
-  uniq = []
-  for a in array
-    uniq.push a unless seen[a]
-    seen[a] = 1
-  
-  return uniq  
-  
-  
-dvl.util.flip = (array) ->
-  map = {};
-  i = 0;
-  while i < array.length
-    map[array[i]] = i
-    i++
-  
-  return map
-  
+
+  getMinMax: (input, acc) ->
+    acc = ((x) -> x) unless acc
+    min = +Infinity
+    max = -Infinity
+    minIdx = -1
+    maxIdx = -1
+
+    for d,i in input
+      v = acc(d)
+      if v < min
+        min = v 
+        minIdx = i 
+      if max < v
+        max = v 
+        maxIdx = i
+
+    return { min, max, minIdx, maxIdx }
+}
 
 (->
   array_ctor = (new Array).constructor
@@ -87,8 +101,6 @@ dvl.util.flip = (array) ->
     return count
 
   nextObjId = 1
-  initRun = false
-  
   constants = {}
   variables = {}
   
@@ -96,6 +108,7 @@ dvl.util.flip = (array) ->
     constructor: (@value, @name) ->
       @name or= 'obj'
       @id = @name + '_const' + nextObjId
+      @changed = false
       constants[@id] = this
       nextObjId += 1
       return this
@@ -105,18 +118,19 @@ dvl.util.flip = (array) ->
     setLazy: -> this
     get: -> @value
     getPrev: -> @value
-    hasChanged: -> initRun
+    hasChanged: -> @changed
     resetChanged: -> null
     notify: -> null
     remove: -> null
     push: (value) -> null
     shift: -> undefined
     gen: -> 
+      that = this
       if dvl.typeOf(@value) == 'array'
-        that = this
         (i) -> that.value[i]
       else
-        @value
+        () -> that.value
+    genPrev: (i) -> @gen(i)
     len: ->
       if dvl.typeOf(@value) == 'array'
         @value.length
@@ -150,7 +164,7 @@ dvl.util.flip = (array) ->
       null
     
     toString: -> "|#{@id}:#{@value}|"
-    hasChanged: -> initRun or @changed
+    hasChanged: -> @changed
     resetChanged: ->
       @changed = false
       return this
@@ -195,11 +209,11 @@ dvl.util.flip = (array) ->
       if @vgen != undefined
         return @vgen
       else
+        that = this
         if dvl.typeOf(@value) == 'array'
-          that = this
           return ((i) -> that.value[i])
         else  
-          return (-> value)
+          return (-> that.value)
     genPrev: ->
       if @vgenPrev and @changed then @vgenPrev else @gen()
     len: ->
@@ -223,7 +237,7 @@ dvl.util.flip = (array) ->
   dvl.def = (value, name) -> new DVLDef(value, name)
   
   dvl.knows = (v) ->
-    return v and v.id and (variables[v.id] != undefined or constants[v.id] != undefined)
+    return v and v.id and (variables[v.id] or constants[v.id])
     
   dvl.wrapConstIfNeeded = (v, name) ->
     v = null if v is undefined
@@ -248,8 +262,19 @@ dvl.util.flip = (array) ->
   
     
   bfsUpdate = (queue) ->
+    # Check for circular dependancy by making sure we never come accross any of the ids with which we started
+    initIds = {}
+    initIds[v.id] = 1 for v in queue
+    skip = queue.length
+    
     while queue.length > 0
       v = queue.shift()
+      
+      if skip > 0
+        --skip
+      else
+        throw "circular dependancy detected" if initIds[v.id]
+      
       for w in v.updates
         w.level = Math.max(w.level, v.level+1)
         queue.push w
@@ -267,8 +292,8 @@ dvl.util.flip = (array) ->
     return null
   
   
-  class dvl_function_object
-    constructor: (@id, @ctx, @fun, @listen, @change) ->
+  class DVLFunctionObject
+    constructor: (@id, @ctx, @fn, @listen, @change) ->
       @updates = []
       @level = 0
       return this
@@ -284,13 +309,21 @@ dvl.util.flip = (array) ->
       return this
 
     addListen: (v) ->
-      return this unless v.listeners and v.changers
+      if v.listeners and v.changers
+        @listen.push(v)
+        v.listeners.push(this)
+        for chng in v.changers
+          chng.updates.push(this)
+          @level = Math.max(@level, chng.level+1)
 
-      @listen.push(v)
-      v.listeners.push(this)
-      chng.updates.push(this) for chng in v.changers
-
-      bfsUpdate([this])
+        bfsUpdate([this])
+      
+      start_notify_collect(this) 
+      changedSave = v.changed
+      v.changed = true
+      @fn.apply(@ctx)
+      v.changed = changedSave
+      end_notify_collect()
       return this
 
     remove: ->
@@ -315,50 +348,65 @@ dvl.util.flip = (array) ->
       return null
     
   
-  dvl.register = (options) -> 
-    ctx = options.ctx
-    fun = options.fn
-    
-    if typeof(fun) != 'function'
-      throw 'fn must be a function'
-  
+  dvl.register = ({ctx, fn, listen, change, name, force, noRun}) -> 
+    throw 'cannot call register from within a notify' if curNotifyListener
+    throw 'fn must be a function' if typeof(fn) != 'function'
+
     # Check to see if (ctx, fu) already exists, raise error for now
     for k, l of registerers
-      throw 'called twice' if l.ctx == ctx and l.fun == fun      
+      throw 'called twice' if l.ctx == ctx and l.fn == fn      
     
-    listen = uniqById(options.listen)
-    change = uniqById(options.change)
+    listenConst = []
+    if listen
+      for v in listen
+        listenConst.push v if v?.id and constants[v.id]
+    listen = uniqById(listen)
+    change = uniqById(change)
     
-    return if listen.length == 0 and change.length == 0
+    if listen.length isnt 0 or change.length isnt 0 or force
+      # Make function/context holder object; set level to 0
+      nextObjId += 1
+      id = (name or 'fn') + '_' + nextObjId
+      fo = new DVLFunctionObject(id, ctx, fn, listen, change)
+
+      # Append listen and change to variables
+      for v in listen
+        throw "No such DVL variable #{id} in listeners" unless v
+        v.listeners.push fo
+
+      for v in change
+        throw "No such DVL variable #{id} in changers" unless v
+        v.changers.push fo  
+
+      # Update dependancy graph
+      for k, l of registerers
+        if dvl.intersectSize(change, l.listen) > 0
+          fo.updates.push l 
+        if dvl.intersectSize(listen, l.change) > 0
+          l.updates.push fo 
+          fo.level = Math.max(fo.level, l.level+1)
+
+      registerers[id] = fo
+      bfsUpdate([fo])
     
-    # Make function/context holder object; set level to 0
-    nextObjId += 1
-    id = (options.name or 'fun') + '_' + nextObjId
-    fo = new dvl_function_object(id, ctx, fun, listen, change)
-
-    # Append listen and change to variables
-    for v in listen
-      throw "No such DVL variable #{id} in listeners" unless v
-      v.listeners.push fo
-
-    for v in change
-      throw "No such DVL variable #{id} in changers" unless v
-      v.changers.push fo  
-
-    # Update dependancy graph
-    for k, l of registerers
-      if dvl.intersectSize(change, l.listen) > 0
-        fo.updates.push l 
-      if dvl.intersectSize(listen, l.change) > 0
-        l.updates.push fo 
-        fo.level = Math.max(fo.level, l.level+1)
-
-    registerers[id] = fo
-  
-    bfsUpdate([fo])
-    initRun = true
-    fun.apply(ctx) unless options.noRun
-    initRun = false
+    if not noRun
+      # Save changes and run the function with everythign as changed.
+      changedSave = []
+      for l,i in listen
+        changedSave[i] = l.changed
+        l.changed = true
+      for l in listenConst
+        l.changed = true
+      
+      start_notify_collect(fo)
+      fn.apply ctx
+      end_notify_collect()
+    
+      for c,i in changedSave
+        listen[i].changed = c
+      for l in listenConst
+        l.changed = false
+      
     return fo 
 
   
@@ -372,19 +420,13 @@ dvl.util.flip = (array) ->
     
     # reset everything
     nextObjId = 1
-    initRun = false
     constants = {}
     variables = {}
     registerers = {}
     null
 
-
-  list = null
-  changed = null
-  changed_more = null
-  lastRun = null
   
-  levelPriorityQueue = ->
+  levelPriorityQueue = (->
     queue = []
     minLevel = Infinity
     len = 0
@@ -399,60 +441,88 @@ dvl.util.flip = (array) ->
         minLevel += 1
       return queue[minLevel].pop()
     length: -> len
+  )() 
+
+  curNotifyListener = null
+  curCollectListener = null
+  changedInNotify = null
+  lastNotifyRun = null
+  toNotify = null
+
   
-  saveInitRun = null;
+  start_notify_collect = (listener) ->
+    toNotify = []
+    curCollectListener = listener
+    dvl.notify = collect_notify
+    null
+    
+    
+  end_notify_collect = ->
+    curCollectListener = null
+    dvl.notify = init_notify # ToDo: possible nested notify?
+    
+    dvl.notify.apply(null, toNotify)
+    toNotify = null
+    null
+    
   
-  dvl.notify = ->
-    return unless arguments.length > 0
-    
-    if not list
-      # this is the notify that starts the chain reset last run
-      lastRun = []
-      changed = []
-      
-      # save this in case we are running from a newly registered function, this way we can restore it once 
-      # notify finished its round
-      saveInitRun = initRun
-      initRun = false
-    
-    vs = []
+  collect_notify = ->
+    throw 'bad stuff happened collect' unless curCollectListener
+  
     for v in arguments
-      if v.listeners and v.changers
-        vs.push v
-        changed.push v
-        lastRun.push v.id
+      continue unless variables[v.id]
+      throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
+      toNotify.push v
       
-    if list
-      for v in vs
-        throw "Changed unregisterd object #{v.id}" if v not in list.change
-        changed_more.push v
-    else      
-      # reset visited
-      l.visited = false for k, l of registerers
+    null
+    
+  
+  within_notify = ->
+    throw 'bad stuff happened within' unless curNotifyListener
+    
+    for v in arguments
+      continue unless variables[v.id]
+      throw "changed unregisterd object #{v.id}" if v not in curNotifyListener.change
+      changedInNotify.push v
+      lastNotifyRun.push v.id
+      for l in v.listeners
+        if not l.visited
+          levelPriorityQueue.push l
+    
+    null
+    
+  
+  init_notify = ->
+    throw 'bad stuff happened init' if curNotifyListener
 
-      queue = levelPriorityQueue()
-      for v in vs
-        queue.push l for l in v.listeners
-          
-      # Handle events in a BFS way
-      while queue.length() > 0
-        list = queue.shift()
-        continue if list.visited
-        list.visited = true
-        changed_more = []
-        lastRun.push(list.id)
-        list.fun.apply(list.ctx)
-
-        # Make sure wae are only changing what we said we will
-        for cmv in changed_more
-          for w in cmv.listeners
-            if not w.visited
-              queue.push w
-      
-      list = null
-      changed_more = null
-      v.resetChanged() for v in changed
-      initRun = saveInitRun
+    lastNotifyRun = []
+    changedInNotify = []
+    
+    for v in arguments
+      continue unless variables[v.id]
+      changedInNotify.push v
+      lastNotifyRun.push v.id
+      levelPriorityQueue.push l for l in v.listeners
+    
+    dvl.notify = within_notify
+        
+    # Handle events in a BFS way
+    while levelPriorityQueue.length() > 0
+      curNotifyListener = levelPriorityQueue.shift()
+      continue if curNotifyListener.visited
+      curNotifyListener.visited = true
+      lastNotifyRun.push(curNotifyListener.id)      
+      curNotifyListener.fn.apply(curNotifyListener.ctx)
+    
+    curNotifyListener = null
+    dvl.notify = init_notify
+    v.resetChanged() for v in changedInNotify
+    l.visited = false for k, l of registerers # reset visited    
+    null
+  
+  
+  dvl.notify = init_notify
+  
   
   ######################################################
   ## 
@@ -460,23 +530,23 @@ dvl.util.flip = (array) ->
   ##
   dvl.graphToDot = (lastTrace, showId) ->
     execOrder = {}
-    if lastTrace and lastRun
-      for pos, id of lastRun
+    if lastTrace and lastNotifyRun
+      for pos, id of lastNotifyRun
         execOrder[id] = pos
     
     nameMap = {}
     
     for k, l of registerers
-      funName = l.id;
-      funName = funName.replace(/_\d+/, '') unless showId
-      funName = funName + ' (' + l.level + ')'
-      # funName += ' [[' + execOrder[l.id] + ']]' if execOrder[l.id]
-      funName = '"' + funName + '"'
-      nameMap[l.id] = funName
+      fnName = l.id;
+      #fnName = fnName.replace(/_\d+/, '') unless showId
+      fnName = fnName + ' (' + l.level + ')'
+      # fnName += ' [[' + execOrder[l.id] + ']]' if execOrder[l.id]
+      fnName = '"' + fnName + '"'
+      nameMap[l.id] = fnName
     
     for id,v of variables
       varName = id
-      varName = varName.replace(/_\d+/, '') unless showId
+      #varName = varName.replace(/_\d+/, '') unless showId
       # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]
       varName = '"' + varName + '"'
       nameMap[id] = varName
@@ -554,22 +624,6 @@ dvl.acc = (c) ->
 
 dvl.index = dvl.const(((x, i) -> i), 'index_accessor')
 
-dvl.findMinMax = (array, acc) ->
-  acc = dvl.identity unless acc
-  min = +Infinity
-  max = -Infinity
-  
-  len = array.length
-  i = 0
-  while i < len
-    a = acc(array[i], i)
-    min = a if a < min 
-    max = a if max < a 
-    i += 1
-
-  min:min
-  max:max
-
 # Workers # -----------------------------------------
 
 ######################################################
@@ -616,17 +670,13 @@ dvl.assert = ({data, fn, msg, allowNull}) ->
 ## 
 ##  Sets up a pipline stage that automaticaly applies the given fucntion.
 ##  
-dvl.apply = (options) ->
-  fn = dvl.wrapConstIfNeeded(options.fn)
-  args = options.args
+dvl.apply = ({fn, args, name, invalid, allowNull}) ->
+  fn = dvl.wrapConstIfNeeded(fn)
   throw 'dvl.apply only makes scense with at least one argument' unless args
   args = [args] unless dvl.typeOf(args) is 'array'
-  options or= {}
-  invalid = if options.invalid? then options.invalid else null
-  allowNull = options.allowNull
-  dontGet = options.dontGet
+  invalid = if invalid? then invalid else null
   
-  ret = dvl.def(invalid, 'fun_return')
+  ret = dvl.def(invalid, name or 'apply_return')
   
   apply = ->
     f = fn.get()
@@ -636,7 +686,7 @@ dvl.apply = (options) ->
     for a in args
       v = a.get()
       nulls = true if v == null
-      send.push(if dontGet then a else v)
+      send.push v
     
     if not nulls or allowNull
       r = f.apply(null, send)
@@ -647,7 +697,7 @@ dvl.apply = (options) ->
       ret.set(invalid)
       dvl.notify(ret)
     
-  dvl.register({fn:apply, listen:args.concat([fn]), change:[ret], name:'apply'})
+  dvl.register({fn:apply, listen:args.concat([fn]), change:[ret], name:(name or 'apply')+'_fn'})
   return ret
 
 
@@ -706,7 +756,7 @@ dvl.recorder = (options) ->
   
   data = options.data
   fn = dvl.wrapConstIfNeeded(options.fn or dvl.identity)
-  throw 'dvl.recorder: it does not make sense not to have data' unless dvl.knows(data)
+  throw 'it does not make sense not to have data' unless dvl.knows(data)
   
   max = dvl.wrapConstIfNeeded(options.max or +Infinity)
   i = 0
@@ -730,22 +780,61 @@ dvl.recorder = (options) ->
   dvl.register({fn:record, listen:[data], change:[array], name:'recorder'})
   return array
 
-#
-# ~url:  the url to fetch
-#
+
+dvl.delay = ({ data, time, name }) ->
+  throw 'you must provide a data' unless data
+  throw 'you must provide a time' unless time
+  data = dvl.wrapConstIfNeeded(data)
+  time = dvl.wrapConstIfNeeded(time)
+  timer = null
+  out = dvl.def(data.get())
+  
+  timeoutFn = ->
+    out.set(data.get()).notify()
+    timer = null
+    
+  dvl.register {
+    listen: [data, time]
+    name: name or 'timeout'
+    fn: ->
+      clearTimeout(timer) if timer
+      timer = null
+      t = time.get()
+      if t > 0
+        timer = setTimeout(timeoutFn, t)
+      else
+        out.set(data.get()).notify()
+  }
+  return out
+  
+
+##-------------------------------------------------------
+##
+##  Asynchronous json fetcher.
+##
+##  Fetches json data form the server at the given url.
+##  This function addes the given url to the global json getter,
+##  the getter then automaticly groups requests that come from the same event cycle. 
+##
+## ~url:  the url to fetch.
+##  type: the type of the request. [json]
+##  map:  a map to apply to the recived array.
+##  fn:   a function to apply to the recived input.
+##
 dvl.json2 = (->
   requestNumber = 0
   nextQueryId = 0
   initQueue = []
   queries = {}
   requests = {}
-  
+
   maybeDone = (reqNum) ->
     request = if reqNum isnt -1 then requests[reqNum] else initQueue
+    throw "no such request (#{reqNum})" unless request
     
     for q in request
       return if q.status isnt 'ready'
-    
+  
     notify = []
     for q in request
       if q.data isnt undefined
@@ -753,10 +842,10 @@ dvl.json2 = (->
         notify.push(q.res)
         q.stauts = ''
         delete q.data
-    
+  
     delete requests[reqNum] 
     dvl.notify.apply(null, notify)
-    
+  
   getData = (data) ->
     q = this.q
     if this.url is q.url.get()
@@ -767,70 +856,93 @@ dvl.json2 = (->
           md = m(d)
           mappedData.push md if md isnt undefined
         data = mappedData
-    
+  
       if q.fn
-        data = g.fn(data) 
+        data = q.fn(data) 
 
       q.data = data
       q.status = 'ready'
-    
-    maybeDone(this.reqNum)
-    
-  getError = () ->
-    g = this.q
-    if this.url is q.url.get()
-      g.data = null
-      q.status = 'ready'
+  
     maybeDone(this.reqNum)
   
+  getError = (xhr, textStatus) ->
+    q = this.q
+    if this.url is q.url.get()
+      q.data = null
+      q.status = 'ready'
+      q.onError(textStatus) if q.onError
+    maybeDone(this.reqNum)
+
   makeRequest = (q, reqNum) ->
     q.status = 'requesting'
     url = q.url.get()
-    jQuery.ajax
-      url: url
-      type: 'GET'
-      dataType: 'json'
-      success: getData
-      error: getError
-      context: { q:q, reqNum:reqNum, url:url }
-  
+    ctx = { q:q, reqNum:reqNum, url:url }
+    if url?
+      jQuery.ajax
+        url: url
+        type: 'GET'
+        dataType: 'json'
+        success: getData
+        error: getError
+        context: ctx
+    else
+      setTimeout((->
+        getData.call(ctx, null)
+      ), 10)
+      
   inputChange = ->
     bundle = []
     for id, q of queries
-      if q.status is 'virgin'
-        if q.url.get()
-          initQueue.push q
-          makeRequest(q, -1)
+      continue unless q.url.hasChanged()
+      if q.group.get()
+        if q.status is 'virgin'
+          if q.url.get()
+            initQueue.push q
+            makeRequest(q, -1)
+          else
+            q.status = ''
         else
-          q.status = ''
-      else if q.url.hasChanged()
-        bundle.push(q)
-    
+          bundle.push(q)
+      else
+        ++requestNumber
+        requests[requestNumber] = [q]
+        makeRequest(q, requestNumber)
+  
     if bundle.length > 0
       ++requestNumber
       requests[requestNumber] = bundle
       makeRequest(q, requestNumber) for q in bundle
-  
+
+    null
+
   fo = null
   addHoock = (listen, change) ->
     if fo
-      fo.addListen(listen).addChange(change)
+      fo.addListen(listen)
       inputChange()
     else
-      fo = dvl.register({fn:inputChange, listen:[listen], change:[change] })
+      fo = dvl.register({fn:inputChange, listen:[listen], force:true, name: 'xsr_man' })
   
-  return ({url, type, map, fn}) ->
+    null
+  
+
+  return ({url, type, map, fn, onError, group, name}) ->
     throw 'it does not make sense to not have a url' unless url
-    throw 'the map function must be non dvl function' if map and dvl.knows(map)
-    throw 'the fn function must be non dvl function' if fn and dvl.knows(fn)
-    nextQueryId++
+    throw 'the map function must be non DVL variable' if map and dvl.knows(map)
+    throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
     url = dvl.wrapConstIfNeeded(url)
+    type = type.get() if dvl.knows(type)
+    group = dvl.wrapConstIfNeeded(if group? then group else true)
+    
+    nextQueryId++
     q = {
       id: nextQueryId
       url: url
-      res: dvl.def(null, 'json_res')
+      res: dvl.def(null, name or 'json_data')
       status: 'virgin'
       type: type || 'json'
+      group
+      onError
     }
     q.map = map if map
     q.fn = fn if fn
@@ -840,6 +952,10 @@ dvl.json2 = (->
 )()
 
 
+##-------------------------------------------------------
+##
+##  Depricated
+##
 dvl.json = (options) ->
   options = [options] if dvl.typeOf(options) != 'array'
 
@@ -851,7 +967,7 @@ dvl.json = (options) ->
   gets = []
   for opt in options
     g = {}
-    throw 'dvl.json: it does not make sense to not have a url' unless opt.url
+    throw 'it does not make sense to not have a url' unless opt.url
     g.url = dvl.wrapConstIfNeeded(opt.url)
     listen.push g.url
 
@@ -909,6 +1025,7 @@ dvl.json = (options) ->
             type: 'GET'
             dataType: 'json'
             success: getData
+            error: -> debug "error in json"
             context: {i:i, q:query}
   
           waitForCount[query] += 1
@@ -920,9 +1037,9 @@ dvl.json = (options) ->
   dvl.register({fn:query, listen:listen, change:ret, name:'json'})
   return ret
 
-
+# ToDo: rewrite this:
 dvl.resizer = (sizeRef, marginRef, options) ->
-  throw 'No size given to dvl.resizer' unless dvl.knows(sizeRef)
+  throw 'No size given' unless dvl.knows(sizeRef)
   marginDefault = {top: 0, bottom: 0, left: 0, right: 0}
   
   if options
@@ -952,9 +1069,10 @@ dvl.resizer = (sizeRef, marginRef, options) ->
     sizeRef.set({ width: width, height: height })
     dvl.notify(sizeRef)
   
-  $(window).resize onResize
+  d3.select(window).on('resize', onResize)
   onResize()
   null
+
 
 
 dvl.format = (string, subs) ->
@@ -1074,9 +1192,12 @@ dvl.scale = {}
       if not isColor
         if rt > rf
           rf += padding
+          rt -= padding
         else    
           rf -= padding
-      scaleRef.set(-> rf)
+          rt += padding
+      avg = (rf + rt) / 2
+      scaleRef.set(-> avg)
       invertRef.set(-> d)
       ticksRef.set([d])
       formatRef.set((x) -> '')
@@ -1092,39 +1213,31 @@ dvl.scale = {}
       null
 
     updateData = () -> 
-      hasEnoughData = false
-      singleData = null
       min = +Infinity
       max = -Infinity
       for dom in optDomain
         if dom.data
           data = dom.data.get()
 
-          if data != null
+          if data != null and data.length > 0
             acc = dom.acc || dvl.identity
             a = acc.get()
-            if data.length > 1
-              hasEnoughData = true
-              
-              if dom.sorted
-                d0 = a(data[0], 0)
-                dn = a(data[data.length - 1], data.length - 1)      
-                min = d0 if d0 < min
-                min = dn if dn < min
-                max = d0 if max < d0
-                max = dn if max < dn
-              else
-                mm = dvl.findMinMax(data, a)
-                min = mm.min if mm.min < min
-                max = mm.max if max < mm.max
-            else if data.length is 1
-              singleData = a(data[0], 0)
-              
+            if dom.sorted
+              d0 = a(data[0], 0)
+              dn = a(data[data.length - 1], data.length - 1)      
+              min = d0 if d0 < min
+              min = dn if dn < min
+              max = d0 if max < d0
+              max = dn if max < dn
+            else
+              mm = dvl.util.getMinMax(data, a)
+              min = mm.min if mm.min < min
+              max = mm.max if max < mm.max
+                 
         else
           f = dom.from.get()
           t = dom.to.get()
           if f? and t?
-            hasEnoughData = true
             min = f if f < min
             max = t if max < t
 
@@ -1138,13 +1251,13 @@ dvl.scale = {}
       if options.scaleMax != undefined
         max *= options.scaleMax
 
-      if hasEnoughData
+      if min < max
         if domainFrom != min or domainTo != max
           domainFrom = min
           domainTo = max
           makeScaleFn()
-      else if singleData?
-        makeScaleFnSingle(singleData)
+      else if min == max
+        makeScaleFnSingle(min)
       else 
         domainFrom = NaN
         domainTo = NaN
@@ -2255,7 +2368,8 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
     d = data.get()
     if s?
       if a? and d?
-        out(s, a(d)).style('display', null)
+        sel = out(s, a(d))
+        sel.style('display', null) if hideInvalid.get()
       else
         inv = invalid.get()
         out(s, inv) if inv?
@@ -2266,7 +2380,7 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
   null
   
 
-######################################################
+##-------------------------------------------------------
 ##
 ##  Table drawn in HTML
 ##
@@ -2278,7 +2392,8 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ##  columns:    A list of columns to drive the table.
 ##    column:
 ##      id:               The id by which the column will be identified.
-##     ~title:            The title of the column.
+##     ~title:            The title of the column header.
+##     ~headerTooltip:    The popup tool tip (title element text) of the column header.
 ##      classStr:         The class given to the 'th' and 'td' elements in this column, if not specified will default to the id.
 ##      click:            The function to call when the column is clicked.
 ##     -gen:              The generator that drives the column data.
@@ -2299,17 +2414,20 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ##                     
 ## ~showHeader:        Toggle showing the header [true]
 ## ~onHeaderClick:     Callback when the header of a column is clicked.
+## ~headerTooltip:     The default herder tooltip (title element text).
 ## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
 ##
-dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick, rowLimit}) ->
+dvl.html.table = ({selector, classStr, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit}) ->
   throw 'selector has to be a plain string.' if dvl.knows(selector)
   throw 'columns has to be a plain array.' if dvl.knows(columns)
   throw 'sort has to be a plain object.' if dvl.knows(sort)
   
   visible = dvl.wrapConstIfNeeded(if visible? then visible else true)
-  showHeader = dvl.wrapConstIfNeeded(if showHeader? then showHeader else true)
   
+  showHeader = dvl.wrapConstIfNeeded(if showHeader? then showHeader else true)
   onHeaderClick = dvl.wrapConstIfNeeded(onHeaderClick)
+  headerTooltip = dvl.wrapConstIfNeeded(headerTooltip or null)
+  
   rowLimit = dvl.wrapConstIfNeeded(rowLimit or null)
   
   sort = sort or {}
@@ -2320,7 +2438,7 @@ dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick,
   modes = sortModes.get()
   sortOrder = dvl.wrapVarIfNeeded(sort.order or (if modes.length > 0 then modes[0] else 'none'))
   
-  listen = [showHeader, sortOn, sortModes, sortOrder]
+  listen = [visible, showHeader, headerTooltip, sortOn, sortModes, sortOrder]
   
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
   listen.push sortIndicator
@@ -2343,7 +2461,8 @@ dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick,
     c.sortable = dvl.wrapConstIfNeeded(if c.sortable? then c.sortable else true)
     c.showIndicator = dvl.wrapConstIfNeeded(if c.showIndicator? then c.showIndicator else true);
     c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator or false);
-    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen
+    c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip or null)
+    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip
     c.uniquClass = 'column_' + i 
   
   t = d3.select(selector).append('table')
@@ -2362,7 +2481,8 @@ dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick,
       .enter('th')
         .attr('class', (d) -> d.classStr or null)
         .attr('colspan', (d) -> d.span)
-        .text((d) -> d.title.get());
+          .append('div')
+            .text((d) -> d.title.get());
   
   sel = h.selectAll('th')
     .data(columns)
@@ -2384,8 +2504,7 @@ dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick,
         )
   
   si = sortIndicator.get();
-  sel.append('span')
-    .text((c) -> c.title.get())
+  sel.append('span') # title text container
   sel.append('img')
     .attr('class', 'sort_indicator')
     .style('display', (c) -> if c.showIndicator.get() and si and si.none and c.sortable.get() then null else 'none')
@@ -2411,11 +2530,15 @@ dvl.html.table = ({selector, classStr, columns, showHeader, sort, onHeaderClick,
       thead.style('display', if showHeader.get() then null else 'none')
 
     if topHeader
-      th.selectAll('th')
+      th.selectAll('th > div')
         .data(topHeader)
           .text((d) -> d.title.get());
 
+    if headerTooltip.hasChanged()
+      h.attr('title', headerTooltip.get());
+
     h.selectAll('th').data(columns)
+      .attr('title', (c) -> c.headerTooltip.get())
       .select('span')
         .text((c) -> c.title.get())
 
@@ -2489,39 +2612,35 @@ dvl.html.table.renderer =
   html: (col, dataFn) ->
     col.html(dataFn)
     null
-  aLink: ({linkGen}) -> (col, dataFn) -> 
+  aLink: ({linkGen, titleGen}) -> (col, dataFn) -> 
     sel = col.selectAll('a').data((d) -> [d])
-    sel.enter('a').attr('href', linkGen.gen()).text(dataFn)
-    sel.attr('href', linkGen.gen()).text(dataFn)
+    config = (d) ->
+      d.attr('href', linkGen.gen()).text(dataFn)
+      d.attr('title', titleGen.gen()) if titleGen 
+    config(sel.enter('a'))
+    config(sel)
     null
-  spanLink: ({click}) -> (col, dataFn) -> 
+  spanLink: ({click, titleGen}) -> (col, dataFn) -> 
     sel = col.selectAll('span').data((d) -> [d])
-    sel.enter('span').attr('class', 'span_link').on('click', click).text(dataFn)
-    sel.text(dataFn)
+    config = (d) ->
+      d.html(dataFn)
+      d.attr('title', titleGen.gen()) if titleGen
+    config(sel.enter('span').attr('class', 'span_link').on('click', click))
+    config(sel)
+    null
+  barDiv: (col, dataFn) -> 
+    sel = col.selectAll('div').data((d) -> [d])
+    sel.enter('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
+    sel.style('width', ((d) -> dataFn(d) + 'px'))
     null
   svgSparkline: ({classStr, width, height, x, y, padding}) -> (col, dataFn) -> 
-    getMinMax = (input, attr) -> 
-      minv = Infinity
-      mini = -1
-      maxv = -Infinity
-      maxi = -1
-      for d,i in input
-        v = d[attr]
-        if v < minv
-          minv = v
-          mini = i
-        if maxv < v
-          maxv = v
-          maxi = i  
-      return { mini, maxi, minv, maxv }
-    
     svg = col.selectAll('svg').data((i) -> [dataFn(i)])
     
     line = (d) ->
-      mmx = getMinMax(d, x)
-      mmy = getMinMax(d, y)
-      sx = d3.scale.linear().domain([mmx.minv, mmx.maxv]).range([padding, width-padding])
-      sy = d3.scale.linear().domain([mmy.minv, mmy.maxv]).range([height-padding, padding])
+      mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
+      mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
+      sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
+      sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
       return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
     
     make_sparks = (svg) ->
@@ -2536,15 +2655,15 @@ dvl.html.table.renderer =
       
       points = svg.selectAll('circle')
         .data((d) -> 
-          mmx = getMinMax(d, x)
-          mmy = getMinMax(d, y)
-          sx = d3.scale.linear().domain([mmx.minv, mmx.maxv]).range([padding, width-padding])
-          sy = d3.scale.linear().domain([mmy.minv, mmy.maxv]).range([height-padding, padding])
+          mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
+          mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
+          sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
+          sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
           return [
-            ['top',    sx(d[mmy.maxi][x]), sy(mmy.maxv)]
-            ['bottom', sx(d[mmy.mini][x]), sy(mmy.minv)]
-            ['right',  sx(mmx.maxv), sy(d[mmx.maxi][y])]
-            ['left',   sx(mmx.minv), sy(d[mmx.mini][y])]
+            ['top',    sx(d[mmy.maxIdx][x]), sy(mmy.max)]
+            ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)]
+            ['right',  sx(mmx.max), sy(d[mmx.maxIdx][y])]
+            ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
           ]
         )
       

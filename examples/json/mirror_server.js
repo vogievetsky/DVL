@@ -11,7 +11,13 @@ http.createServer(function (req, res) {
   console.log(got);
   setTimeout(function() {
     res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.end(got.callback + "('" + got.value + "');");
+    if (got.error) {
+      res.end("POOOP");
+    } else if (got.null) {
+      res.end(got.callback + "(null);");
+    } else {
+      res.end(got.callback + "('" + got.value + "');");
+    }
   }, parseInt(got.sleep) || 1);
 }).listen(8900, "127.0.0.1");
 console.log('Server running at http://127.0.0.1:8900/');
