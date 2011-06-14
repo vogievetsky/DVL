@@ -1,6 +1,6 @@
 tests.push({
   name: "Add listen",
-  test: function(debug, first) {
+  test: function(debug, first, callback) {
     var ok = true;
     
     var a = dvl.def(0, "a");
@@ -91,6 +91,6 @@ tests.push({
     
     ///////////////////////////////////////
             
-    return ok;
+    callback(ok);
   }
 });

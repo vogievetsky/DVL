@@ -1,6 +1,6 @@
 tests.push({
   name: "Group notifys on register",
-  test: function(debug, first) {
+  test: function(debug, first, callback) {
     var ok = true;
     
     var count = 0;
@@ -44,6 +44,6 @@ tests.push({
       // this is what we expect
     }
 
-    return ok;
+    callback(ok);
   }
 });

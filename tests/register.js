@@ -1,6 +1,6 @@
 tests.push({
   name: "Basic registering",
-  test: function(debug) {
+  test: function(debug, first, callback) {
     var changeMe = dvl.def(0, "change_me");
     
     var called = 0;
@@ -16,6 +16,6 @@ tests.push({
     
     changeMe.set(1).notify();
     
-    return called == 2;
+    callback(called === 2);
   }
 });

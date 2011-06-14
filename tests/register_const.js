@@ -1,6 +1,6 @@
 tests.push({
   name: "Constant registering",
-  test: function(debug) {
+  test: function(debug, first, callback) {
     var a = dvl.const(0, "a");
     
     var called = 0;
@@ -16,6 +16,6 @@ tests.push({
     
     a.set(1).notify();
     
-    return called == 1;
+    callback(called == 1);
   }
 });

@@ -1,6 +1,6 @@
 tests.push({
   name: "Add listen and run",
-  test: function(debug, first) {
+  test: function(debug, first, callback) {
     var ok = true;
     
     var max = dvl.def(null, "min");
@@ -43,6 +43,6 @@ tests.push({
       debug("No run on param2 (const) add (" + max.get() + ")");
     }
             
-    return ok;
+    callback(ok);
   }
 });

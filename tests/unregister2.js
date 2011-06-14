@@ -1,6 +1,6 @@
 tests.push({
   name: "Advanced unregistering",
-  test: function(debug) {
+  test: function(debug, first, callback) {
     var ok = true;
     
     var a = dvl.def(0, "a");
@@ -108,6 +108,6 @@ tests.push({
     
     ///////////////////////////////////////
     
-    return ok;
+    callback(ok);
   }
 });

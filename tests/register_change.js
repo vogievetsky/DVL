@@ -1,6 +1,6 @@
 tests.push({
   name: "On register change inputs",
-  test: function(debug, first) {
+  test: function(debug, first, callback) {
     var ok = true;
     
     var join = dvl.def('', 'join');
@@ -54,6 +54,6 @@ tests.push({
       debug("Bad triger run (" + join.get() + ")");
     }
       
-    return ok;
+    callback(ok);
   }
 });

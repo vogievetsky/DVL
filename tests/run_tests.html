@@ -42,9 +42,10 @@
     
     output("Starting tests...");
     passed = 0;
-    var i = 0;
+    var i = -1;
     
     function next() {
+      ++i;
       if(i < tests.length) {
         setTimeout(doNextTest, 1);
       } else {
@@ -56,28 +57,21 @@
       dvl.clearAll();
       
       var test = tests[i];
-      var ok, error;
       try {
-        ok = (test.test(dummy, true) == true);
+        test.test(dummy, true, function(ok) {
+          passed += ok
+          if(ok) {
+            output("Test: " + test.name + " / Yes");
+          } else {
+            output("Test: " + test.name + " / No :-(");
+            test.test(output, false, function() { "dummy"; });
+            output("--------------------");
+          }
+          next();
+        });
       } catch(e) {
-        ok = false;
-        error = e;
+        output("Test: " + test.name + " / Error [" + String(e) + "]");
       }
-      passed += ok
-      if(ok) {
-        output("Test: " + test.name + " / Yes");
-      } else {
-        if (!error) {
-          output("Test: " + test.name + " / No :-(");
-          test.test(output, false);
-        } else {
-          output("Test: " + test.name + " / Error [" + String(error) + "]");
-        }
-        output("--------------------");
-      }
-      
-      i++
-      next();
     }
     
     next();

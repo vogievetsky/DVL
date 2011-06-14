@@ -1,6 +1,6 @@
 tests.push({
   name: "Cicular registering",
-  test: function(debug) {
+  test: function(debug, first, callback) {
     
     var a = dvl.def(null, 'a');
     var b = dvl.def(null, 'b');
@@ -11,7 +11,7 @@ tests.push({
       change: [b]
     });
     
-    var failed = true;
+    var ok = true;
     try {
       dvl.register({
         fn: function() { "whatever" },
@@ -19,11 +19,12 @@ tests.push({
         change: [a]
       });
     } catch (e) {  
-      if (String(e).indexOf('circular') !== -1) {
-        failed = false;
+      if (String(e).indexOf('circular') === -1) {
+        debug("String: '" + String(e) + "' does not contian 'circular'")
+        ok = false;
       }
     }
     
-    return !failed;
+    callback(ok);
   }
 });

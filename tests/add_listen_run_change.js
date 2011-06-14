@@ -1,6 +1,6 @@
 tests.push({
   name: "Add listen and run change",
-  test: function(debug, first) {
+  test: function(debug, first, callback) {
     var ok = true;
     
     var join = dvl.def('', 'join');
@@ -46,6 +46,6 @@ tests.push({
       debug("No run on param2 (const) add (" + join.get() + ")");
     }
             
-    return ok;
+    callback(ok);
   }
 });
