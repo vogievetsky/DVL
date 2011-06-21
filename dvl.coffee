@@ -622,8 +622,6 @@ dvl.acc = (c) ->
   return acc
 
 
-dvl.index = dvl.const(((x, i) -> i), 'index_accessor')
-
 # Workers # -----------------------------------------
 
 ######################################################
@@ -1219,20 +1217,27 @@ dvl.scale = {}
         if dom.data
           data = dom.data.get()
 
-          if data != null and data.length > 0
+          if data != null
             acc = dom.acc || dvl.identity
             a = acc.get()
-            if dom.sorted
-              d0 = a(data[0], 0)
-              dn = a(data[data.length - 1], data.length - 1)      
-              min = d0 if d0 < min
-              min = dn if dn < min
-              max = d0 if max < d0
-              max = dn if max < dn
-            else
-              mm = dvl.util.getMinMax(data, a)
-              min = mm.min if mm.min < min
-              max = mm.max if max < mm.max
+            
+            if dvl.typeOf(data) isnt 'array'
+              # ToDo: make this nicer
+              data = a(data)
+              a = (x) -> x
+              
+            if data.length > 0            
+              if dom.sorted
+                d0 = a(data[0], 0)
+                dn = a(data[data.length - 1], data.length - 1)      
+                min = d0 if d0 < min
+                min = dn if dn < min
+                max = d0 if max < d0
+                max = dn if max < dn
+              else
+                mm = dvl.util.getMinMax(data, a)
+                min = mm.min if mm.min < min
+                max = mm.max if max < mm.max
                  
         else
           f = dom.from.get()
@@ -2386,10 +2391,11 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ##
 ##  This module draws an HTML table that can be sorted
 ##
-##  selector:   Where to append the table.
-##  classStr:   The class to add to the table.
-## ~visible:    Toggles the visibility of the table. [true]
-##  columns:    A list of columns to drive the table.
+##  selector:    Where to append the table.
+##  classStr:    The class to add to the table.
+## ~rowClassGen: The generator for row classes
+## ~visible:     Toggles the visibility of the table. [true]
+##  columns:     A list of columns to drive the table.
 ##    column:
 ##      id:               The id by which the column will be identified.
 ##     ~title:            The title of the column header.
@@ -2417,7 +2423,7 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ## ~headerTooltip:     The default herder tooltip (title element text).
 ## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
 ##
-dvl.html.table = ({selector, classStr, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit}) ->
+dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit}) ->
   throw 'selector has to be a plain string.' if dvl.knows(selector)
   throw 'columns has to be a plain array.' if dvl.knows(columns)
   throw 'sort has to be a plain object.' if dvl.knows(sort)
@@ -2438,7 +2444,7 @@ dvl.html.table = ({selector, classStr, visible, columns, showHeader, sort, onHea
   modes = sortModes.get()
   sortOrder = dvl.wrapVarIfNeeded(sort.order or (if modes.length > 0 then modes[0] else 'none'))
   
-  listen = [visible, showHeader, headerTooltip, sortOn, sortModes, sortOrder]
+  listen = [rowClassGen, visible, showHeader, headerTooltip, sortOn, sortModes, sortOrder]
   
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
   listen.push sortIndicator
@@ -2467,8 +2473,9 @@ dvl.html.table = ({selector, classStr, visible, columns, showHeader, sort, onHea
   
   t = d3.select(selector).append('table')
   t.attr('class', classStr) if classStr
-    
-  colClass = (c) -> (c.classStr or c.id) + ' ' + c.uniquClass
+  
+  colClass = (c) -> (c.classStr or c.id) + ' ' + c.uniquClass + if c.sorted then ' sorted' else ''
+  headerColClass = (c) -> colClass(c) + if c.sortable.get() then ' sortable' else ' unsortable'
 
   thead = t.append('thead')
   th = thead.append('tr').attr('class', 'top_header') if topHeader
@@ -2487,7 +2494,6 @@ dvl.html.table = ({selector, classStr, visible, columns, showHeader, sort, onHea
   sel = h.selectAll('th')
     .data(columns)
     .enter('th')
-      .attr('class', (c) -> colClass(c) + if c.sortable.get() then ' sortable' else ' unsortable')
       .on('click', (c) ->
         return unless c.id?
         
@@ -2537,19 +2543,14 @@ dvl.html.table = ({selector, classStr, visible, columns, showHeader, sort, onHea
     if headerTooltip.hasChanged()
       h.attr('title', headerTooltip.get());
 
-    h.selectAll('th').data(columns)
-      .attr('title', (c) -> c.headerTooltip.get())
-      .select('span')
-        .text((c) -> c.title.get())
-
     if sort
       sortOnId = sortOn.get()
       sortCol = null
       for c in columns
-        if c.id is sortOnId
+        if c.sorted = (c.id is sortOnId)
           sortCol = c
           throw "sort on column marked unsortable (#{sortOnId})" unless sortCol.sortable.get()
-          break
+          
     
       if sortCol
         sortGen = (sortCol.sortGen or sortCol.gen).gen()
@@ -2579,22 +2580,33 @@ dvl.html.table = ({selector, classStr, visible, columns, showHeader, sort, onHea
                 null
             )
     
+    h.selectAll('th').data(columns)
+      .attr('class', headerColClass)
+      .attr('title', (c) -> c.headerTooltip.get())
+        .select('span')
+          .text((c) -> c.title.get())
+    
     limit = rowLimit.get()
     r = r.splice(0, Math.max(0, limit)) if limit?
 
     sel = b.selectAll('tr').data(r)
-    sel.enter('tr')
+    ent = sel.enter('tr')
+    if rowClassGen
+      gen = rowClassGen.gen()
+      ent.attr('class', gen)
+      sel.attr('class', gen)
     sel.exit().remove()
 
     sel = b.selectAll('tr')
     row = sel.selectAll('td').data(columns)
     row.enter('td').attr('class', colClass)
+    row.attr('class', colClass)
     row.exit().remove()
 
     for col in columns
       gen = col.gen.gen();
       ren = if dvl.typeOf(col.renderer) is 'function' then col.renderer else dvl.html.table.renderer[col.renderer or 'html']
-      ren(sel.select('td.' + col.uniquClass), gen)
+      ren(sel.select('td.' + col.uniquClass), gen, col.sorted)
 
     null
   
@@ -2612,7 +2624,7 @@ dvl.html.table.renderer =
   html: (col, dataFn) ->
     col.html(dataFn)
     null
-  aLink: ({linkGen, titleGen}) -> (col, dataFn) -> 
+  aLink: ({linkGen, titleGen}) -> (col, dataFn) ->
     sel = col.selectAll('a').data((d) -> [d])
     config = (d) ->
       d.attr('href', linkGen.gen()).text(dataFn)
@@ -2624,11 +2636,12 @@ dvl.html.table.renderer =
     sel = col.selectAll('span').data((d) -> [d])
     config = (d) ->
       d.html(dataFn)
+      d.on('click', click)
       d.attr('title', titleGen.gen()) if titleGen
-    config(sel.enter('span').attr('class', 'span_link').on('click', click))
+    config(sel.enter('span').attr('class', 'span_link'))
     config(sel)
     null
-  barDiv: (col, dataFn) -> 
+  barDiv: (col, dataFn) ->
     sel = col.selectAll('div').data((d) -> [d])
     sel.enter('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
     sel.style('width', ((d) -> dataFn(d) + 'px'))

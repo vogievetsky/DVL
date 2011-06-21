@@ -852,9 +852,6 @@ dvl.acc = function(c) {
   });
   return acc;
 };
-dvl.index = dvl["const"]((function(x, i) {
-  return i;
-}), 'index_accessor');
 dvl.debug = function() {
   var dbgPrint, note, obj;
   if (arguments.length === 1) {
@@ -1616,31 +1613,39 @@ dvl.scale = {};
         dom = optDomain[_i];
         if (dom.data) {
           data = dom.data.get();
-          if (data !== null && data.length > 0) {
+          if (data !== null) {
             acc = dom.acc || dvl.identity;
             a = acc.get();
-            if (dom.sorted) {
-              d0 = a(data[0], 0);
-              dn = a(data[data.length - 1], data.length - 1);
-              if (d0 < min) {
-                min = d0;
-              }
-              if (dn < min) {
-                min = dn;
-              }
-              if (max < d0) {
-                max = d0;
-              }
-              if (max < dn) {
-                max = dn;
-              }
-            } else {
-              mm = dvl.util.getMinMax(data, a);
-              if (mm.min < min) {
-                min = mm.min;
-              }
-              if (max < mm.max) {
-                max = mm.max;
+            if (dvl.typeOf(data) !== 'array') {
+              data = a(data);
+              a = function(x) {
+                return x;
+              };
+            }
+            if (data.length > 0) {
+              if (dom.sorted) {
+                d0 = a(data[0], 0);
+                dn = a(data[data.length - 1], data.length - 1);
+                if (d0 < min) {
+                  min = d0;
+                }
+                if (dn < min) {
+                  min = dn;
+                }
+                if (max < d0) {
+                  max = d0;
+                }
+                if (max < dn) {
+                  max = dn;
+                }
+              } else {
+                mm = dvl.util.getMinMax(data, a);
+                if (mm.min < min) {
+                  min = mm.min;
+                }
+                if (max < mm.max) {
+                  max = mm.max;
+                }
               }
             }
           }
@@ -3078,8 +3083,8 @@ dvl.html.out = function(_arg) {
   return null;
 };
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columns, h, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _len, _len2, _ref;
-  selector = _arg.selector, classStr = _arg.classStr, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit;
+  var b, c, classStr, colClass, columns, h, headerColClass, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _len, _len2, _ref;
+  selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
   }
@@ -3100,7 +3105,7 @@ dvl.html.table = function(_arg) {
   sortModes = dvl.wrapConstIfNeeded(sort.modes || ['asc', 'desc', 'none']);
   modes = sortModes.get();
   sortOrder = dvl.wrapVarIfNeeded(sort.order || (modes.length > 0 ? modes[0] : 'none'));
-  listen = [visible, showHeader, headerTooltip, sortOn, sortModes, sortOrder];
+  listen = [rowClassGen, visible, showHeader, headerTooltip, sortOn, sortModes, sortOrder];
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
   listen.push(sortIndicator);
   if (columns.length && columns[0].columns) {
@@ -3140,7 +3145,10 @@ dvl.html.table = function(_arg) {
     t.attr('class', classStr);
   }
   colClass = function(c) {
-    return (c.classStr || c.id) + ' ' + c.uniquClass;
+    return (c.classStr || c.id) + ' ' + c.uniquClass + (c.sorted ? ' sorted' : '');
+  };
+  headerColClass = function(c) {
+    return colClass(c) + (c.sortable.get() ? ' sortable' : ' unsortable');
   };
   thead = t.append('thead');
   if (topHeader) {
@@ -3157,9 +3165,7 @@ dvl.html.table = function(_arg) {
       return d.title.get();
     });
   }
-  sel = h.selectAll('th').data(columns).enter('th').attr('class', function(c) {
-    return colClass(c) + (c.sortable.get() ? ' sortable' : ' unsortable');
-  }).on('click', function(c) {
+  sel = h.selectAll('th').data(columns).enter('th').on('click', function(c) {
     var si;
     if (c.id == null) {
       return;
@@ -3208,7 +3214,7 @@ dvl.html.table = function(_arg) {
     return length;
   };
   makeTable = function() {
-    var c, col, dir, gen, length, limit, numeric, r, ren, row, sortCol, sortFn, sortGen, sortOnId, _k, _l, _len3, _len4;
+    var c, col, dir, ent, gen, length, limit, numeric, r, ren, row, sortCol, sortFn, sortGen, sortOnId, _k, _l, _len3, _len4;
     length = tableLength();
     r = pv.range(length);
     if (visible.hasChanged()) {
@@ -3225,22 +3231,16 @@ dvl.html.table = function(_arg) {
     if (headerTooltip.hasChanged()) {
       h.attr('title', headerTooltip.get());
     }
-    h.selectAll('th').data(columns).attr('title', function(c) {
-      return c.headerTooltip.get();
-    }).select('span').text(function(c) {
-      return c.title.get();
-    });
     if (sort) {
       sortOnId = sortOn.get();
       sortCol = null;
       for (_k = 0, _len3 = columns.length; _k < _len3; _k++) {
         c = columns[_k];
-        if (c.id === sortOnId) {
+        if (c.sorted = c.id === sortOnId) {
           sortCol = c;
           if (!sortCol.sortable.get()) {
             throw "sort on column marked unsortable (" + sortOnId + ")";
           }
-          break;
         }
       }
       if (sortCol) {
@@ -3281,22 +3281,33 @@ dvl.html.table = function(_arg) {
         });
       }
     }
+    h.selectAll('th').data(columns).attr('class', headerColClass).attr('title', function(c) {
+      return c.headerTooltip.get();
+    }).select('span').text(function(c) {
+      return c.title.get();
+    });
     limit = rowLimit.get();
     if (limit != null) {
       r = r.splice(0, Math.max(0, limit));
     }
     sel = b.selectAll('tr').data(r);
-    sel.enter('tr');
+    ent = sel.enter('tr');
+    if (rowClassGen) {
+      gen = rowClassGen.gen();
+      ent.attr('class', gen);
+      sel.attr('class', gen);
+    }
     sel.exit().remove();
     sel = b.selectAll('tr');
     row = sel.selectAll('td').data(columns);
     row.enter('td').attr('class', colClass);
+    row.attr('class', colClass);
     row.exit().remove();
     for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
       col = columns[_l];
       gen = col.gen.gen();
       ren = dvl.typeOf(col.renderer) === 'function' ? col.renderer : dvl.html.table.renderer[col.renderer || 'html'];
-      ren(sel.select('td.' + col.uniquClass), gen);
+      ren(sel.select('td.' + col.uniquClass), gen, col.sorted);
     }
     return null;
   };
@@ -3348,11 +3359,12 @@ dvl.html.table.renderer = {
       });
       config = function(d) {
         d.html(dataFn);
+        d.on('click', click);
         if (titleGen) {
           return d.attr('title', titleGen.gen());
         }
       };
-      config(sel.enter('span').attr('class', 'span_link').on('click', click));
+      config(sel.enter('span').attr('class', 'span_link'));
       config(sel);
       return null;
     };
