@@ -264,6 +264,7 @@ dvl.util = {
       this.value = val;
       this.vgen = void 0;
       this.changed = true;
+      this.lazy = null;
       return this;
     };
     DVLDef.prototype.setLazy = function(fn) {

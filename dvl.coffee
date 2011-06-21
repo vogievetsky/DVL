@@ -174,6 +174,7 @@ dvl.util = {
       @value = val
       @vgen = undefined
       @changed = true
+      @lazy = null
       return this
     setLazy: (fn) ->
       @lazy = fn
