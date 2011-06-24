@@ -861,10 +861,12 @@ dvl.json2 = (->
 
       q.data = data
       q.status = 'ready'
+      q.curReq = null
   
     maybeDone(this.reqNum)
   
   getError = (xhr, textStatus) ->
+    return if textStatus is "abort"
     q = this.q
     if this.url is q.url.get()
       q.data = null
@@ -877,7 +879,8 @@ dvl.json2 = (->
     url = q.url.get()
     ctx = { q:q, reqNum:reqNum, url:url }
     if url?
-      jQuery.ajax
+      q.curReq.abort() if q.curReq
+      q.curReq = jQuery.ajax
         url: url
         type: 'GET'
         dataType: 'json'
@@ -1423,8 +1426,7 @@ dvl.gen.fromColumnData = (data, acc, fn) ->
     a = acc.get()
     f = fn.get()
     dObj = data.get()
-    if a? and f? and dObj?
-      d = a(dObj)
+    if a? and f? and dObj? and d = a(dObj)
       g = (i) ->
         i = i % d.length
         f(d[i])
@@ -1890,24 +1892,19 @@ dvl.svg = {}
           return as
         
     render = ->
-      len = calcLength(p) - 1
+      len = Math.max(0, calcLength(p) - 1)
           
-      if len > 0
-        m = selectEnterExit(g, o, p, len)
-        update_attr[o.myClass](m, p, true)
+      m = selectEnterExit(g, o, p, len)
+      update_attr[o.myClass](m, p, true)
 
-        if panel.width.hasChanged() or panel.height.hasChanged()
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
-          dur = 0
-        else
-          dur = o.duration.get()
-
-        m = reselectUpdate(g, o, dur)
-        update_attr[o.myClass](m, p)  
-        
-        g.style('display', null)
+      if panel.width.hasChanged() or panel.height.hasChanged()
+        clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
+        dur = 0
       else
-        g.style('display', 'none')
+        dur = o.duration.get()
+
+      m = reselectUpdate(g, o, dur)
+      update_attr[o.myClass](m, p)  
         
       null
 
@@ -2345,7 +2342,10 @@ dvl.svg = {}
 
 dvl.html = {}
 
-
+##-------------------------------------------------------
+##
+##  Output to an HTML attribute
+##
 dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text}) ->
   throw 'must have data' unless data
   data = dvl.wrapConstIfNeeded(data)
@@ -2385,10 +2385,42 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
   dvl.register({fn:updateHtml, listen:[data, selector, format], name:'html_out'})
   null
   
+  
+##-------------------------------------------------------
+##
+##  Select (dropdown box) made with HTML
+##
+dvl.html.select = ({selector, values, names, def, selection}) ->
+  throw 'must have selector' unless selector
+  options = dvl.wrapConstIfNeeded(options)
+  selection = dvl.wrapVarIfNeeded(selection, 'selection')
+  
+  values = dvl.wrapConstIfNeeded(values)
+  names = dvl.wrapConstIfNeeded(names)
+  
+  selChange = ->
+    selection.set(selectEl.node().value).notify()
+  
+  selectEl = d3.select(selector)
+    .append('select')
+    .on('change', selChange)
+    
+  selectEl.selectAll('option')
+      .data(d3.range(values.len()))
+        .enter('option')
+          .attr('value', values.gen())
+          .text(names.gen())
+  
+  #updateSelection = () ->
+  #  selectEl
+  
+  selChange()
+  #dvl.register({fn: updateSelection, listen:[], change:[selection]})
+  return selection
 
 ##-------------------------------------------------------
 ##
-##  Table drawn in HTML
+##  Table made with HTML
 ##
 ##  This module draws an HTML table that can be sorted
 ##

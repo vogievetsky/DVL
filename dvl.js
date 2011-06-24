@@ -1134,11 +1134,15 @@ dvl.json2 = (function() {
       }
       q.data = data;
       q.status = 'ready';
+      q.curReq = null;
     }
     return maybeDone(this.reqNum);
   };
   getError = function(xhr, textStatus) {
     var q;
+    if (textStatus === "abort") {
+      return;
+    }
     q = this.q;
     if (this.url === q.url.get()) {
       q.data = null;
@@ -1159,7 +1163,10 @@ dvl.json2 = (function() {
       url: url
     };
     if (url != null) {
-      return jQuery.ajax({
+      if (q.curReq) {
+        q.curReq.abort();
+      }
+      return q.curReq = jQuery.ajax({
         url: url,
         type: 'GET',
         dataType: 'json',
@@ -1871,8 +1878,7 @@ dvl.gen.fromColumnData = function(data, acc, fn) {
     a = acc.get();
     f = fn.get();
     dObj = data.get();
-    if ((a != null) && (f != null) && (dObj != null)) {
-      d = a(dObj);
+    if ((a != null) && (f != null) && (dObj != null) && (d = a(dObj))) {
       g = function(i) {
         i = i % d.length;
         return f(d[i]);
@@ -2431,24 +2437,19 @@ dvl.svg = {};
     };
     render = function() {
       var dur, len, m;
-      len = calcLength(p) - 1;
-      if (len > 0) {
-        m = selectEnterExit(g, o, p, len);
-        update_attr[o.myClass](m, p, true);
-        if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          if (clip) {
-            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
-          }
-          dur = 0;
-        } else {
-          dur = o.duration.get();
+      len = Math.max(0, calcLength(p) - 1);
+      m = selectEnterExit(g, o, p, len);
+      update_attr[o.myClass](m, p, true);
+      if (panel.width.hasChanged() || panel.height.hasChanged()) {
+        if (clip) {
+          clip.attr('width', panel.width.get()).attr('height', panel.height.get());
         }
-        m = reselectUpdate(g, o, dur);
-        update_attr[o.myClass](m, p);
-        g.style('display', null);
+        dur = 0;
       } else {
-        g.style('display', 'none');
+        dur = o.duration.get();
       }
+      m = reselectUpdate(g, o, dur);
+      update_attr[o.myClass](m, p);
       return null;
     };
     listen = [panel.width, panel.height];
@@ -3082,6 +3083,24 @@ dvl.html.out = function(_arg) {
     name: 'html_out'
   });
   return null;
+};
+dvl.html.select = function(_arg) {
+  var def, names, options, selChange, selectEl, selection, selector, values;
+  selector = _arg.selector, values = _arg.values, names = _arg.names, def = _arg.def, selection = _arg.selection;
+  if (!selector) {
+    throw 'must have selector';
+  }
+  options = dvl.wrapConstIfNeeded(options);
+  selection = dvl.wrapVarIfNeeded(selection, 'selection');
+  values = dvl.wrapConstIfNeeded(values);
+  names = dvl.wrapConstIfNeeded(names);
+  selChange = function() {
+    return selection.set(selectEl.node().value).notify();
+  };
+  selectEl = d3.select(selector).append('select').on('change', selChange);
+  selectEl.selectAll('option').data(d3.range(values.len())).enter('option').attr('value', values.gen()).text(names.gen());
+  selChange();
+  return selection;
 };
 dvl.html.table = function(_arg) {
   var b, c, classStr, colClass, columns, h, headerColClass, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _len, _len2, _ref;
