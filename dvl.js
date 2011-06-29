@@ -47,7 +47,7 @@ debug = function() {
   return arguments[0];
 };
 window.dvl = {
-  version: '0.75'
+  version: '0.77'
 };
 dvl.util = {
   uniq: function(array) {
@@ -1082,18 +1082,12 @@ dvl.delay = function(_arg) {
   return out;
 };
 dvl.json2 = (function() {
-  var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries, requestNumber, requests;
-  requestNumber = 0;
+  var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries;
   nextQueryId = 0;
   initQueue = [];
   queries = {};
-  requests = {};
-  maybeDone = function(reqNum) {
-    var notify, q, request, _i, _j, _len, _len2;
-    request = reqNum !== -1 ? requests[reqNum] : initQueue;
-    if (!request) {
-      throw "no such request (" + reqNum + ")";
-    }
+  maybeDone = function(request) {
+    var notify, q, _i, _j, _len, _len2;
     for (_i = 0, _len = request.length; _i < _len; _i++) {
       q = request[_i];
       if (q.status !== 'ready') {
@@ -1110,7 +1104,6 @@ dvl.json2 = (function() {
         delete q.data;
       }
     }
-    delete requests[reqNum];
     return dvl.notify.apply(null, notify);
   };
   getData = function(data) {
@@ -1133,10 +1126,10 @@ dvl.json2 = (function() {
         data = q.fn(data);
       }
       q.data = data;
-      q.status = 'ready';
-      q.curReq = null;
     }
-    return maybeDone(this.reqNum);
+    q.status = 'ready';
+    q.curAjax = null;
+    return maybeDone(this.request);
   };
   getError = function(xhr, textStatus) {
     var q;
@@ -1146,27 +1139,28 @@ dvl.json2 = (function() {
     q = this.q;
     if (this.url === q.url.get()) {
       q.data = null;
-      q.status = 'ready';
       if (q.onError) {
         q.onError(textStatus);
       }
     }
-    return maybeDone(this.reqNum);
+    q.status = 'ready';
+    q.curAjax = null;
+    return maybeDone(this.request);
   };
-  makeRequest = function(q, reqNum) {
+  makeRequest = function(q, request) {
     var ctx, url;
     q.status = 'requesting';
     url = q.url.get();
     ctx = {
       q: q,
-      reqNum: reqNum,
+      request: request,
       url: url
     };
     if (url != null) {
-      if (q.curReq) {
-        q.curReq.abort();
+      if (q.curAjax) {
+        q.curAjax.abort();
       }
-      return q.curReq = jQuery.ajax({
+      return q.curAjax = jQuery.ajax({
         url: url,
         type: 'GET',
         dataType: 'json',
@@ -1192,7 +1186,7 @@ dvl.json2 = (function() {
         if (q.status === 'virgin') {
           if (q.url.get()) {
             initQueue.push(q);
-            makeRequest(q, -1);
+            makeRequest(q, initQueue);
           } else {
             q.status = '';
           }
@@ -1200,17 +1194,13 @@ dvl.json2 = (function() {
           bundle.push(q);
         }
       } else {
-        ++requestNumber;
-        requests[requestNumber] = [q];
-        makeRequest(q, requestNumber);
+        makeRequest(q, [q]);
       }
     }
     if (bundle.length > 0) {
-      ++requestNumber;
-      requests[requestNumber] = bundle;
       for (_i = 0, _len = bundle.length; _i < _len; _i++) {
         q = bundle[_i];
-        makeRequest(q, requestNumber);
+        makeRequest(q, bundle);
       }
     }
     return null;
@@ -3125,7 +3115,7 @@ dvl.html.table = function(_arg) {
   sortModes = dvl.wrapConstIfNeeded(sort.modes || ['asc', 'desc', 'none']);
   modes = sortModes.get();
   sortOrder = dvl.wrapVarIfNeeded(sort.order || (modes.length > 0 ? modes[0] : 'none'));
-  listen = [rowClassGen, visible, showHeader, headerTooltip, sortOn, sortModes, sortOrder];
+  listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortModes, sortOrder];
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
   listen.push(sortIndicator);
   if (columns.length && columns[0].columns) {

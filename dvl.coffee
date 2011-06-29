@@ -37,7 +37,7 @@ debug = ->
   arguments[0]
 
 window.dvl =
-  version: '0.75'
+  version: '0.77'
   
 dvl.util = {
   uniq: (array) ->
@@ -821,16 +821,11 @@ dvl.delay = ({ data, time, name }) ->
 ##  fn:   a function to apply to the recived input.
 ##
 dvl.json2 = (->
-  requestNumber = 0
   nextQueryId = 0
   initQueue = []
   queries = {}
-  requests = {}
 
-  maybeDone = (reqNum) ->
-    request = if reqNum isnt -1 then requests[reqNum] else initQueue
-    throw "no such request (#{reqNum})" unless request
-    
+  maybeDone = (request) ->
     for q in request
       return if q.status isnt 'ready'
   
@@ -842,7 +837,6 @@ dvl.json2 = (->
         q.stauts = ''
         delete q.data
   
-    delete requests[reqNum] 
     dvl.notify.apply(null, notify)
   
   getData = (data) ->
@@ -860,27 +854,31 @@ dvl.json2 = (->
         data = q.fn(data) 
 
       q.data = data
-      q.status = 'ready'
-      q.curReq = null
+      
+    q.status = 'ready'
+    q.curAjax = null
   
-    maybeDone(this.reqNum)
+    maybeDone(this.request)
   
   getError = (xhr, textStatus) ->
     return if textStatus is "abort"
     q = this.q
     if this.url is q.url.get()
       q.data = null
-      q.status = 'ready'
       q.onError(textStatus) if q.onError
-    maybeDone(this.reqNum)
+      
+    q.status = 'ready'
+    q.curAjax = null
+      
+    maybeDone(this.request)
 
-  makeRequest = (q, reqNum) ->
+  makeRequest = (q, request) ->
     q.status = 'requesting'
     url = q.url.get()
-    ctx = { q:q, reqNum:reqNum, url:url }
+    ctx = { q, request, url }
     if url?
-      q.curReq.abort() if q.curReq
-      q.curReq = jQuery.ajax
+      q.curAjax.abort() if q.curAjax
+      q.curAjax = jQuery.ajax
         url: url
         type: 'GET'
         dataType: 'json'
@@ -900,20 +898,16 @@ dvl.json2 = (->
         if q.status is 'virgin'
           if q.url.get()
             initQueue.push q
-            makeRequest(q, -1)
+            makeRequest(q, initQueue)
           else
             q.status = ''
         else
           bundle.push(q)
       else
-        ++requestNumber
-        requests[requestNumber] = [q]
-        makeRequest(q, requestNumber)
+        makeRequest(q, [q])
   
     if bundle.length > 0
-      ++requestNumber
-      requests[requestNumber] = bundle
-      makeRequest(q, requestNumber) for q in bundle
+      makeRequest(q, bundle) for q in bundle
 
     null
 
@@ -2477,7 +2471,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   modes = sortModes.get()
   sortOrder = dvl.wrapVarIfNeeded(sort.order or (if modes.length > 0 then modes[0] else 'none'))
   
-  listen = [rowClassGen, visible, showHeader, headerTooltip, sortOn, sortModes, sortOrder]
+  listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortModes, sortOrder]
   
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
   listen.push sortIndicator
