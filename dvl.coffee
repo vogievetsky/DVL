@@ -77,6 +77,16 @@ dvl.util = {
         maxIdx = i
 
     return { min, max, minIdx, maxIdx }
+    
+    
+  getRow: (data, i) ->
+    if dvl.typeOf(data) is 'array'
+      return data[i]
+    else
+      row = {}
+      for k,vs of data
+        row[k] = vs[i]
+      return row
 }
 
 (->
@@ -197,7 +207,7 @@ dvl.util = {
       null
     shift: ->
       # TODO: make prev work
-      @val = @value.shift()
+      val = @value.shift()
       @changed = true
       return val
     get: ->
@@ -603,7 +613,8 @@ dvl.zero = dvl.const(0, 'zero')
 
 dvl.null = dvl.const(null, 'null')
 
-dvl.identity = dvl.const(((x) -> x), 'identity')
+dvl.ident = (x) -> x
+dvl.identity = dvl.const(dvl.ident, 'identity')
 
 
 dvl.acc = (c) ->
@@ -863,14 +874,18 @@ dvl.json2 = (->
   getError = (xhr, textStatus) ->
     return if textStatus is "abort"
     q = this.q
-    if this.url is q.url.get()
-      q.data = null
-      q.onError(textStatus) if q.onError
+    url = this.url
+    request = this.request
+    setTimeout((->
+      if url is q.url.get()
+        q.data = null
+        q.onError(textStatus) if q.onError
       
-    q.status = 'ready'
-    q.curAjax = null
+      q.status = 'ready'
+      q.curAjax = null
       
-    maybeDone(this.request)
+      maybeDone(request)
+    ), 1)
 
   makeRequest = (q, request) ->
     q.status = 'requesting'
@@ -888,7 +903,7 @@ dvl.json2 = (->
     else
       setTimeout((->
         getData.call(ctx, null)
-      ), 10)
+      ), 1)
       
   inputChange = ->
     bundle = []
@@ -1044,8 +1059,8 @@ dvl.resizer = (sizeRef, marginRef, options) ->
     if options.height
       fh = if dvl.typeOf(options.height) is 'function' then options.height else dvl.identity
   else
-    fw = ident
-    fh = ident
+    fw = dvl.ident
+    fh = dvl.ident
     
   onResize = ->
     margin = if marginRef then marginRef.get() else marginDefault
@@ -1110,7 +1125,44 @@ dvl.format = (string, subs) ->
   dvl.register({fn:makeString, listen:list, change:[out], name:'formater'})
   return out
 
+
+dvl.snap = ({data, acc, value, name}) ->
+  throw 'No data given' unless data
+  acc = dvl.wrapConstIfNeeded(acc or dvl.identity)
+  value = dvl.wrapConstIfNeeded(value)
+  name or= 'snaped_data'
   
+  out = dvl.def(null, name)
+  
+  updateSnap = ->
+    ds = data.get()
+    a = acc.get()
+    v = value.get()
+    
+    if ds and a and v
+      if dvl.typeOf(ds) isnt 'array'
+        # ToDo: make this nicer
+        dsc = a(ds)
+        a = (x) -> x
+      
+      minDist = Infinity
+      minIdx = -1
+      for d,i in dsc
+        dist = Math.abs(a(d) - v)
+        if dist < minDist
+          minDist = dist
+          minIdx = i
+      
+      minDatum = if minIdx < 0 then null else dvl.util.getRow(ds, minIdx)
+      out.set(minDatum) unless out.get() is minDatum
+    else
+      out.set(null)
+    dvl.notify(out)
+    
+  dvl.register({fn:updateSnap, listen:[data, acc, value], change:[out], name:name+'_maker'})
+  return out
+  
+
 dvl.hasher = (obj) ->
   updateHash = ->
     h = obj.get()
@@ -1379,6 +1431,30 @@ dvl.gen = {}
 dvl.gen.fromFn = (fn) ->
   gen = dvl.def(null, 'fn_generator')
   gen.setGen(fn, Infinity)
+  return gen
+
+dvl.gen.fromValue = (value, acc, fn) ->
+  value = dvl.wrapConstIfNeeded(value)
+  acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
+  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
+
+  gen = dvl.def(null, 'value_generator')
+
+  makeGen = ->
+    a = acc.get()
+    f = fn.get()
+    v = value.get()
+    if a? and f? and v?
+      rv = f(a(v))
+      g = -> rv
+        
+      gen.setGen(g)
+    else
+      gen.setGen(null)
+
+    dvl.notify(gen)
+
+  dvl.register({fn:makeGen, listen:[value, acc, fn], change:[gen], name:'value_make_gen'})
   return gen
 
 dvl.gen.fromArray = (data, acc, fn) ->
@@ -1734,19 +1810,29 @@ dvl.svg = {}
     height: pHeight
 
 
-  dvl.svg.mouse = (panel) ->
+  dvl.svg.mouse = ({panel, fnX, fnY, flipX, flipY}) ->
+    fnX   = dvl.wrapConstIfNeeded(fnX or dvl.identity)
+    fnY   = dvl.wrapConstIfNeeded(fnY or dvl.identity)
+    flipX = dvl.wrapConstIfNeeded(flipX or false)
+    flipY = dvl.wrapConstIfNeeded(flipY or false)
+    
     x = dvl.def(null, 'mouse_x')
     y = dvl.def(null, 'mouse_y')
     
+    lastMouse = [-1, -1]
     recorder = ->
-      m = d3.svg.mouse(panel.g.node())
+      m = lastMouse = if d3.event then d3.svg.mouse(panel.g.node()) else lastMouse
       w = panel.width.get()
       h = panel.height.get()
+      fx = fnX.get()
+      fy = fnY.get()
       mx = m[0]
       my = m[1]
       if 0 <= mx <= w and 0 <= my <= h
-        x.set(mx)
-        y.set(my)
+        mx = w-mx if flipX.get()
+        my = h-my if flipY.get()
+        x.set(fx(mx)) if fx
+        y.set(fy(my)) if fy
       else
         x.set(null)
         y.set(null)
@@ -1754,7 +1840,7 @@ dvl.svg = {}
       dvl.notify(x, y)
     
     panel.g.on('mousemove', recorder).on('mouseout', recorder)
-
+    dvl.register({ fn:recorder, listen:[fnX, fnY, flipX, flipY], change:[x, y], name:'mouse_recorder' })
     return { x, y }
   
   
@@ -2672,6 +2758,11 @@ dvl.html.table.renderer =
     sel = col.selectAll('div').data((d) -> [d])
     sel.enter('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
     sel.style('width', ((d) -> dataFn(d) + 'px'))
+    null
+  img: (col, dataFn) ->
+    sel = col.selectAll('img').data((d) -> [d])
+    sel.enter('img').attr('src', dataFn)
+    sel.attr('src', dataFn)
     null
   svgSparkline: ({classStr, width, height, x, y, padding}) -> (col, dataFn) -> 
     svg = col.selectAll('svg').data((i) -> [dataFn(i)])

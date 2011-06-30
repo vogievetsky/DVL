@@ -102,6 +102,19 @@ dvl.util = {
       minIdx: minIdx,
       maxIdx: maxIdx
     };
+  },
+  getRow: function(data, i) {
+    var k, row, vs;
+    if (dvl.typeOf(data) === 'array') {
+      return data[i];
+    } else {
+      row = {};
+      for (k in data) {
+        vs = data[k];
+        row[k] = vs[i];
+      }
+      return row;
+    }
   }
 };
 (function() {
@@ -294,7 +307,8 @@ dvl.util = {
       return null;
     };
     DVLDef.prototype.shift = function() {
-      this.val = this.value.shift();
+      var val;
+      val = this.value.shift();
       this.changed = true;
       return val;
     };
@@ -826,9 +840,10 @@ dvl.alwaysLazy = function(v, fn) {
 };
 dvl.zero = dvl["const"](0, 'zero');
 dvl["null"] = dvl["const"](null, 'null');
-dvl.identity = dvl["const"]((function(x) {
+dvl.ident = function(x) {
   return x;
-}), 'identity');
+};
+dvl.identity = dvl["const"](dvl.ident, 'identity');
 dvl.acc = function(c) {
   var acc, column, makeAcc;
   column = dvl.wrapConstIfNeeded(c);
@@ -1132,20 +1147,24 @@ dvl.json2 = (function() {
     return maybeDone(this.request);
   };
   getError = function(xhr, textStatus) {
-    var q;
+    var q, request, url;
     if (textStatus === "abort") {
       return;
     }
     q = this.q;
-    if (this.url === q.url.get()) {
-      q.data = null;
-      if (q.onError) {
-        q.onError(textStatus);
+    url = this.url;
+    request = this.request;
+    return setTimeout((function() {
+      if (url === q.url.get()) {
+        q.data = null;
+        if (q.onError) {
+          q.onError(textStatus);
+        }
       }
-    }
-    q.status = 'ready';
-    q.curAjax = null;
-    return maybeDone(this.request);
+      q.status = 'ready';
+      q.curAjax = null;
+      return maybeDone(request);
+    }), 1);
   };
   makeRequest = function(q, request) {
     var ctx, url;
@@ -1171,7 +1190,7 @@ dvl.json2 = (function() {
     } else {
       return setTimeout((function() {
         return getData.call(ctx, null);
-      }), 10);
+      }), 1);
     }
   };
   inputChange = function() {
@@ -1385,8 +1404,8 @@ dvl.resizer = function(sizeRef, marginRef, options) {
       fh = dvl.typeOf(options.height) === 'function' ? options.height : dvl.identity;
     }
   } else {
-    fw = ident;
-    fh = ident;
+    fw = dvl.ident;
+    fh = dvl.ident;
   }
   onResize = function() {
     var e, height, margin, width;
@@ -1481,6 +1500,55 @@ dvl.format = function(string, subs) {
     listen: list,
     change: [out],
     name: 'formater'
+  });
+  return out;
+};
+dvl.snap = function(_arg) {
+  var acc, data, name, out, updateSnap, value;
+  data = _arg.data, acc = _arg.acc, value = _arg.value, name = _arg.name;
+  if (!data) {
+    throw 'No data given';
+  }
+  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
+  value = dvl.wrapConstIfNeeded(value);
+  name || (name = 'snaped_data');
+  out = dvl.def(null, name);
+  updateSnap = function() {
+    var a, d, dist, ds, dsc, i, minDatum, minDist, minIdx, v, _len;
+    ds = data.get();
+    a = acc.get();
+    v = value.get();
+    if (ds && a && v) {
+      if (dvl.typeOf(ds) !== 'array') {
+        dsc = a(ds);
+        a = function(x) {
+          return x;
+        };
+      }
+      minDist = Infinity;
+      minIdx = -1;
+      for (i = 0, _len = dsc.length; i < _len; i++) {
+        d = dsc[i];
+        dist = Math.abs(a(d) - v);
+        if (dist < minDist) {
+          minDist = dist;
+          minIdx = i;
+        }
+      }
+      minDatum = minIdx < 0 ? null : dvl.util.getRow(ds, minIdx);
+      if (out.get() !== minDatum) {
+        out.set(minDatum);
+      }
+    } else {
+      out.set(null);
+    }
+    return dvl.notify(out);
+  };
+  dvl.register({
+    fn: updateSnap,
+    listen: [data, acc, value],
+    change: [out],
+    name: name + '_maker'
   });
   return out;
 };
@@ -1822,6 +1890,36 @@ dvl.gen.fromFn = function(fn) {
   var gen;
   gen = dvl.def(null, 'fn_generator');
   gen.setGen(fn, Infinity);
+  return gen;
+};
+dvl.gen.fromValue = function(value, acc, fn) {
+  var gen, makeGen;
+  value = dvl.wrapConstIfNeeded(value);
+  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  gen = dvl.def(null, 'value_generator');
+  makeGen = function() {
+    var a, f, g, rv, v;
+    a = acc.get();
+    f = fn.get();
+    v = value.get();
+    if ((a != null) && (f != null) && (v != null)) {
+      rv = f(a(v));
+      g = function() {
+        return rv;
+      };
+      gen.setGen(g);
+    } else {
+      gen.setGen(null);
+    }
+    return dvl.notify(gen);
+  };
+  dvl.register({
+    fn: makeGen,
+    listen: [value, acc, fn],
+    change: [gen],
+    name: 'value_make_gen'
+  });
   return gen;
 };
 dvl.gen.fromArray = function(data, acc, fn) {
@@ -2247,20 +2345,38 @@ dvl.svg = {};
       height: pHeight
     };
   };
-  dvl.svg.mouse = function(panel) {
-    var recorder, x, y;
+  dvl.svg.mouse = function(_arg) {
+    var flipX, flipY, fnX, fnY, lastMouse, panel, recorder, x, y;
+    panel = _arg.panel, fnX = _arg.fnX, fnY = _arg.fnY, flipX = _arg.flipX, flipY = _arg.flipY;
+    fnX = dvl.wrapConstIfNeeded(fnX || dvl.identity);
+    fnY = dvl.wrapConstIfNeeded(fnY || dvl.identity);
+    flipX = dvl.wrapConstIfNeeded(flipX || false);
+    flipY = dvl.wrapConstIfNeeded(flipY || false);
     x = dvl.def(null, 'mouse_x');
     y = dvl.def(null, 'mouse_y');
+    lastMouse = [-1, -1];
     recorder = function() {
-      var h, m, mx, my, w;
-      m = d3.svg.mouse(panel.g.node());
+      var fx, fy, h, m, mx, my, w;
+      m = lastMouse = d3.event ? d3.svg.mouse(panel.g.node()) : lastMouse;
       w = panel.width.get();
       h = panel.height.get();
+      fx = fnX.get();
+      fy = fnY.get();
       mx = m[0];
       my = m[1];
       if ((0 <= mx && mx <= w) && (0 <= my && my <= h)) {
-        x.set(mx);
-        y.set(my);
+        if (flipX.get()) {
+          mx = w - mx;
+        }
+        if (flipY.get()) {
+          my = h - my;
+        }
+        if (fx) {
+          x.set(fx(mx));
+        }
+        if (fy) {
+          y.set(fy(my));
+        }
       } else {
         x.set(null);
         y.set(null);
@@ -2268,6 +2384,12 @@ dvl.svg = {};
       return dvl.notify(x, y);
     };
     panel.g.on('mousemove', recorder).on('mouseout', recorder);
+    dvl.register({
+      fn: recorder,
+      listen: [fnX, fnY, flipX, flipY],
+      change: [x, y],
+      name: 'mouse_recorder'
+    });
     return {
       x: x,
       y: y
@@ -3390,6 +3512,15 @@ dvl.html.table.renderer = {
     sel.style('width', (function(d) {
       return dataFn(d) + 'px';
     }));
+    return null;
+  },
+  img: function(col, dataFn) {
+    var sel;
+    sel = col.selectAll('img').data(function(d) {
+      return [d];
+    });
+    sel.enter('img').attr('src', dataFn);
+    sel.attr('src', dataFn);
     return null;
   },
   svgSparkline: function(_arg) {
