@@ -1524,15 +1524,19 @@ dvl.snap = function(_arg) {
         a = function(x) {
           return x;
         };
+      } else {
+        dsc = ds;
       }
       minDist = Infinity;
       minIdx = -1;
-      for (i = 0, _len = dsc.length; i < _len; i++) {
-        d = dsc[i];
-        dist = Math.abs(a(d) - v);
-        if (dist < minDist) {
-          minDist = dist;
-          minIdx = i;
+      if (dsc) {
+        for (i = 0, _len = dsc.length; i < _len; i++) {
+          d = dsc[i];
+          dist = Math.abs(a(d) - v);
+          if (dist < minDist) {
+            minDist = dist;
+            minIdx = i;
+          }
         }
       }
       minDatum = minIdx < 0 ? null : dvl.util.getRow(ds, minIdx);
@@ -1635,7 +1639,7 @@ dvl.scale = {};
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
       return null;
     };
-    makeScaleFnSingle = function(d) {
+    makeScaleFnSingle = function() {
       var avg, isColor, rf, rt;
       isColor = typeof (rangeFrom.get()) === 'string';
       rf = rangeFrom.get();
@@ -1654,9 +1658,9 @@ dvl.scale = {};
         return avg;
       });
       invertRef.set(function() {
-        return d;
+        return domainFrom;
       });
-      ticksRef.set([d]);
+      ticksRef.set([domainFrom]);
       formatRef.set(function(x) {
         return '';
       });
@@ -1749,7 +1753,8 @@ dvl.scale = {};
           makeScaleFn();
         }
       } else if (min === max) {
-        makeScaleFnSingle(min);
+        domainFrom = domainTo = min;
+        makeScaleFnSingle();
       } else {
         domainFrom = NaN;
         domainTo = NaN;
@@ -1761,11 +1766,9 @@ dvl.scale = {};
     for (_i = 0, _len = optDomain.length; _i < _len; _i++) {
       dom = optDomain[_i];
       if (dom.data) {
-        listenData.push(dom.data);
-        listenData.push(dom.acc);
+        listenData.push(dom.data, dom.acc);
       } else {
-        listenData.push(dom.from);
-        listenData.push(dom.to);
+        listenData.push(dom.from, dom.to);
       }
     }
     change = [scaleRef, invertRef, ticksRef, formatRef];
@@ -2346,14 +2349,14 @@ dvl.svg = {};
     };
   };
   dvl.svg.mouse = function(_arg) {
-    var flipX, flipY, fnX, fnY, lastMouse, panel, recorder, x, y;
-    panel = _arg.panel, fnX = _arg.fnX, fnY = _arg.fnY, flipX = _arg.flipX, flipY = _arg.flipY;
+    var flipX, flipY, fnX, fnY, lastMouse, outX, outY, panel, recorder, x, y;
+    panel = _arg.panel, outX = _arg.outX, outY = _arg.outY, fnX = _arg.fnX, fnY = _arg.fnY, flipX = _arg.flipX, flipY = _arg.flipY;
+    x = dvl.wrapVarIfNeeded(outX, 'mouse_x');
+    y = dvl.wrapVarIfNeeded(outY, 'mouse_y');
     fnX = dvl.wrapConstIfNeeded(fnX || dvl.identity);
     fnY = dvl.wrapConstIfNeeded(fnY || dvl.identity);
     flipX = dvl.wrapConstIfNeeded(flipX || false);
     flipY = dvl.wrapConstIfNeeded(flipY || false);
-    x = dvl.def(null, 'mouse_x');
-    y = dvl.def(null, 'mouse_y');
     lastMouse = [-1, -1];
     recorder = function() {
       var fx, fy, h, m, mx, my, w;

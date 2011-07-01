@@ -1144,14 +1144,17 @@ dvl.snap = ({data, acc, value, name}) ->
         # ToDo: make this nicer
         dsc = a(ds)
         a = (x) -> x
+      else
+        dsc = ds
       
       minDist = Infinity
       minIdx = -1
-      for d,i in dsc
-        dist = Math.abs(a(d) - v)
-        if dist < minDist
-          minDist = dist
-          minIdx = i
+      if dsc
+        for d,i in dsc
+          dist = Math.abs(a(d) - v)
+          if dist < minDist
+            minDist = dist
+            minIdx = i
       
       minDatum = if minIdx < 0 then null else dvl.util.getRow(ds, minIdx)
       out.set(minDatum) unless out.get() is minDatum
@@ -1217,7 +1220,7 @@ dvl.scale = {}
         if rt > rf
           rf += padding
           rt -= padding
-        else    
+        else
           rf -= padding
           rt += padding
       s = pv.Scale.linear().domain(domainFrom, domainTo).range(rf, rt)
@@ -1233,7 +1236,7 @@ dvl.scale = {}
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
       null
 
-    makeScaleFnSingle = (d) ->
+    makeScaleFnSingle = ->
       isColor = typeof(rangeFrom.get()) == 'string'
       rf = rangeFrom.get()
       rt = rangeTo.get()
@@ -1246,8 +1249,8 @@ dvl.scale = {}
           rt += padding
       avg = (rf + rt) / 2
       scaleRef.set(-> avg)
-      invertRef.set(-> d)
-      ticksRef.set([d])
+      invertRef.set(-> domainFrom)
+      ticksRef.set([domainFrom])
       formatRef.set((x) -> '')
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
       null
@@ -1260,7 +1263,7 @@ dvl.scale = {}
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
       null
 
-    updateData = () -> 
+    updateData = () ->
       min = +Infinity
       max = -Infinity
       for dom in optDomain
@@ -1311,8 +1314,9 @@ dvl.scale = {}
           domainFrom = min
           domainTo = max
           makeScaleFn()
-      else if min == max
-        makeScaleFnSingle(min)
+      else if min is max
+        domainFrom = domainTo = min
+        makeScaleFnSingle()
       else 
         domainFrom = NaN
         domainTo = NaN
@@ -1323,11 +1327,9 @@ dvl.scale = {}
     listenData = []
     for dom in optDomain
       if dom.data
-        listenData.push dom.data
-        listenData.push dom.acc
+        listenData.push(dom.data, dom.acc)
       else
-        listenData.push dom.from
-        listenData.push dom.to
+        listenData.push(dom.from, dom.to)
     
     change = [scaleRef, invertRef, ticksRef, formatRef]
     dvl.register({fn:makeScaleFn, listen:[rangeFrom, rangeTo, numTicks], change:change, name:name + '_range_change', noRun:true})
@@ -1810,14 +1812,13 @@ dvl.svg = {}
     height: pHeight
 
 
-  dvl.svg.mouse = ({panel, fnX, fnY, flipX, flipY}) ->
+  dvl.svg.mouse = ({panel, outX, outY, fnX, fnY, flipX, flipY}) ->
+    x     = dvl.wrapVarIfNeeded(outX, 'mouse_x')
+    y     = dvl.wrapVarIfNeeded(outY, 'mouse_y')
     fnX   = dvl.wrapConstIfNeeded(fnX or dvl.identity)
     fnY   = dvl.wrapConstIfNeeded(fnY or dvl.identity)
     flipX = dvl.wrapConstIfNeeded(flipX or false)
     flipY = dvl.wrapConstIfNeeded(flipY or false)
-    
-    x = dvl.def(null, 'mouse_x')
-    y = dvl.def(null, 'mouse_y')
     
     lastMouse = [-1, -1]
     recorder = ->
