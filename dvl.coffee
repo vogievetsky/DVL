@@ -1,4 +1,9 @@
 # DVL by Vadim Ogievetsky
+#
+# DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
+# DVL is based the concept that the data in a program should be the programmer’s main focus.
+
+# hamer@cladera.com
 
 # Check that we have everything we need.
 throw 'd3 is needed for now.' unless d3
@@ -25,19 +30,24 @@ throw 'jQuery is needed for now.' unless jQuery
   };
 }`
 
+print = {}
 debug = ->
   return unless console?.log
-  if arguments.length <= 1
-    console.log(arguments[0])
-  else if arguments.length == 2
-    # console.log.apply does not work in chrome -> go figure
-    console.log(arguments[0], arguments[1])
-  else
-    console.log(Array.prototype.slice.apply(arguments))
-  arguments[0]
+  # console.log.apply does not work in chrome -> go figure
+  # lets make a redneck apply
+  len = arguments.length
+  return if len is 0
+  
+  if not print[len]
+    arg = 'a' + d3.range(len).join(',a')
+    code = "print[#{len}] = function(#{arg}) { console.log(#{arg}); }"
+    eval(code)
+    
+  print[len].apply(null, arguments)
+  return arguments[0]
 
 window.dvl =
-  version: '0.77'
+  version: '0.79'
   
 dvl.util = {
   uniq: (array) ->
@@ -87,6 +97,44 @@ dvl.util = {
       for k,vs of data
         row[k] = vs[i]
       return row
+
+  ###
+  isEqual: (a, b, cmp) ->
+    # Check object identity.
+    return true if a is b 
+    # Different types?
+    atype = typeof(a)
+    btype = typeof(b)
+    return false if atype isnt btype 
+    # One is falsy and the other truthy.
+    return false if (not a and b) or (a and not b)
+    # Check dates' integer values.
+    return a.getTime() === b.getTime() if a.getTime() and b.getTime()
+    # Both are NaN?
+    return false if isNaN(a) and isNaN(b)
+    # and Compare regular expressions.
+    if a.source and b.source
+      return a.source     is b.source and
+             a.global     is b.global and
+             a.ignoreCase is b.ignoreCase and
+             a.multiline  is b.multiline
+    # If a is not an object by this point, we can't handle it.
+    if atype !== 'object') return false;
+    // Check if already compared
+    for (var i=0; cmp && i < cmp.length; i++) if ((cmp[i].a === a && cmp[i].b === b) || (cmp[i].a === b && cmp[i].b === a)) return true;
+    // Check for different array lengths before comparing contents.
+    if (a.length && (a.length !== b.length)) return false;
+    // Nothing else worked, deep compare the contents.
+    var aKeys = _.keys(a), bKeys = _.keys(b);
+    // Different object sizes?
+    if (aKeys.length != bKeys.length) return false;
+    // Recursive comparison of contents.
+    cmp = cmp?cmp.slice():[];
+    cmp.push({a:a,b:b});
+    for key in a
+      if (!(key in b) || !dvl.util.isEqual(a[key], b[key], cmp)) return false
+    return true
+  ###
 }
 
 (->
@@ -126,6 +174,7 @@ dvl.util = {
     toString: -> "|#{@id}:#{@value}|"
     set: -> this
     setLazy: -> this
+    update: -> this
     get: -> @value
     getPrev: -> @value
     hasChanged: -> @changed
@@ -200,6 +249,10 @@ dvl.util = {
       @vlen = l
       @changed = true
       return this
+    update: (val) ->
+      return if _.isEqual(val, @value)
+      this.set(val)
+      dvl.notify(this)
     push: (val) ->
       @value.push val
       @changed = true
@@ -257,6 +310,12 @@ dvl.util = {
   dvl.wrapVarIfNeeded = (v, name) ->
     v = null if v is undefined
     if dvl.knows(v) then v else dvl.def(v, name)
+    
+  dvl.valueOf = (v) ->
+    if dvl.knows(v)
+      return v.get()
+    else
+      return if v? then v else null
 
   registerers = {}
   
@@ -643,18 +702,20 @@ dvl.acc = (c) ->
 ##  Displays the object value with a message whenever the object changes.
 ##
 dvl.debug = () ->
+  genStr = (o) -> if o?.vgen then "[gen:#{o.len()}]" else ''
+
   if arguments.length == 1
-    obj = arguments[0]
+    obj = dvl.wrapConstIfNeeded(arguments[0])
     dbgPrint = ->
-      debug obj.get()
+      debug obj.get(), genStr(obj)
   else
     note = arguments[0]
-    obj = arguments[1]
+    obj = dvl.wrapConstIfNeeded(arguments[1])
     dbgPrint = ->
-      debug note, obj.get()
+      debug note, obj.get(), genStr(obj)
   
   dvl.register({fn:dbgPrint, listen:[obj], name:'debug'})
-  null
+  return obj
 
 
 ######################################################
@@ -680,13 +741,14 @@ dvl.assert = ({data, fn, msg, allowNull}) ->
 ## 
 ##  Sets up a pipline stage that automaticaly applies the given fucntion.
 ##  
-dvl.apply = ({fn, args, name, invalid, allowNull}) ->
+dvl.apply = ({fn, args, out, name, invalid, allowNull}) ->
   fn = dvl.wrapConstIfNeeded(fn)
-  throw 'dvl.apply only makes scense with at least one argument' unless args
+  throw 'dvl.apply only makes scense with at least one argument' unless args?
   args = [args] unless dvl.typeOf(args) is 'array'
-  invalid = if invalid? then invalid else null
+  args = args.map(dvl.wrapConstIfNeeded)
+  invalid = dvl.wrapConstIfNeeded(if invalid? then invalid else null)
   
-  ret = dvl.def(invalid, name or 'apply_return')
+  ret = dvl.wrapVarIfNeeded((if out? then out else invalid.get()), name or 'apply_out')
   
   apply = ->
     f = fn.get()
@@ -704,10 +766,10 @@ dvl.apply = ({fn, args, name, invalid, allowNull}) ->
         ret.set(r)
         dvl.notify(ret)
     else
-      ret.set(invalid)
+      ret.set(invalid.get())
       dvl.notify(ret)
     
-  dvl.register({fn:apply, listen:args.concat([fn]), change:[ret], name:(name or 'apply')+'_fn'})
+  dvl.register({fn:apply, listen:args.concat([fn, invalid]), change:[ret], name:(name or 'apply')+'_fn'})
   return ret
 
 
@@ -791,13 +853,13 @@ dvl.recorder = (options) ->
   return array
 
 
-dvl.delay = ({ data, time, name }) ->
+dvl.delay = ({ data, time, name, init }) ->
   throw 'you must provide a data' unless data
   throw 'you must provide a time' unless time
   data = dvl.wrapConstIfNeeded(data)
   time = dvl.wrapConstIfNeeded(time)
   timer = null
-  out = dvl.def(data.get())
+  out = dvl.def(init or null, name or 'delay')
   
   timeoutFn = ->
     out.set(data.get()).notify()
@@ -809,11 +871,9 @@ dvl.delay = ({ data, time, name }) ->
     fn: ->
       clearTimeout(timer) if timer
       timer = null
-      t = time.get()
-      if t > 0
+      if time.get()
+        t = Math.max(0, parseInt(time.get(), 10))
         timer = setTimeout(timeoutFn, t)
-      else
-        out.set(data.get()).notify()
   }
   return out
   
@@ -831,7 +891,7 @@ dvl.delay = ({ data, time, name }) ->
 ##  map:  a map to apply to the recived array.
 ##  fn:   a function to apply to the recived input.
 ##
-dvl.json2 = (->
+dvl.json = (->
   nextQueryId = 0
   initQueue = []
   queries = {}
@@ -900,6 +960,11 @@ dvl.json2 = (->
         success: getData
         error: getError
         context: ctx
+        
+      if q.invalidOnLoad.get()
+        setTimeout((->
+          q.res.update(null)
+        ), 1)
     else
       setTimeout((->
         getData.call(ctx, null)
@@ -937,13 +1002,14 @@ dvl.json2 = (->
     null
   
 
-  return ({url, type, map, fn, onError, group, name}) ->
+  return ({url, type, map, fn, invalidOnLoad, onError, group, name}) ->
     throw 'it does not make sense to not have a url' unless url
     throw 'the map function must be non DVL variable' if map and dvl.knows(map)
     throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
     url = dvl.wrapConstIfNeeded(url)
     type = type.get() if dvl.knows(type)
     group = dvl.wrapConstIfNeeded(if group? then group else true)
+    invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad or false)
     
     nextQueryId++
     q = {
@@ -954,6 +1020,7 @@ dvl.json2 = (->
       type: type || 'json'
       group
       onError
+      invalidOnLoad
     }
     q.map = map if map
     q.fn = fn if fn
@@ -962,91 +1029,6 @@ dvl.json2 = (->
     return q.res
 )()
 
-
-##-------------------------------------------------------
-##
-##  Depricated
-##
-dvl.json = (options) ->
-  options = [options] if dvl.typeOf(options) != 'array'
-
-  listen = []
-  ret = []
-  query = 0
-  waitForCount = {}
-
-  gets = []
-  for opt in options
-    g = {}
-    throw 'it does not make sense to not have a url' unless opt.url
-    g.url = dvl.wrapConstIfNeeded(opt.url)
-    listen.push g.url
-
-    if opt.map
-      g.map = dvl.wrapConstIfNeeded(opt.map)
-      listen.push g.map
-    else
-      if opt.fn
-        g.fn = dvl.wrapConstIfNeeded(opt.fn)
-        listen.push g.fn
-
-    g.out = dvl.def(opt.init, 'json_got') # should be 'json_get'?
-    ret.push g.out
-
-    gets.push g
-
-  maybeStop = (q) ->
-    if waitForCount[q] is 0
-      delete waitForCount[q]
-      notify = []
-      for get in gets
-        if get.got != undefined
-          get.out.set(get.got)
-          notify.push get.out
-          delete get.got
-      
-      dvl.notify.apply(null, notify)
-
-  getData = (json) ->
-    g = gets[this.i]
-    if g.map
-      m = g.map.get()
-      i = 0
-      while i < json.length
-        md = m(json[i])
-        json[i] = md if md?
-        i++
-    else
-      json = g.fn.get()(json) if g.fn  
-
-    g.got = json
-      
-    waitForCount[this.q] -= 1
-    maybeStop(this.q)
-      
-  query = ->
-    query += 1
-    waitForCount[query] = 0
-    for i, g of gets
-      if g.url.hasChanged()
-        u = g.url.get()
-        if u != null  
-          jQuery.ajax
-            url: u
-            type: 'GET'
-            dataType: 'json'
-            success: getData
-            error: -> debug "error in json"
-            context: {i:i, q:query}
-  
-          waitForCount[query] += 1
-        else
-          g.got = null
-    maybeStop(query)
-    null
-
-  dvl.register({fn:query, listen:listen, change:ret, name:'json'})
-  return ret
 
 # ToDo: rewrite this:
 dvl.resizer = (sizeRef, marginRef, options) ->
@@ -1126,10 +1108,11 @@ dvl.format = (string, subs) ->
   return out
 
 
-dvl.snap = ({data, acc, value, name}) ->
+dvl.snap = ({data, acc, value, trim, name}) ->
   throw 'No data given' unless data
   acc = dvl.wrapConstIfNeeded(acc or dvl.identity)
   value = dvl.wrapConstIfNeeded(value)
+  trim = dvl.wrapConstIfNeeded(trim or false)
   name or= 'snaped_data'
   
   out = dvl.def(null, name)
@@ -1147,14 +1130,17 @@ dvl.snap = ({data, acc, value, name}) ->
       else
         dsc = ds
       
-      minDist = Infinity
-      minIdx = -1
-      if dsc
-        for d,i in dsc
-          dist = Math.abs(a(d) - v)
-          if dist < minDist
-            minDist = dist
-            minIdx = i
+      if trim.get() and dsc.length isnt 0 and (v < a(dsc[0]) or a(dsc[dsc.length-1]) < v)
+        minIdx = -1
+      else
+        minIdx = -1
+        minDist = Infinity
+        if dsc
+          for d,i in dsc
+            dist = Math.abs(a(d) - v)
+            if dist < minDist
+              minDist = dist
+              minIdx = i
       
       minDatum = if minIdx < 0 then null else dvl.util.getRow(ds, minIdx)
       out.set(minDatum) unless out.get() is minDatum
@@ -1162,9 +1148,27 @@ dvl.snap = ({data, acc, value, name}) ->
       out.set(null)
     dvl.notify(out)
     
-  dvl.register({fn:updateSnap, listen:[data, acc, value], change:[out], name:name+'_maker'})
+  dvl.register({fn:updateSnap, listen:[data, acc, value, trim], change:[out], name:name+'_maker'})
   return out
+
+
+dvl.orDefs = ({args, name}) ->
+  args = [args] if dvl.typeOf(args) isnt 'array' 
+  args = args.map(dvl.wrapConstIfNeeded)
+  out = dvl.def(null, name or 'or_defs')
   
+  update = ->
+    for a in args
+      if a.get() isnt null or a.len() isnt 0
+        out.set(a.get()).setGen(a.gen(), a.len()).notify()
+        return
+    
+    out.set(null).setGen(null).notify()
+    null
+  
+  dvl.register({fn:update, listen:args, change:[out]})
+  return out
+
 
 dvl.hasher = (obj) ->
   updateHash = ->
@@ -1598,6 +1602,7 @@ dvl.svg = {}
       out.classStr = options.classStr
       out.clip = options.clip
       out.on = options.on
+      out.visible = dvl.wrapConstIfNeeded(if options.visible? then options.visible else true)
 
     return out
     
@@ -1974,18 +1979,23 @@ dvl.svg = {}
         
     render = ->
       len = Math.max(0, calcLength(p) - 1)
-          
-      m = selectEnterExit(g, o, p, len)
-      update_attr[o.myClass](m, p, true)
+      
+      if o.visible.get()
+        m = selectEnterExit(g, o, p, len)
+        update_attr[o.myClass](m, p, true)
 
-      if panel.width.hasChanged() or panel.height.hasChanged()
-        clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
-        dur = 0
+        if panel.width.hasChanged() or panel.height.hasChanged()
+          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
+          dur = 0
+        else
+          dur = o.duration.get()
+
+        m = reselectUpdate(g, o, dur)
+        update_attr[o.myClass](m, p)
+      
+        g.style('display', null)
       else
-        dur = o.duration.get()
-
-      m = reselectUpdate(g, o, dur)
-      update_attr[o.myClass](m, p)  
+        g.style('display', 'none')
         
       null
 
@@ -2027,7 +2037,7 @@ dvl.svg = {}
       x = p.x.gen()
       y = p.y.gen()
 
-      if len > 0 and x and y
+      if len > 0 and x and y and o.visible.get()
         dimChange = panel.width.hasChanged() or panel.height.hasChanged()
         clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
         dur = if dimChange then 0 else o.duration.get()
@@ -2135,17 +2145,23 @@ dvl.svg = {}
     render = ->
       len = calcLength(p)
       
-      m = selectEnterExit(g, o, p, len)
-      update_attr[o.myClass](m, p, true)
+      if o.visible.get()
+        m = selectEnterExit(g, o, p, len)
+        update_attr[o.myClass](m, p, true)
 
-      if panel.width.hasChanged() or panel.height.hasChanged()
-        clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
-        dur = 0
-      else
-        dur = o.duration.get()
+        if panel.width.hasChanged() or panel.height.hasChanged()
+          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
+          dur = 0
+        else
+          dur = o.duration.get()
       
-      m = reselectUpdate(g, o, dur)
-      update_attr[o.myClass](m, p)
+        m = reselectUpdate(g, o, dur)
+        update_attr[o.myClass](m, p)
+        
+        g.style('display', null)
+      else
+        g.style('display', 'none')
+        
       null
 
     listen = [panel.width, panel.height]
@@ -2207,7 +2223,7 @@ dvl.svg = {}
     render = ->
       len = calcLength(p)
 
-      if len > 0
+      if len > 0 and o.visible.get()
         m = selectEnterExit(g, o, p, len)
         update_attr[o.myClass](m, p, true)
 
@@ -2278,7 +2294,7 @@ dvl.svg = {}
     render = ->
       len = calcLength(p)
       
-      if len > 0
+      if len > 0 and o.visible.get()
         text = p.text.gen()
         m = selectEnterExit(g, o, p, len)
         update_attr[o.myClass](m, p, true)
@@ -2459,7 +2475,7 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
         sel.style('display', null) if hideInvalid.get()
       else
         inv = invalid.get()
-        out(s, inv) if inv?
+        out(s, inv)
         d3.select(s).style('display', 'none') if hideInvalid.get()
     null
 
@@ -2471,7 +2487,7 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ##
 ##  Select (dropdown box) made with HTML
 ##
-dvl.html.select = ({selector, values, names, def, selection}) ->
+dvl.html.select = ({selector, values, names, selection, classStr}) ->
   throw 'must have selector' unless selector
   options = dvl.wrapConstIfNeeded(options)
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
@@ -2480,17 +2496,27 @@ dvl.html.select = ({selector, values, names, def, selection}) ->
   names = dvl.wrapConstIfNeeded(names)
   
   selChange = ->
-    selection.set(selectEl.node().value).notify()
+    selection.update(selectEl.node().value)
   
   selectEl = d3.select(selector)
     .append('select')
+    .attr('class', classStr or null)
     .on('change', selChange)
     
   selectEl.selectAll('option')
-      .data(d3.range(values.len()))
-        .enter('option')
-          .attr('value', values.gen())
-          .text(names.gen())
+    .data(d3.range(values.len()))
+      .enter('option')
+        .attr('value', values.gen())
+        .text(names.gen())
+  
+        
+  dvl.register {
+    listen: [selection]
+    fn: ->
+      if selectEl.node().value isnt selection.get()
+        selectEl.node().value = selection.get()
+  }
+        
   
   #updateSelection = () ->
   #  selectEl
@@ -2515,7 +2541,7 @@ dvl.html.select = ({selector, values, names, def, selection}) ->
 ##     ~title:            The title of the column header.
 ##     ~headerTooltip:    The popup tool tip (title element text) of the column header.
 ##      classStr:         The class given to the 'th' and 'td' elements in this column, if not specified will default to the id.
-##      click:            The function to call when the column is clicked.
+##     ~cellClick:        The generator of click handlers
 ##     -gen:              The generator that drives the column data.
 ##     ~sortable:         Toggles wheather the column is sortable or not. [true]
 ##     -sortGen:          The generator generator that will drive the sorting, if not provided then gen will be used instead. [gen]
@@ -2533,7 +2559,7 @@ dvl.html.select = ({selector, values, names, def, selection}) ->
 ##     asc:              The image url for the 'asc' sorting mode.
 ##                     
 ## ~showHeader:        Toggle showing the header [true]
-## ~onHeaderClick:     Callback when the header of a column is clicked.
+## ~onHeaderClick:     Callback or url when the header of a column is clicked.
 ## ~headerTooltip:     The default herder tooltip (title element text).
 ## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
 ##
@@ -2563,6 +2589,14 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
   listen.push sortIndicator
   
+  goOrCall = (arg, id) ->
+    t = typeof(arg)
+    if t is 'function'
+      arg(id)
+    else if t is 'string'
+      window.location.href = arg
+    null
+  
   # flatten possible merge header columns
   if columns.length and columns[0].columns
     topHeader = []
@@ -2582,7 +2616,11 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     c.showIndicator = dvl.wrapConstIfNeeded(if c.showIndicator? then c.showIndicator else true);
     c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator or false);
     c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip or null)
-    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip
+    c.cellClick = dvl.wrapConstIfNeeded(c.cellClick or null)
+    c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'html']
+    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick
+    if c.renderer.depends
+      listen.push d for d in c.renderer.depends
     c.uniquClass = 'column_' + i 
   
   t = d3.select(selector).append('table')
@@ -2611,8 +2649,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       .on('click', (c) ->
         return unless c.id?
         
-        if onHeaderClick.get()
-          onHeaderClick.get()(c.id)
+        goOrCall(onHeaderClick.get(), c.id)
         
         if sortOnClick.get() and c.sortable.get()
           if sortOn.get() is c.id
@@ -2639,7 +2676,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
     length
 
-  makeTable = ->  
+  makeTable = ->
     length = tableLength()
     r = pv.range(length)
 
@@ -2710,17 +2747,20 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       ent.attr('class', gen)
       sel.attr('class', gen)
     sel.exit().remove()
+    
+    updateTd = (td) ->
+      td.attr('class', colClass)
+        .on('click', (c, i) -> goOrCall(c.cellClick.gen()(i), c.id))
 
     sel = b.selectAll('tr')
     row = sel.selectAll('td').data(columns)
-    row.enter('td').attr('class', colClass)
-    row.attr('class', colClass)
+    updateTd row.enter('td')
+    updateTd row
     row.exit().remove()
 
     for col in columns
       gen = col.gen.gen();
-      ren = if dvl.typeOf(col.renderer) is 'function' then col.renderer else dvl.html.table.renderer[col.renderer or 'html']
-      ren(sel.select('td.' + col.uniquClass), gen, col.sorted)
+      col.renderer(sel.select('td.' + col.uniquClass), gen, col.sorted)
 
     null
   
@@ -2738,23 +2778,32 @@ dvl.html.table.renderer =
   html: (col, dataFn) ->
     col.html(dataFn)
     null
-  aLink: ({linkGen, titleGen}) -> (col, dataFn) ->
-    sel = col.selectAll('a').data((d) -> [d])
-    config = (d) ->
-      d.attr('href', linkGen.gen()).text(dataFn)
-      d.attr('title', titleGen.gen()) if titleGen 
-    config(sel.enter('a'))
-    config(sel)
-    null
-  spanLink: ({click, titleGen}) -> (col, dataFn) -> 
-    sel = col.selectAll('span').data((d) -> [d])
-    config = (d) ->
-      d.html(dataFn)
-      d.on('click', click)
-      d.attr('title', titleGen.gen()) if titleGen
-    config(sel.enter('span').attr('class', 'span_link'))
-    config(sel)
-    null
+  aLink: ({linkGen, titleGen}) ->
+    linkGen = dvl.wrapConstIfNeeded(linkGen)
+    titleGen = dvl.wrapConstIfNeeded(titleGen)
+    f = (col, dataFn) ->
+      sel = col.selectAll('a').data((d) -> [d])
+      config = (d) ->
+        d.attr('href', linkGen.gen()).text(dataFn)
+        d.attr('title', titleGen.gen()) if titleGen 
+      config(sel.enter('a'))
+      config(sel)
+      null
+    f.depends = [linkGen, titleGen]
+    return f
+  spanLink: ({click, titleGen}) -> 
+    titleGen = dvl.wrapConstIfNeeded(titleGen)
+    f = (col, dataFn) -> 
+      sel = col.selectAll('span').data((d) -> [d])
+      config = (d) ->
+        d.html(dataFn)
+        d.on('click', click)
+        d.attr('title', titleGen.gen()) if titleGen
+      config(sel.enter('span').attr('class', 'span_link'))
+      config(sel)
+      null
+    f.depends = [titleGen]
+    return f
   barDiv: (col, dataFn) ->
     sel = col.selectAll('div').data((d) -> [d])
     sel.enter('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
@@ -2765,52 +2814,55 @@ dvl.html.table.renderer =
     sel.enter('img').attr('src', dataFn)
     sel.attr('src', dataFn)
     null
-  svgSparkline: ({classStr, width, height, x, y, padding}) -> (col, dataFn) -> 
-    svg = col.selectAll('svg').data((i) -> [dataFn(i)])
+  svgSparkline: ({classStr, width, height, x, y, padding}) -> 
+    f = (col, dataFn) -> 
+      svg = col.selectAll('svg').data((i) -> [dataFn(i)])
     
-    line = (d) ->
-      mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
-      mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
-      sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
-      sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
-      return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
+      line = (d) ->
+        mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
+        mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
+        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
+        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
+        return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
     
-    make_sparks = (svg) ->
-      sel = svg.selectAll('path')
-        .data((d) -> [d])
+      make_sparks = (svg) ->
+        sel = svg.selectAll('path')
+          .data((d) -> [d])
     
-      sel.enter("svg:path")
-        .attr("class", "line")
-        .attr("d", line)
+        sel.enter("svg:path")
+          .attr("class", "line")
+          .attr("d", line)
       
-      sel.attr("d", line)
+        sel.attr("d", line)
       
-      points = svg.selectAll('circle')
-        .data((d) -> 
-          mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
-          mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
-          sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
-          sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
-          return [
-            ['top',    sx(d[mmy.maxIdx][x]), sy(mmy.max)]
-            ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)]
-            ['right',  sx(mmx.max), sy(d[mmx.maxIdx][y])]
-            ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
-          ]
-        )
+        points = svg.selectAll('circle')
+          .data((d) -> 
+            mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
+            mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
+            sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
+            sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
+            return [
+              ['top',    sx(d[mmy.maxIdx][x]), sy(mmy.max)]
+              ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)]
+              ['right',  sx(mmx.max), sy(d[mmx.maxIdx][y])]
+              ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
+            ]
+          )
       
-      points.enter("svg:circle")
-        .attr("r", 2)
-        .attr("class", (d) -> d[0])
-        .attr("cx", (d) -> d[1])
-        .attr("cy", (d) -> d[2])
+        points.enter("svg:circle")
+          .attr("r", 2)
+          .attr("class", (d) -> d[0])
+          .attr("cx", (d) -> d[1])
+          .attr("cy", (d) -> d[2])
         
-      points
-        .attr("cx", (d) -> d[1])
-        .attr("cy", (d) -> d[2])
+        points
+          .attr("cx", (d) -> d[1])
+          .attr("cy", (d) -> d[2])
     
-    make_sparks(svg)
-    make_sparks(svg.enter('svg:svg').attr('class', classStr).attr('width', width).attr('height', height))
-    null
+      make_sparks(svg)
+      make_sparks(svg.enter('svg:svg').attr('class', classStr).attr('width', width).attr('height', height))
+      null
+    f.depends = []
+    return f
     
     

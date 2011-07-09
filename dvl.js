@@ -1,4 +1,4 @@
-var debug, generator_maker_maker;
+var debug, generator_maker_maker, print;
 var __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
@@ -33,21 +33,26 @@ if (!Array.prototype.filter) {
     return res;
   };
 };
+print = {};
 debug = function() {
+  var arg, code, len;
   if (!(typeof console !== "undefined" && console !== null ? console.log : void 0)) {
     return;
   }
-  if (arguments.length <= 1) {
-    console.log(arguments[0]);
-  } else if (arguments.length === 2) {
-    console.log(arguments[0], arguments[1]);
-  } else {
-    console.log(Array.prototype.slice.apply(arguments));
+  len = arguments.length;
+  if (len === 0) {
+    return;
   }
+  if (!print[len]) {
+    arg = 'a' + d3.range(len).join(',a');
+    code = "print[" + len + "] = function(" + arg + ") { console.log(" + arg + "); }";
+    eval(code);
+  }
+  print[len].apply(null, arguments);
   return arguments[0];
 };
 window.dvl = {
-  version: '0.77'
+  version: '0.79'
 };
 dvl.util = {
   uniq: function(array) {
@@ -116,6 +121,43 @@ dvl.util = {
       return row;
     }
   }
+  /*
+    isEqual: (a, b, cmp) ->
+      # Check object identity.
+      return true if a is b 
+      # Different types?
+      atype = typeof(a)
+      btype = typeof(b)
+      return false if atype isnt btype 
+      # One is falsy and the other truthy.
+      return false if (not a and b) or (a and not b)
+      # Check dates' integer values.
+      return a.getTime() === b.getTime() if a.getTime() and b.getTime()
+      # Both are NaN?
+      return false if isNaN(a) and isNaN(b)
+      # and Compare regular expressions.
+      if a.source and b.source
+        return a.source     is b.source and
+               a.global     is b.global and
+               a.ignoreCase is b.ignoreCase and
+               a.multiline  is b.multiline
+      # If a is not an object by this point, we can't handle it.
+      if atype !== 'object') return false;
+      // Check if already compared
+      for (var i=0; cmp && i < cmp.length; i++) if ((cmp[i].a === a && cmp[i].b === b) || (cmp[i].a === b && cmp[i].b === a)) return true;
+      // Check for different array lengths before comparing contents.
+      if (a.length && (a.length !== b.length)) return false;
+      // Nothing else worked, deep compare the contents.
+      var aKeys = _.keys(a), bKeys = _.keys(b);
+      // Different object sizes?
+      if (aKeys.length != bKeys.length) return false;
+      // Recursive comparison of contents.
+      cmp = cmp?cmp.slice():[];
+      cmp.push({a:a,b:b});
+      for key in a
+        if (!(key in b) || !dvl.util.isEqual(a[key], b[key], cmp)) return false
+      return true
+    */
 };
 (function() {
   var DVLConst, DVLDef, DVLFunctionObject, array_ctor, bfsUpdate, bfsZero, changedInNotify, collect_notify, constants, curCollectListener, curNotifyListener, date_ctor, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, regex_ctor, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
@@ -173,6 +215,9 @@ dvl.util = {
       return this;
     };
     DVLConst.prototype.setLazy = function() {
+      return this;
+    };
+    DVLConst.prototype.update = function() {
       return this;
     };
     DVLConst.prototype.get = function() {
@@ -301,6 +346,13 @@ dvl.util = {
       this.changed = true;
       return this;
     };
+    DVLDef.prototype.update = function(val) {
+      if (_.isEqual(val, this.value)) {
+        return;
+      }
+      this.set(val);
+      return dvl.notify(this);
+    };
     DVLDef.prototype.push = function(val) {
       this.value.push(val);
       this.changed = true;
@@ -402,6 +454,17 @@ dvl.util = {
       return v;
     } else {
       return dvl.def(v, name);
+    }
+  };
+  dvl.valueOf = function(v) {
+    if (dvl.knows(v)) {
+      return v.get();
+    } else {
+      if (v != null) {
+        return v;
+      } else {
+        return null;
+      }
     }
   };
   registerers = {};
@@ -869,17 +932,24 @@ dvl.acc = function(c) {
   return acc;
 };
 dvl.debug = function() {
-  var dbgPrint, note, obj;
+  var dbgPrint, genStr, note, obj;
+  genStr = function(o) {
+    if (o != null ? o.vgen : void 0) {
+      return "[gen:" + (o.len()) + "]";
+    } else {
+      return '';
+    }
+  };
   if (arguments.length === 1) {
-    obj = arguments[0];
+    obj = dvl.wrapConstIfNeeded(arguments[0]);
     dbgPrint = function() {
-      return debug(obj.get());
+      return debug(obj.get(), genStr(obj));
     };
   } else {
     note = arguments[0];
-    obj = arguments[1];
+    obj = dvl.wrapConstIfNeeded(arguments[1]);
     dbgPrint = function() {
-      return debug(note, obj.get());
+      return debug(note, obj.get(), genStr(obj));
     };
   }
   dvl.register({
@@ -887,7 +957,7 @@ dvl.debug = function() {
     listen: [obj],
     name: 'debug'
   });
-  return null;
+  return obj;
 };
 dvl.assert = function(_arg) {
   var allowNull, data, fn, msg;
@@ -913,17 +983,18 @@ dvl.assert = function(_arg) {
   return null;
 };
 dvl.apply = function(_arg) {
-  var allowNull, apply, args, fn, invalid, name, ret;
-  fn = _arg.fn, args = _arg.args, name = _arg.name, invalid = _arg.invalid, allowNull = _arg.allowNull;
+  var allowNull, apply, args, fn, invalid, name, out, ret;
+  fn = _arg.fn, args = _arg.args, out = _arg.out, name = _arg.name, invalid = _arg.invalid, allowNull = _arg.allowNull;
   fn = dvl.wrapConstIfNeeded(fn);
-  if (!args) {
+  if (args == null) {
     throw 'dvl.apply only makes scense with at least one argument';
   }
   if (dvl.typeOf(args) !== 'array') {
     args = [args];
   }
-  invalid = invalid != null ? invalid : null;
-  ret = dvl.def(invalid, name || 'apply_return');
+  args = args.map(dvl.wrapConstIfNeeded);
+  invalid = dvl.wrapConstIfNeeded(invalid != null ? invalid : null);
+  ret = dvl.wrapVarIfNeeded((out != null ? out : invalid.get()), name || 'apply_out');
   apply = function() {
     var a, f, nulls, r, send, v, _i, _len;
     f = fn.get();
@@ -947,13 +1018,13 @@ dvl.apply = function(_arg) {
         return dvl.notify(ret);
       }
     } else {
-      ret.set(invalid);
+      ret.set(invalid.get());
       return dvl.notify(ret);
     }
   };
   dvl.register({
     fn: apply,
-    listen: args.concat([fn]),
+    listen: args.concat([fn, invalid]),
     change: [ret],
     name: (name || 'apply') + '_fn'
   });
@@ -1061,8 +1132,8 @@ dvl.recorder = function(options) {
   return array;
 };
 dvl.delay = function(_arg) {
-  var data, name, out, time, timeoutFn, timer;
-  data = _arg.data, time = _arg.time, name = _arg.name;
+  var data, init, name, out, time, timeoutFn, timer;
+  data = _arg.data, time = _arg.time, name = _arg.name, init = _arg.init;
   if (!data) {
     throw 'you must provide a data';
   }
@@ -1072,7 +1143,7 @@ dvl.delay = function(_arg) {
   data = dvl.wrapConstIfNeeded(data);
   time = dvl.wrapConstIfNeeded(time);
   timer = null;
-  out = dvl.def(data.get());
+  out = dvl.def(init || null, name || 'delay');
   timeoutFn = function() {
     out.set(data.get()).notify();
     return timer = null;
@@ -1086,17 +1157,15 @@ dvl.delay = function(_arg) {
         clearTimeout(timer);
       }
       timer = null;
-      t = time.get();
-      if (t > 0) {
+      if (time.get()) {
+        t = Math.max(0, parseInt(time.get(), 10));
         return timer = setTimeout(timeoutFn, t);
-      } else {
-        return out.set(data.get()).notify();
       }
     }
   });
   return out;
 };
-dvl.json2 = (function() {
+dvl.json = (function() {
   var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries;
   nextQueryId = 0;
   initQueue = [];
@@ -1179,7 +1248,7 @@ dvl.json2 = (function() {
       if (q.curAjax) {
         q.curAjax.abort();
       }
-      return q.curAjax = jQuery.ajax({
+      q.curAjax = jQuery.ajax({
         url: url,
         type: 'GET',
         dataType: 'json',
@@ -1187,6 +1256,11 @@ dvl.json2 = (function() {
         error: getError,
         context: ctx
       });
+      if (q.invalidOnLoad.get()) {
+        return setTimeout((function() {
+          return q.res.update(null);
+        }), 1);
+      }
     } else {
       return setTimeout((function() {
         return getData.call(ctx, null);
@@ -1240,8 +1314,8 @@ dvl.json2 = (function() {
     return null;
   };
   return function(_arg) {
-    var fn, group, map, name, onError, q, type, url;
-    url = _arg.url, type = _arg.type, map = _arg.map, fn = _arg.fn, onError = _arg.onError, group = _arg.group, name = _arg.name;
+    var fn, group, invalidOnLoad, map, name, onError, q, type, url;
+    url = _arg.url, type = _arg.type, map = _arg.map, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, group = _arg.group, name = _arg.name;
     if (!url) {
       throw 'it does not make sense to not have a url';
     }
@@ -1256,6 +1330,7 @@ dvl.json2 = (function() {
       type = type.get();
     }
     group = dvl.wrapConstIfNeeded(group != null ? group : true);
+    invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad || false);
     nextQueryId++;
     q = {
       id: nextQueryId,
@@ -1264,7 +1339,8 @@ dvl.json2 = (function() {
       status: 'virgin',
       type: type || 'json',
       group: group,
-      onError: onError
+      onError: onError,
+      invalidOnLoad: invalidOnLoad
     };
     if (map) {
       q.map = map;
@@ -1277,114 +1353,6 @@ dvl.json2 = (function() {
     return q.res;
   };
 })();
-dvl.json = function(options) {
-  var g, getData, gets, listen, maybeStop, opt, query, ret, waitForCount, _i, _len;
-  if (dvl.typeOf(options) !== 'array') {
-    options = [options];
-  }
-  listen = [];
-  ret = [];
-  query = 0;
-  waitForCount = {};
-  gets = [];
-  for (_i = 0, _len = options.length; _i < _len; _i++) {
-    opt = options[_i];
-    g = {};
-    if (!opt.url) {
-      throw 'it does not make sense to not have a url';
-    }
-    g.url = dvl.wrapConstIfNeeded(opt.url);
-    listen.push(g.url);
-    if (opt.map) {
-      g.map = dvl.wrapConstIfNeeded(opt.map);
-      listen.push(g.map);
-    } else {
-      if (opt.fn) {
-        g.fn = dvl.wrapConstIfNeeded(opt.fn);
-        listen.push(g.fn);
-      }
-    }
-    g.out = dvl.def(opt.init, 'json_got');
-    ret.push(g.out);
-    gets.push(g);
-  }
-  maybeStop = function(q) {
-    var get, notify, _j, _len2;
-    if (waitForCount[q] === 0) {
-      delete waitForCount[q];
-      notify = [];
-      for (_j = 0, _len2 = gets.length; _j < _len2; _j++) {
-        get = gets[_j];
-        if (get.got !== void 0) {
-          get.out.set(get.got);
-          notify.push(get.out);
-          delete get.got;
-        }
-      }
-      return dvl.notify.apply(null, notify);
-    }
-  };
-  getData = function(json) {
-    var i, m, md;
-    g = gets[this.i];
-    if (g.map) {
-      m = g.map.get();
-      i = 0;
-      while (i < json.length) {
-        md = m(json[i]);
-        if (md != null) {
-          json[i] = md;
-        }
-        i++;
-      }
-    } else {
-      if (g.fn) {
-        json = g.fn.get()(json);
-      }
-    }
-    g.got = json;
-    waitForCount[this.q] -= 1;
-    return maybeStop(this.q);
-  };
-  query = function() {
-    var g, i, u;
-    query += 1;
-    waitForCount[query] = 0;
-    for (i in gets) {
-      g = gets[i];
-      if (g.url.hasChanged()) {
-        u = g.url.get();
-        if (u !== null) {
-          jQuery.ajax({
-            url: u,
-            type: 'GET',
-            dataType: 'json',
-            success: getData,
-            error: function() {
-              return debug("error in json");
-            },
-            context: {
-              i: i,
-              q: query
-            }
-          });
-          waitForCount[query] += 1;
-        } else {
-          g.got = null;
-        }
-      }
-    }
-    maybeStop(query);
-    return null;
-  };
-  dvl.register({
-    fn: query,
-    listen: listen,
-    change: ret,
-    name: 'json'
-  });
-  return ret;
-};
 dvl.resizer = function(sizeRef, marginRef, options) {
   var fh, fw, marginDefault, onResize;
   if (!dvl.knows(sizeRef)) {
@@ -1504,13 +1472,14 @@ dvl.format = function(string, subs) {
   return out;
 };
 dvl.snap = function(_arg) {
-  var acc, data, name, out, updateSnap, value;
-  data = _arg.data, acc = _arg.acc, value = _arg.value, name = _arg.name;
+  var acc, data, name, out, trim, updateSnap, value;
+  data = _arg.data, acc = _arg.acc, value = _arg.value, trim = _arg.trim, name = _arg.name;
   if (!data) {
     throw 'No data given';
   }
   acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
   value = dvl.wrapConstIfNeeded(value);
+  trim = dvl.wrapConstIfNeeded(trim || false);
   name || (name = 'snaped_data');
   out = dvl.def(null, name);
   updateSnap = function() {
@@ -1527,15 +1496,19 @@ dvl.snap = function(_arg) {
       } else {
         dsc = ds;
       }
-      minDist = Infinity;
-      minIdx = -1;
-      if (dsc) {
-        for (i = 0, _len = dsc.length; i < _len; i++) {
-          d = dsc[i];
-          dist = Math.abs(a(d) - v);
-          if (dist < minDist) {
-            minDist = dist;
-            minIdx = i;
+      if (trim.get() && dsc.length !== 0 && (v < a(dsc[0]) || a(dsc[dsc.length - 1]) < v)) {
+        minIdx = -1;
+      } else {
+        minIdx = -1;
+        minDist = Infinity;
+        if (dsc) {
+          for (i = 0, _len = dsc.length; i < _len; i++) {
+            d = dsc[i];
+            dist = Math.abs(a(d) - v);
+            if (dist < minDist) {
+              minDist = dist;
+              minIdx = i;
+            }
           }
         }
       }
@@ -1550,9 +1523,36 @@ dvl.snap = function(_arg) {
   };
   dvl.register({
     fn: updateSnap,
-    listen: [data, acc, value],
+    listen: [data, acc, value, trim],
     change: [out],
     name: name + '_maker'
+  });
+  return out;
+};
+dvl.orDefs = function(_arg) {
+  var args, name, out, update;
+  args = _arg.args, name = _arg.name;
+  if (dvl.typeOf(args) !== 'array') {
+    args = [args];
+  }
+  args = args.map(dvl.wrapConstIfNeeded);
+  out = dvl.def(null, name || 'or_defs');
+  update = function() {
+    var a, _i, _len;
+    for (_i = 0, _len = args.length; _i < _len; _i++) {
+      a = args[_i];
+      if (a.get() !== null || a.len() !== 0) {
+        out.set(a.get()).setGen(a.gen(), a.len()).notify();
+        return;
+      }
+    }
+    out.set(null).setGen(null).notify();
+    return null;
+  };
+  dvl.register({
+    fn: update,
+    listen: args,
+    change: [out]
   });
   return out;
 };
@@ -2103,6 +2103,7 @@ dvl.svg = {};
       out.classStr = options.classStr;
       out.clip = options.clip;
       out.on = options.on;
+      out.visible = dvl.wrapConstIfNeeded(options.visible != null ? options.visible : true);
     }
     return out;
   };
@@ -2553,18 +2554,23 @@ dvl.svg = {};
     render = function() {
       var dur, len, m;
       len = Math.max(0, calcLength(p) - 1);
-      m = selectEnterExit(g, o, p, len);
-      update_attr[o.myClass](m, p, true);
-      if (panel.width.hasChanged() || panel.height.hasChanged()) {
-        if (clip) {
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get());
+      if (o.visible.get()) {
+        m = selectEnterExit(g, o, p, len);
+        update_attr[o.myClass](m, p, true);
+        if (panel.width.hasChanged() || panel.height.hasChanged()) {
+          if (clip) {
+            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
+          }
+          dur = 0;
+        } else {
+          dur = o.duration.get();
         }
-        dur = 0;
+        m = reselectUpdate(g, o, dur);
+        update_attr[o.myClass](m, p);
+        g.style('display', null);
       } else {
-        dur = o.duration.get();
+        g.style('display', 'none');
       }
-      m = reselectUpdate(g, o, dur);
-      update_attr[o.myClass](m, p);
       return null;
     };
     listen = [panel.width, panel.height];
@@ -2619,7 +2625,7 @@ dvl.svg = {};
       len = calcLength(p);
       x = p.x.gen();
       y = p.y.gen();
-      if (len > 0 && x && y) {
+      if (len > 0 && x && y && o.visible.get()) {
         dimChange = panel.width.hasChanged() || panel.height.hasChanged();
         if (clip) {
           clip.attr('width', panel.width.get()).attr('height', panel.height.get());
@@ -2753,18 +2759,23 @@ dvl.svg = {};
     render = function() {
       var dur, len, m;
       len = calcLength(p);
-      m = selectEnterExit(g, o, p, len);
-      update_attr[o.myClass](m, p, true);
-      if (panel.width.hasChanged() || panel.height.hasChanged()) {
-        if (clip) {
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get());
+      if (o.visible.get()) {
+        m = selectEnterExit(g, o, p, len);
+        update_attr[o.myClass](m, p, true);
+        if (panel.width.hasChanged() || panel.height.hasChanged()) {
+          if (clip) {
+            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
+          }
+          dur = 0;
+        } else {
+          dur = o.duration.get();
         }
-        dur = 0;
+        m = reselectUpdate(g, o, dur);
+        update_attr[o.myClass](m, p);
+        g.style('display', null);
       } else {
-        dur = o.duration.get();
+        g.style('display', 'none');
       }
-      m = reselectUpdate(g, o, dur);
-      update_attr[o.myClass](m, p);
       return null;
     };
     listen = [panel.width, panel.height];
@@ -2849,7 +2860,7 @@ dvl.svg = {};
     render = function() {
       var dimChange, dur, len, m;
       len = calcLength(p);
-      if (len > 0) {
+      if (len > 0 && o.visible.get()) {
         m = selectEnterExit(g, o, p, len);
         update_attr[o.myClass](m, p, true);
         dimChange = panel.width.hasChanged() || panel.height.hasChanged();
@@ -2944,7 +2955,7 @@ dvl.svg = {};
     render = function() {
       var dur, len, m, text;
       len = calcLength(p);
-      if (len > 0) {
+      if (len > 0 && o.visible.get()) {
         text = p.text.gen();
         m = selectEnterExit(g, o, p, len);
         update_attr[o.myClass](m, p, true);
@@ -3182,9 +3193,7 @@ dvl.html.out = function(_arg) {
         }
       } else {
         inv = invalid.get();
-        if (inv != null) {
-          out(s, inv);
-        }
+        out(s, inv);
         if (hideInvalid.get()) {
           d3.select(s).style('display', 'none');
         }
@@ -3200,8 +3209,8 @@ dvl.html.out = function(_arg) {
   return null;
 };
 dvl.html.select = function(_arg) {
-  var def, names, options, selChange, selectEl, selection, selector, values;
-  selector = _arg.selector, values = _arg.values, names = _arg.names, def = _arg.def, selection = _arg.selection;
+  var classStr, names, options, selChange, selectEl, selection, selector, values;
+  selector = _arg.selector, values = _arg.values, names = _arg.names, selection = _arg.selection, classStr = _arg.classStr;
   if (!selector) {
     throw 'must have selector';
   }
@@ -3210,15 +3219,23 @@ dvl.html.select = function(_arg) {
   values = dvl.wrapConstIfNeeded(values);
   names = dvl.wrapConstIfNeeded(names);
   selChange = function() {
-    return selection.set(selectEl.node().value).notify();
+    return selection.update(selectEl.node().value);
   };
-  selectEl = d3.select(selector).append('select').on('change', selChange);
+  selectEl = d3.select(selector).append('select').attr('class', classStr || null).on('change', selChange);
   selectEl.selectAll('option').data(d3.range(values.len())).enter('option').attr('value', values.gen()).text(names.gen());
+  dvl.register({
+    listen: [selection],
+    fn: function() {
+      if (selectEl.node().value !== selection.get()) {
+        return selectEl.node().value = selection.get();
+      }
+    }
+  });
   selChange();
   return selection;
 };
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columns, h, headerColClass, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _len, _len2, _ref;
+  var b, c, classStr, colClass, columns, d, goOrCall, h, headerColClass, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2;
   selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
@@ -3243,6 +3260,16 @@ dvl.html.table = function(_arg) {
   listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortModes, sortOrder];
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
   listen.push(sortIndicator);
+  goOrCall = function(arg, id) {
+    var t;
+    t = typeof arg;
+    if (t === 'function') {
+      arg(id);
+    } else if (t === 'string') {
+      window.location.href = arg;
+    }
+    return null;
+  };
   if (columns.length && columns[0].columns) {
     topHeader = [];
     newColumns = [];
@@ -3272,7 +3299,16 @@ dvl.html.table = function(_arg) {
     c.showIndicator = dvl.wrapConstIfNeeded(c.showIndicator != null ? c.showIndicator : true);
     c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator || false);
     c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip || null);
-    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip);
+    c.cellClick = dvl.wrapConstIfNeeded(c.cellClick || null);
+    c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'html'];
+    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick);
+    if (c.renderer.depends) {
+      _ref2 = c.renderer.depends;
+      for (_k = 0, _len3 = _ref2.length; _k < _len3; _k++) {
+        d = _ref2[_k];
+        listen.push(d);
+      }
+    }
     c.uniquClass = 'column_' + i;
   }
   t = d3.select(selector).append('table');
@@ -3305,9 +3341,7 @@ dvl.html.table = function(_arg) {
     if (c.id == null) {
       return;
     }
-    if (onHeaderClick.get()) {
-      onHeaderClick.get()(c.id);
-    }
+    goOrCall(onHeaderClick.get(), c.id);
     if (sortOnClick.get() && c.sortable.get()) {
       if (sortOn.get() === c.id) {
         modes = sortModes.get();
@@ -3334,10 +3368,10 @@ dvl.html.table = function(_arg) {
     }
   });
   tableLength = function() {
-    var c, l, length, _k, _len3;
+    var c, l, length, _l, _len4;
     length = +Infinity;
-    for (_k = 0, _len3 = columns.length; _k < _len3; _k++) {
-      c = columns[_k];
+    for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
+      c = columns[_l];
       l = c.gen.len();
       if (l < length) {
         length = l;
@@ -3349,7 +3383,7 @@ dvl.html.table = function(_arg) {
     return length;
   };
   makeTable = function() {
-    var c, col, dir, ent, gen, length, limit, numeric, r, ren, row, sortCol, sortFn, sortGen, sortOnId, _k, _l, _len3, _len4;
+    var c, col, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, updateTd, _l, _len4, _len5, _m;
     length = tableLength();
     r = pv.range(length);
     if (visible.hasChanged()) {
@@ -3369,8 +3403,8 @@ dvl.html.table = function(_arg) {
     if (sort) {
       sortOnId = sortOn.get();
       sortCol = null;
-      for (_k = 0, _len3 = columns.length; _k < _len3; _k++) {
-        c = columns[_k];
+      for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
+        c = columns[_l];
         if (c.sorted = c.id === sortOnId) {
           sortCol = c;
           if (!sortCol.sortable.get()) {
@@ -3433,16 +3467,20 @@ dvl.html.table = function(_arg) {
       sel.attr('class', gen);
     }
     sel.exit().remove();
+    updateTd = function(td) {
+      return td.attr('class', colClass).on('click', function(c, i) {
+        return goOrCall(c.cellClick.gen()(i), c.id);
+      });
+    };
     sel = b.selectAll('tr');
     row = sel.selectAll('td').data(columns);
-    row.enter('td').attr('class', colClass);
-    row.attr('class', colClass);
+    updateTd(row.enter('td'));
+    updateTd(row);
     row.exit().remove();
-    for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
-      col = columns[_l];
+    for (_m = 0, _len5 = columns.length; _m < _len5; _m++) {
+      col = columns[_m];
       gen = col.gen.gen();
-      ren = dvl.typeOf(col.renderer) === 'function' ? col.renderer : dvl.html.table.renderer[col.renderer || 'html'];
-      ren(sel.select('td.' + col.uniquClass), gen, col.sorted);
+      col.renderer(sel.select('td.' + col.uniquClass), gen, col.sorted);
     }
     return null;
   };
@@ -3466,9 +3504,11 @@ dvl.html.table.renderer = {
     return null;
   },
   aLink: function(_arg) {
-    var linkGen, titleGen;
+    var f, linkGen, titleGen;
     linkGen = _arg.linkGen, titleGen = _arg.titleGen;
-    return function(col, dataFn) {
+    linkGen = dvl.wrapConstIfNeeded(linkGen);
+    titleGen = dvl.wrapConstIfNeeded(titleGen);
+    f = function(col, dataFn) {
       var config, sel;
       sel = col.selectAll('a').data(function(d) {
         return [d];
@@ -3483,11 +3523,14 @@ dvl.html.table.renderer = {
       config(sel);
       return null;
     };
+    f.depends = [linkGen, titleGen];
+    return f;
   },
   spanLink: function(_arg) {
-    var click, titleGen;
+    var click, f, titleGen;
     click = _arg.click, titleGen = _arg.titleGen;
-    return function(col, dataFn) {
+    titleGen = dvl.wrapConstIfNeeded(titleGen);
+    f = function(col, dataFn) {
       var config, sel;
       sel = col.selectAll('span').data(function(d) {
         return [d];
@@ -3503,6 +3546,8 @@ dvl.html.table.renderer = {
       config(sel);
       return null;
     };
+    f.depends = [titleGen];
+    return f;
   },
   barDiv: function(col, dataFn) {
     var sel;
@@ -3527,9 +3572,9 @@ dvl.html.table.renderer = {
     return null;
   },
   svgSparkline: function(_arg) {
-    var classStr, height, padding, width, x, y;
+    var classStr, f, height, padding, width, x, y;
     classStr = _arg.classStr, width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
-    return function(col, dataFn) {
+    f = function(col, dataFn) {
       var line, make_sparks, svg;
       svg = col.selectAll('svg').data(function(i) {
         return [dataFn(i)];
@@ -3586,5 +3631,7 @@ dvl.html.table.renderer = {
       make_sparks(svg.enter('svg:svg').attr('class', classStr).attr('width', width).attr('height', height));
       return null;
     };
+    f.depends = [];
+    return f;
   }
 };
