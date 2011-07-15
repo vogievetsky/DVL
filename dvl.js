@@ -52,8 +52,33 @@ debug = function() {
   return arguments[0];
 };
 window.dvl = {
-  version: '0.79'
+  version: '0.81'
 };
+(function() {
+  var array_ctor, date_ctor, regex_ctor;
+  array_ctor = (new Array).constructor;
+  date_ctor = (new Date).constructor;
+  regex_ctor = (new RegExp).constructor;
+  return dvl.typeOf = function(v) {
+    if (typeof v === 'object') {
+      if (v === null) {
+        return 'null';
+      }
+      if (v.constructor === array_ctor) {
+        return 'array';
+      }
+      if (v.constructor === date_ctor) {
+        return 'date';
+      }
+      return 'object';
+    } else {
+      if ((v != null ? v.constructor : void 0) === regex_ctor) {
+        return 'regex';
+      }
+      return typeof v;
+    }
+  };
+})();
 dvl.util = {
   uniq: function(array) {
     var a, seen, uniq, _i, _len;
@@ -138,69 +163,72 @@ dvl.util = {
     post_process.write("<script>window.onload=function(){document.forms[0].submit();}</script>");
     post_process.close();
     setTimeout(frame.remove, 800);
+  },
+  isEqual: function(a, b, cmp) {
+    var aKeys, ak, atype, bKeys, bk, btype, c, _i, _j, _k, _l, _len, _len2, _len3, _len4;
+    if (a === b) {
+      return true;
+    }
+    atype = dvl.typeOf(a);
+    btype = dvl.typeOf(b);
+    if (atype !== btype) {
+      return false;
+    }
+    if ((!a && b) || (a && !b)) {
+      return false;
+    }
+    if (atype === 'date') {
+      return a.getTime() === b.getTime();
+    }
+    if (isNaN(a) && isNaN(b)) {
+      return false;
+    }
+    if (atype === 'regex') {
+      return a.source === b.source && a.global === b.global && a.ignoreCase === b.ignoreCase && a.multiline === b.multiline;
+    }
+    if (atype === 'object' || atype === 'array') {
+      return false;
+    }
+    if (cmp) {
+      for (_i = 0, _len = cmp.length; _i < _len; _i++) {
+        c = cmp[_i];
+        if ((c.a === a && c.b === b) || (c.a === b && c.b === a)) {
+          return true;
+        }
+      }
+    }
+    if ((a.length != null) && a.length !== b.length) {
+      return false;
+    }
+    aKeys = [];
+    for (_j = 0, _len2 = a.length; _j < _len2; _j++) {
+      ak = a[_j];
+      aKeys.push(ak);
+    }
+    bKeys = [];
+    for (_k = 0, _len3 = b.length; _k < _len3; _k++) {
+      bk = b[_k];
+      bKeys.push(bk);
+    }
+    if (aKeys.length !== bKeys.length) {
+      return false;
+    }
+    cmp = cmp ? cmp.slice() : [];
+    cmp.push({
+      a: a,
+      b: b
+    });
+    for (_l = 0, _len4 = a.length; _l < _len4; _l++) {
+      ak = a[_l];
+      if (!(__indexOf.call(b, ak) >= 0 && dvl.util.isEqual(a[ak], b[ak], cmp))) {
+        return false;
+      }
+    }
+    return true;
   }
-  /*
-    isEqual: (a, b, cmp) ->
-      # Check object identity.
-      return true if a is b 
-      # Different types?
-      atype = typeof(a)
-      btype = typeof(b)
-      return false if atype isnt btype 
-      # One is falsy and the other truthy.
-      return false if (not a and b) or (a and not b)
-      # Check dates' integer values.
-      return a.getTime() === b.getTime() if a.getTime() and b.getTime()
-      # Both are NaN?
-      return false if isNaN(a) and isNaN(b)
-      # and Compare regular expressions.
-      if a.source and b.source
-        return a.source     is b.source and
-               a.global     is b.global and
-               a.ignoreCase is b.ignoreCase and
-               a.multiline  is b.multiline
-      # If a is not an object by this point, we can't handle it.
-      if atype !== 'object') return false;
-      // Check if already compared
-      for (var i=0; cmp && i < cmp.length; i++) if ((cmp[i].a === a && cmp[i].b === b) || (cmp[i].a === b && cmp[i].b === a)) return true;
-      // Check for different array lengths before comparing contents.
-      if (a.length && (a.length !== b.length)) return false;
-      // Nothing else worked, deep compare the contents.
-      var aKeys = _.keys(a), bKeys = _.keys(b);
-      // Different object sizes?
-      if (aKeys.length != bKeys.length) return false;
-      // Recursive comparison of contents.
-      cmp = cmp?cmp.slice():[];
-      cmp.push({a:a,b:b});
-      for key in a
-        if (!(key in b) || !dvl.util.isEqual(a[key], b[key], cmp)) return false
-      return true
-    */
 };
 (function() {
-  var DVLConst, DVLDef, DVLFunctionObject, array_ctor, bfsUpdate, bfsZero, changedInNotify, collect_notify, constants, curCollectListener, curNotifyListener, date_ctor, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, regex_ctor, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
-  array_ctor = (new Array).constructor;
-  date_ctor = (new Date).constructor;
-  regex_ctor = (new RegExp).constructor;
-  dvl.typeOf = function(v) {
-    if (typeof v === 'object') {
-      if (v === null) {
-        return 'null';
-      }
-      if (v.constructor === array_ctor) {
-        return 'array';
-      }
-      if (v.constructor === date_ctor) {
-        return 'date';
-      }
-      return 'object';
-    } else {
-      if ((v != null ? v.constructor : void 0) === regex_ctor) {
-        return 'regex';
-      }
-      return typeof v;
-    }
-  };
+  var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, collect_notify, constants, curCollectListener, curNotifyListener, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
   dvl.intersectSize = function(as, bs) {
     var a, count, _i, _len;
     count = 0;
@@ -257,7 +285,7 @@ dvl.util = {
       return null;
     };
     DVLConst.prototype.push = function(value) {
-      return null;
+      return this;
     };
     DVLConst.prototype.shift = function() {
       return;
@@ -365,7 +393,7 @@ dvl.util = {
       return this;
     };
     DVLDef.prototype.update = function(val) {
-      if (_.isEqual(val, this.value)) {
+      if (dvl.util.isEqual(val, this.value)) {
         return;
       }
       this.set(val);
@@ -374,7 +402,7 @@ dvl.util = {
     DVLDef.prototype.push = function(val) {
       this.value.push(val);
       this.changed = true;
-      return null;
+      return this;
     };
     DVLDef.prototype.shift = function() {
       var val;
@@ -908,13 +936,12 @@ dvl.util = {
     return null;
   };
   return dvl.postLatest = function(file, showId) {
-    var form, g;
+    var g;
     file || (file = 'dvl_graph_latest');
     g = dvl.graphToDot(true, showId);
-    form = $('<form/>').attr('method', 'post').attr('action', 'http://localhost:8124/');
-    form.append($('<input type="hidden" name="file"/>').val(file));
-    form.append($('<input type="hidden" name="graph"/>').val(g));
-    form.submit();
+    dvl.util.crossSitePost('http://localhost:8124/' + file, {
+      graph: g
+    });
     return null;
   };
 })();
@@ -1089,7 +1116,7 @@ dvl.random = function(options) {
 dvl.arrayTick = function(data, options) {
   var gen, move, out, point;
   if (!data) {
-    throw 'dvl.filter: no data';
+    throw 'dvl.arrayTick: no data';
   }
   data = dvl.wrapConstIfNeeded(data);
   point = options.start || 0;
@@ -3230,13 +3257,95 @@ dvl.html.out = function(_arg) {
   });
   return null;
 };
+dvl.html.list = function(_arg) {
+  var classStr, items, links, onSelect, selection, selectionIndex, selector, ul, updateList, updateSelection;
+  selector = _arg.selector, items = _arg.items, links = _arg.links, selection = _arg.selection, selectionIndex = _arg.selectionIndex, onSelect = _arg.onSelect, classStr = _arg.classStr;
+  if (!selector) {
+    throw 'must have selector';
+  }
+  selection = dvl.wrapVarIfNeeded(selection, 'selection');
+  selectionIndex = dvl.wrapVarIfNeeded(selectionIndex, 'selection_index');
+  items = dvl.wrapConstIfNeeded(items, 'items');
+  ul = d3.select(selector).append('ul').attr('class', classStr);
+  updateSelection = function() {
+    var si;
+    si = selectionIndex.get();
+    ul.selectAll('li').attr('class', function(i) {
+      if (i === si) {
+        return 'selected';
+      } else {
+        return null;
+      }
+    });
+  };
+  dvl.register({
+    fn: updateSelection,
+    listen: [selectionIndex],
+    name: 'html_list_selection'
+  });
+  updateList = function() {
+    var gen, len, sel, updateLi;
+    len = items.len();
+    gen = items.gen();
+    updateLi = function(li) {
+      return li.text(gen).on('click', function(i) {
+        var text;
+        text = gen(i);
+        selection.set(text);
+        selectionIndex.set(i);
+        dvl.notify(selection, selectionIndex);
+        return typeof onSelect === "function" ? onSelect(text, i) : void 0;
+      });
+    };
+    sel = ul.selectAll('li').data(d3.range(len));
+    updateLi(sel.enter('li'));
+    updateLi(sel);
+    sel.exit().remove();
+  };
+  dvl.register({
+    fn: updateList,
+    listen: [items],
+    name: 'html_list'
+  });
+  return {
+    selection: selection,
+    selectionIndex: selectionIndex
+  };
+};
+dvl.html.linkList = function(_arg) {
+  var classStr, items, links, selector, ul, updateList;
+  selector = _arg.selector, items = _arg.items, links = _arg.links, classStr = _arg.classStr;
+  if (!selector) {
+    throw 'must have selector';
+  }
+  items = dvl.wrapConstIfNeeded(items, 'items');
+  links = dvl.wrapConstIfNeeded(links, 'links');
+  ul = d3.select(selector).append('ul').attr('class', classStr);
+  updateList = function() {
+    var itemGen, len, linkGen, sel, updateA;
+    len = Math.min(items.len(), links.len());
+    itemGen = items.gen();
+    linkGen = links.gen();
+    updateA = function(a) {
+      return a.attr('href', linkGen).text(itemGen);
+    };
+    sel = ul.selectAll('li').data(d3.range(len));
+    updateA(sel.enter('li').append('a'));
+    updateA(sel.select('a'));
+    sel.exit().remove();
+  };
+  dvl.register({
+    fn: updateList,
+    listen: [items],
+    name: 'html_link_list'
+  });
+};
 dvl.html.select = function(_arg) {
-  var classStr, names, options, selChange, selectEl, selection, selector, values;
+  var classStr, names, selChange, selectEl, selection, selector, values;
   selector = _arg.selector, values = _arg.values, names = _arg.names, selection = _arg.selection, classStr = _arg.classStr;
   if (!selector) {
     throw 'must have selector';
   }
-  options = dvl.wrapConstIfNeeded(options);
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
   values = dvl.wrapConstIfNeeded(values);
   names = dvl.wrapConstIfNeeded(names);

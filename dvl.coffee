@@ -197,7 +197,7 @@ dvl.util = {
     resetChanged: -> null
     notify: -> null
     remove: -> null
-    push: (value) -> null
+    push: (value) -> this
     shift: -> undefined
     gen: -> 
       that = this
@@ -273,7 +273,7 @@ dvl.util = {
       @value.push val
       @changed = true
       # TODO: make prev work
-      null
+      this
     shift: ->
       # TODO: make prev work
       val = @value.shift()
@@ -2498,15 +2498,88 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 
   dvl.register({fn:updateHtml, listen:[data, selector, format], name:'html_out'})
   null
+
+
+##-------------------------------------------------------
+##
+##  Create HTML list
+##
+dvl.html.list = ({selector, items, links, selection, selectionIndex, onSelect, classStr}) ->
+  throw 'must have selector' unless selector
+  selection = dvl.wrapVarIfNeeded(selection, 'selection')
+  selectionIndex = dvl.wrapVarIfNeeded(selectionIndex, 'selection_index')
+  items = dvl.wrapConstIfNeeded(items, 'items')
   
+  ul = d3.select(selector).append('ul').attr('class', classStr)
   
+  updateSelection = ->
+    si = selectionIndex.get()
+    ul.selectAll('li')
+      .attr('class', (i) -> if i is si then 'selected' else null)
+    return
+    
+  dvl.register({fn:updateSelection, listen:[selectionIndex], name:'html_list_selection'})
+  
+  updateList = ->
+    len = items.len()
+    gen = items.gen()
+    
+    updateLi = (li) ->
+      li.text(gen)
+        .on('click', (i) ->
+          text = gen(i)
+          selection.set(text)
+          selectionIndex.set(i)
+          dvl.notify(selection, selectionIndex)
+          onSelect?(text, i)
+        )
+    
+    sel = ul.selectAll('li').data(d3.range(len))
+    updateLi sel.enter('li')
+    updateLi sel
+    sel.exit().remove()
+    return
+  
+  dvl.register({fn:updateList, listen:[items], name:'html_list'})
+  return { selection, selectionIndex }
+
+
+##-------------------------------------------------------
+##
+##  Create HTML list of links
+##
+dvl.html.linkList = ({selector, items, links, classStr}) ->
+  throw 'must have selector' unless selector
+  items = dvl.wrapConstIfNeeded(items, 'items')
+  links = dvl.wrapConstIfNeeded(links, 'links')
+
+  ul = d3.select(selector).append('ul').attr('class', classStr)
+
+  updateList = ->
+    len = Math.min(items.len(), links.len())
+    itemGen = items.gen()
+    linkGen = links.gen()
+
+    updateA = (a) ->
+      a.attr('href', linkGen).text(itemGen)
+
+    sel = ul.selectAll('li').data(d3.range(len))
+    updateA sel.enter('li').append('a')
+    updateA sel.select('a')
+    sel.exit().remove()
+    return
+
+  dvl.register({fn:updateList, listen:[items], name:'html_link_list'})
+  return
+
+
+
 ##-------------------------------------------------------
 ##
 ##  Select (dropdown box) made with HTML
 ##
 dvl.html.select = ({selector, values, names, selection, classStr}) ->
   throw 'must have selector' unless selector
-  options = dvl.wrapConstIfNeeded(options)
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   
   values = dvl.wrapConstIfNeeded(values)
