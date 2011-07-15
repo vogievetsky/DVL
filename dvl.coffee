@@ -47,7 +47,22 @@ debug = ->
   return arguments[0]
 
 window.dvl =
-  version: '0.79'
+  version: '0.81'
+  
+(->
+  array_ctor = (new Array).constructor
+  date_ctor  = (new Date).constructor
+  regex_ctor = (new RegExp).constructor
+  dvl.typeOf = (v) ->
+    if typeof(v) is 'object'
+      return 'null'  if v == null
+      return 'array' if v.constructor == array_ctor 
+      return 'date'  if v.constructor == date_ctor 
+      return 'object'
+    else
+      return 'regex' if v?.constructor == regex_ctor 
+      return typeof(v)
+)()
   
 dvl.util = {
   uniq: (array) ->
@@ -97,61 +112,62 @@ dvl.util = {
       for k,vs of data
         row[k] = vs[i]
       return row
+      
+  crossSitePost: (url, params) ->
+    frame = d3.select('body').append('iframe').style('display', 'none')
+    
+    clean = (d) -> d.replace(/'/g, "\\'")
+    inputs = []
+    inputs.push "<input name='#{k}' value='#{clean(v)}'/>" for k,v of params
+    
+    post_process = frame.node().contentWindow.document
+    post_process.open()
+    post_process.write "<form method='POST' action='#{url}'>#{inputs.join('')}</form>"
+    post_process.write "<script>window.onload=function(){document.forms[0].submit();}</script>"
+    post_process.close()
+    setTimeout(frame.remove, 800)
+    return;
 
-  ###
   isEqual: (a, b, cmp) ->
     # Check object identity.
     return true if a is b 
     # Different types?
-    atype = typeof(a)
-    btype = typeof(b)
+    atype = dvl.typeOf(a)
+    btype = dvl.typeOf(b)
     return false if atype isnt btype 
     # One is falsy and the other truthy.
     return false if (not a and b) or (a and not b)
     # Check dates' integer values.
-    return a.getTime() === b.getTime() if a.getTime() and b.getTime()
+    return a.getTime() is b.getTime() if atype is 'date'
     # Both are NaN?
     return false if isNaN(a) and isNaN(b)
     # and Compare regular expressions.
-    if a.source and b.source
-      return a.source     is b.source and
-             a.global     is b.global and
-             a.ignoreCase is b.ignoreCase and
-             a.multiline  is b.multiline
+    return a.source is b.source and a.global is b.global and a.ignoreCase is b.ignoreCase and a.multiline is b.multiline if atype is 'regex'
     # If a is not an object by this point, we can't handle it.
-    if atype !== 'object') return false;
-    // Check if already compared
-    for (var i=0; cmp && i < cmp.length; i++) if ((cmp[i].a === a && cmp[i].b === b) || (cmp[i].a === b && cmp[i].b === a)) return true;
-    // Check for different array lengths before comparing contents.
-    if (a.length && (a.length !== b.length)) return false;
-    // Nothing else worked, deep compare the contents.
-    var aKeys = _.keys(a), bKeys = _.keys(b);
-    // Different object sizes?
-    if (aKeys.length != bKeys.length) return false;
-    // Recursive comparison of contents.
-    cmp = cmp?cmp.slice():[];
+    return false if atype is 'object' or atype is 'array'
+    # Check if already compared
+    if cmp
+      for c in cmp
+        return true if (c.a is a and c.b is b) or (c.a is b and c.b is a)
+    # Check for different array lengths before comparing contents.
+    return false if a.length? and a.length isnt b.length
+    # Nothing else worked, deep compare the contents.
+    aKeys = []
+    aKeys.push ak for ak in a
+    bKeys = []
+    bKeys.push bk for bk in b
+    # Different object sizes?
+    return false if aKeys.length isnt bKeys.length
+    # Recursive comparison of contents.
+    cmp = if cmp then cmp.slice() else []
     cmp.push({a:a,b:b});
-    for key in a
-      if (!(key in b) || !dvl.util.isEqual(a[key], b[key], cmp)) return false
+    for ak in a
+      return false unless ak in b and dvl.util.isEqual(a[ak], b[ak], cmp)
     return true
-  ###
+
 }
 
 (->
-  array_ctor = (new Array).constructor
-  date_ctor  = (new Date).constructor
-  regex_ctor = (new RegExp).constructor
-  dvl.typeOf = (v) ->
-    if typeof(v) is 'object'
-      return 'null'  if v == null
-      return 'array' if v.constructor == array_ctor 
-      return 'date'  if v.constructor == date_ctor 
-      return 'object'
-    else
-      return 'regex' if v?.constructor == regex_ctor 
-      return typeof(v)
-
-
   dvl.intersectSize = (as, bs) ->
     count = 0
     for a in as
@@ -250,7 +266,7 @@ dvl.util = {
       @changed = true
       return this
     update: (val) ->
-      return if _.isEqual(val, @value)
+      return if dvl.util.isEqual(val, @value)
       this.set(val)
       dvl.notify(this)
     push: (val) ->
@@ -652,13 +668,13 @@ dvl.util = {
   dvl.postGraph = (file, showId) ->
     file or= 'dvl_graph'
     g = dvl.graphToDot(false, showId)
-    jQuery.post('http://localhost:8124/' + file, g)
+    dvl.util.crossSitePost('http://localhost:8124/' + file, { graph: g })
     null
     
   dvl.postLatest = (file, showId) ->
     file or= 'dvl_graph_latest'
     g = dvl.graphToDot(true, showId)
-    jQuery.post('http://localhost:8124/' + file, g)
+    dvl.util.crossSitePost('http://localhost:8124/' + file, { graph: g })
     null
 
 )()
@@ -801,7 +817,7 @@ dvl.random = (options) ->
 
 
 dvl.arrayTick = (data, options) ->
-  throw 'dvl.filter: no data' unless data
+  throw 'dvl.arrayTick: no data' unless data
   data = dvl.wrapConstIfNeeded(data)
 
   point = options.start or 0
@@ -1439,12 +1455,12 @@ dvl.gen.fromFn = (fn) ->
   gen.setGen(fn, Infinity)
   return gen
 
-dvl.gen.fromValue = (value, acc, fn) ->
+dvl.gen.fromValue = (value, acc, fn, name) ->
   value = dvl.wrapConstIfNeeded(value)
   acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
   fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
 
-  gen = dvl.def(null, 'value_generator')
+  gen = dvl.def(null, name or 'value_generator')
 
   makeGen = ->
     a = acc.get()
@@ -1463,12 +1479,12 @@ dvl.gen.fromValue = (value, acc, fn) ->
   dvl.register({fn:makeGen, listen:[value, acc, fn], change:[gen], name:'value_make_gen'})
   return gen
 
-dvl.gen.fromArray = (data, acc, fn) ->
+dvl.gen.fromArray = (data, acc, fn, name) ->
   data = dvl.wrapConstIfNeeded(data)
   acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
   fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
 
-  gen = dvl.def(null, 'array_generator')
+  gen = dvl.def(null, name or 'array_generator')
   
   d = []
   makeGen = ->
@@ -1490,12 +1506,12 @@ dvl.gen.fromArray = (data, acc, fn) ->
   return gen
 
 dvl.gen.fromRowData = dvl.gen.fromArray
-dvl.gen.fromColumnData = (data, acc, fn) ->
+dvl.gen.fromColumnData = (data, acc, fn, name) ->
   data = dvl.wrapConstIfNeeded(data)
   acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
   fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
 
-  gen = dvl.def(null, 'array_generator')
+  gen = dvl.def(null, name or 'column_generator')
   
   d = []
   makeGen = ->
@@ -1765,13 +1781,11 @@ dvl.svg = {}
   dvl.svg.canvas = (options) ->
     selector = options.selector
     throw 'no selector' unless selector
-    sizeRef = options.size
-    marginRef = options.margin
-    sizeDef = { width: 600, height: 400 }
-    marginDef = { top: 0, bottom: 0, left: 0, right: 0 }
+    sizeRef = dvl.wrapConstIfNeeded(options.size or { width: 600, height: 400 })
+    marginRef = dvl.wrapConstIfNeeded(options.margin or { top: 0, bottom: 0, left: 0, right: 0 })
 
-    pWidth  = dvl.def(0, 'svg_panel_width')
-    pHeight = dvl.def(0, 'svg_panel_height')
+    pWidth  = dvl.def(null, 'svg_panel_width')
+    pHeight = dvl.def(null, 'svg_panel_height')
 
     svg = d3.select(selector).append('svg:svg')
     svg.attr('class', options.classStr) if options.classStr
@@ -1782,39 +1796,42 @@ dvl.svg = {}
       bg.on(what, onFn) for what, onFn of options.on 
 
     resize = ->
-      size = if sizeRef then sizeRef.get() else sizeDef
-      margin = if marginRef then marginRef.get() else marginDef
+      size = sizeRef.get()
+      margin = marginRef.get()
+      if size and margin
+        w = size.width  - margin.left - margin.right
+        h = size.height - margin.top  - margin.bottom
 
-      w = size.width  - margin.left - margin.right
-      h = size.height - margin.top  - margin.bottom
-      notify = []
-      if pWidth.get() != w
-        pWidth.set(w)
-        notify.push pWidth
-      if pHeight != h
-        pHeight.set(h)
-        notify.push pHeight
+        if pWidth.get() != w
+          pWidth.set(w).notify()
+        if pHeight != h
+          pHeight.set(h).notify()
 
-      dvl.notify.apply(null, notify)
+        svg
+          .attr('width',  size.width)
+          .attr('height', size.height)
 
-      svg
-        .attr('width',  size.width)
-        .attr('height', size.height)
+        vis
+          .attr('transform', "translate(#{margin.left},#{margin.top})")
+          .attr('width', w)
+          .attr('height', h)
 
-      vis
-        .attr('transform', "translate(#{margin.left},#{margin.top})")
-        .attr('width', w)
-        .attr('height', h)
-
-      bg
-        .attr('width', w)
-        .attr('height', h)
+        bg
+          .attr('width', w)
+          .attr('height', h)
+      else
+        pWidth.set(null).notify()
+        pHeight.set(null).notify()
+        
+      return
 
     dvl.register({fn:resize, listen:[sizeRef, marginRef], change:[pWidth, pHeight], name:'canvas_resize'})
-
-    g: vis
-    width: pWidth
-    height: pHeight
+  
+    return {
+      g: vis
+      width: pWidth
+      height: pHeight
+    }
 
 
   dvl.svg.mouse = ({panel, outX, outY, fnX, fnY, flipX, flipY}) ->

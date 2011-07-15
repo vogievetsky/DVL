@@ -120,6 +120,24 @@ dvl.util = {
       }
       return row;
     }
+  },
+  crossSitePost: function(url, params) {
+    var clean, frame, inputs, k, post_process, v;
+    frame = d3.select('body').append('iframe').style('display', 'none');
+    clean = function(d) {
+      return d.replace(/'/g, "\\'");
+    };
+    inputs = [];
+    for (k in params) {
+      v = params[k];
+      inputs.push("<input name='" + k + "' value='" + (clean(v)) + "'/>");
+    }
+    post_process = frame.node().contentWindow.document;
+    post_process.open();
+    post_process.write("<form method='POST' action='" + url + "'>" + (inputs.join('')) + "</form>");
+    post_process.write("<script>window.onload=function(){document.forms[0].submit();}</script>");
+    post_process.close();
+    setTimeout(frame.remove, 800);
   }
   /*
     isEqual: (a, b, cmp) ->
@@ -884,14 +902,19 @@ dvl.util = {
     var g;
     file || (file = 'dvl_graph');
     g = dvl.graphToDot(false, showId);
-    jQuery.post('http://localhost:8124/' + file, g);
+    dvl.util.crossSitePost('http://localhost:8124/' + file, {
+      graph: g
+    });
     return null;
   };
   return dvl.postLatest = function(file, showId) {
-    var g;
+    var form, g;
     file || (file = 'dvl_graph_latest');
     g = dvl.graphToDot(true, showId);
-    jQuery.post('http://localhost:8124/' + file, g);
+    form = $('<form/>').attr('method', 'post').attr('action', 'http://localhost:8124/');
+    form.append($('<input type="hidden" name="file"/>').val(file));
+    form.append($('<input type="hidden" name="graph"/>').val(g));
+    form.submit();
     return null;
   };
 })();
@@ -1895,12 +1918,12 @@ dvl.gen.fromFn = function(fn) {
   gen.setGen(fn, Infinity);
   return gen;
 };
-dvl.gen.fromValue = function(value, acc, fn) {
+dvl.gen.fromValue = function(value, acc, fn, name) {
   var gen, makeGen;
   value = dvl.wrapConstIfNeeded(value);
   acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
   fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, 'value_generator');
+  gen = dvl.def(null, name || 'value_generator');
   makeGen = function() {
     var a, f, g, rv, v;
     a = acc.get();
@@ -1925,12 +1948,12 @@ dvl.gen.fromValue = function(value, acc, fn) {
   });
   return gen;
 };
-dvl.gen.fromArray = function(data, acc, fn) {
+dvl.gen.fromArray = function(data, acc, fn, name) {
   var d, gen, makeGen;
   data = dvl.wrapConstIfNeeded(data);
   acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
   fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, 'array_generator');
+  gen = dvl.def(null, name || 'array_generator');
   d = [];
   makeGen = function() {
     var a, f, g;
@@ -1957,12 +1980,12 @@ dvl.gen.fromArray = function(data, acc, fn) {
   return gen;
 };
 dvl.gen.fromRowData = dvl.gen.fromArray;
-dvl.gen.fromColumnData = function(data, acc, fn) {
+dvl.gen.fromColumnData = function(data, acc, fn, name) {
   var d, gen, makeGen;
   data = dvl.wrapConstIfNeeded(data);
   acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
   fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, 'array_generator');
+  gen = dvl.def(null, name || 'column_generator');
   d = [];
   makeGen = function() {
     var a, dObj, f, g;
@@ -2285,25 +2308,23 @@ dvl.svg = {};
     return anchor;
   };
   dvl.svg.canvas = function(options) {
-    var bg, marginDef, marginRef, onFn, pHeight, pWidth, resize, selector, sizeDef, sizeRef, svg, vis, what, _ref;
+    var bg, marginRef, onFn, pHeight, pWidth, resize, selector, sizeRef, svg, vis, what, _ref;
     selector = options.selector;
     if (!selector) {
       throw 'no selector';
     }
-    sizeRef = options.size;
-    marginRef = options.margin;
-    sizeDef = {
+    sizeRef = dvl.wrapConstIfNeeded(options.size || {
       width: 600,
       height: 400
-    };
-    marginDef = {
+    });
+    marginRef = dvl.wrapConstIfNeeded(options.margin || {
       top: 0,
       bottom: 0,
       left: 0,
       right: 0
-    };
-    pWidth = dvl.def(0, 'svg_panel_width');
-    pHeight = dvl.def(0, 'svg_panel_height');
+    });
+    pWidth = dvl.def(null, 'svg_panel_width');
+    pHeight = dvl.def(null, 'svg_panel_height');
     svg = d3.select(selector).append('svg:svg');
     if (options.classStr) {
       svg.attr('class', options.classStr);
@@ -2318,24 +2339,25 @@ dvl.svg = {};
       }
     }
     resize = function() {
-      var h, margin, notify, size, w;
-      size = sizeRef ? sizeRef.get() : sizeDef;
-      margin = marginRef ? marginRef.get() : marginDef;
-      w = size.width - margin.left - margin.right;
-      h = size.height - margin.top - margin.bottom;
-      notify = [];
-      if (pWidth.get() !== w) {
-        pWidth.set(w);
-        notify.push(pWidth);
+      var h, margin, size, w;
+      size = sizeRef.get();
+      margin = marginRef.get();
+      if (size && margin) {
+        w = size.width - margin.left - margin.right;
+        h = size.height - margin.top - margin.bottom;
+        if (pWidth.get() !== w) {
+          pWidth.set(w).notify();
+        }
+        if (pHeight !== h) {
+          pHeight.set(h).notify();
+        }
+        svg.attr('width', size.width).attr('height', size.height);
+        vis.attr('transform', "translate(" + margin.left + "," + margin.top + ")").attr('width', w).attr('height', h);
+        bg.attr('width', w).attr('height', h);
+      } else {
+        pWidth.set(null).notify();
+        pHeight.set(null).notify();
       }
-      if (pHeight !== h) {
-        pHeight.set(h);
-        notify.push(pHeight);
-      }
-      dvl.notify.apply(null, notify);
-      svg.attr('width', size.width).attr('height', size.height);
-      vis.attr('transform', "translate(" + margin.left + "," + margin.top + ")").attr('width', w).attr('height', h);
-      return bg.attr('width', w).attr('height', h);
     };
     dvl.register({
       fn: resize,
