@@ -165,7 +165,7 @@ dvl.util = {
     setTimeout(frame.remove, 800);
   },
   isEqual: function(a, b, cmp) {
-    var aKeys, ak, atype, bKeys, bk, btype, c, _i, _j, _k, _l, _len, _len2, _len3, _len4;
+    var aKeys, atype, bKeys, btype, c, k, _i, _len;
     if (a === b) {
       return true;
     }
@@ -180,13 +180,13 @@ dvl.util = {
     if (atype === 'date') {
       return a.getTime() === b.getTime();
     }
-    if (isNaN(a) && isNaN(b)) {
+    if (a !== a && b !== b) {
       return false;
     }
     if (atype === 'regex') {
       return a.source === b.source && a.global === b.global && a.ignoreCase === b.ignoreCase && a.multiline === b.multiline;
     }
-    if (atype === 'object' || atype === 'array') {
+    if (!(atype === 'object' || atype === 'array')) {
       return false;
     }
     if (cmp) {
@@ -201,14 +201,12 @@ dvl.util = {
       return false;
     }
     aKeys = [];
-    for (_j = 0, _len2 = a.length; _j < _len2; _j++) {
-      ak = a[_j];
-      aKeys.push(ak);
+    for (k in a) {
+      aKeys.push(k);
     }
     bKeys = [];
-    for (_k = 0, _len3 = b.length; _k < _len3; _k++) {
-      bk = b[_k];
-      bKeys.push(bk);
+    for (k in b) {
+      bKeys.push(k);
     }
     if (aKeys.length !== bKeys.length) {
       return false;
@@ -218,9 +216,9 @@ dvl.util = {
       a: a,
       b: b
     });
-    for (_l = 0, _len4 = a.length; _l < _len4; _l++) {
-      ak = a[_l];
-      if (!(__indexOf.call(b, ak) >= 0 && dvl.util.isEqual(a[ak], b[ak], cmp))) {
+    for (k in a) {
+      debug(k);
+      if (!((b[k] != null) && dvl.util.isEqual(a[k], b[k], cmp))) {
         return false;
       }
     }

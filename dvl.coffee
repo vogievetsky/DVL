@@ -140,11 +140,11 @@ dvl.util = {
     # Check dates' integer values.
     return a.getTime() is b.getTime() if atype is 'date'
     # Both are NaN?
-    return false if isNaN(a) and isNaN(b)
+    return false if a isnt a and b isnt b
     # and Compare regular expressions.
     return a.source is b.source and a.global is b.global and a.ignoreCase is b.ignoreCase and a.multiline is b.multiline if atype is 'regex'
     # If a is not an object by this point, we can't handle it.
-    return false if atype is 'object' or atype is 'array'
+    return false unless atype is 'object' or atype is 'array'
     # Check if already compared
     if cmp
       for c in cmp
@@ -153,16 +153,18 @@ dvl.util = {
     return false if a.length? and a.length isnt b.length
     # Nothing else worked, deep compare the contents.
     aKeys = []
-    aKeys.push ak for ak in a
+    aKeys.push k for k of a
     bKeys = []
-    bKeys.push bk for bk in b
+    bKeys.push k for k of b
     # Different object sizes?
     return false if aKeys.length isnt bKeys.length
     # Recursive comparison of contents.
     cmp = if cmp then cmp.slice() else []
-    cmp.push({a:a,b:b});
-    for ak in a
-      return false unless ak in b and dvl.util.isEqual(a[ak], b[ak], cmp)
+    cmp.push {a,b}
+    for k of a
+      debug k
+      return false unless b[k]? and dvl.util.isEqual(a[k], b[k], cmp)
+    
     return true
 
 }
