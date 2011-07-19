@@ -3410,7 +3410,7 @@ dvl.html.linkList = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, divCont, list, listDiv, myOnSelect, names, onSelect, selectedDiv, selection, selector, updateSelection, values;
+  var classStr, divCont, list, listDiv, manuOpen, myOnSelect, names, onSelect, selectedDiv, selection, selector, updateSelection, values;
   selector = _arg.selector, names = _arg.names, values = _arg.values, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr;
   if (!selector) {
     throw 'must have selector';
@@ -3418,10 +3418,12 @@ dvl.html.dropdownList = function(_arg) {
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
   values = dvl.wrapConstIfNeeded(values, 'values');
   names = dvl.wrapConstIfNeeded(names || values, 'names');
+  manuOpen = false;
   divCont = d3.select(selector).append('div').attr('class', classStr).style('position', 'relative');
   selectedDiv = divCont.append('div');
   myOnSelect = function(text, i) {
     listDiv.style('display', 'none');
+    manuOpen = false;
     return typeof onSelect === "function" ? onSelect(text, i) : void 0;
   };
   list = dvl.html.list({
@@ -3433,12 +3435,26 @@ dvl.html.dropdownList = function(_arg) {
     classStr: classStr != null ? classStr + '_list' : null
   });
   listDiv = d3.select(list.node).style('position', 'absolute').style('display', 'none');
-  selectedDiv.on('click', function() {
+  $(window).click(function(e) {
     var height, pos, sp;
-    sp = $(selectedDiv.node());
-    pos = sp.position();
-    height = sp.height();
-    return listDiv.style('display', null).style('left', pos.left + 'px').style('top', (pos.top + height) + 'px');
+    if ($(listDiv.node()).find(e.target).length) {
+      return;
+    }
+    if (selectedDiv.node() === e.target || $(selectedDiv.node()).find(e.target).length) {
+      if (manuOpen) {
+        listDiv.style('display', 'none');
+        manuOpen = false;
+      } else {
+        sp = $(selectedDiv.node());
+        pos = sp.position();
+        height = sp.height();
+        listDiv.style('display', null).style('left', pos.left + 'px').style('top', (pos.top + height) + 'px');
+        manuOpen = true;
+      }
+    } else {
+      listDiv.style('display', 'none');
+      manuOpen = false;
+    }
   });
   updateSelection = function() {
     var i, len, ng, sel, vg;

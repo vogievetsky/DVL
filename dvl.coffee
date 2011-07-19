@@ -2637,6 +2637,8 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
   values = dvl.wrapConstIfNeeded(values, 'values')
   names = dvl.wrapConstIfNeeded(names or values, 'names')
   
+  manuOpen = false
+  
   divCont = d3.select(selector)
     .append('div')
     .attr('class', classStr)
@@ -2647,6 +2649,7 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
   myOnSelect = (text, i) ->
     # hide the menu after selection
     listDiv.style('display', 'none')
+    manuOpen = false
     onSelect?(text, i)
   
   list = dvl.html.list {
@@ -2662,14 +2665,27 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
     .style('position', 'absolute')
     .style('display', 'none')
   
-  selectedDiv.on('click', ->
-    sp = $(selectedDiv.node())
-    pos = sp.position()
-    height = sp.height()
-    listDiv
-      .style('display', null)
-      .style('left', pos.left + 'px')
-      .style('top', (pos.top + height) + 'px')
+  $(window).click((e) ->
+    return if $(listDiv.node()).find(e.target).length
+    
+    if selectedDiv.node() is e.target or $(selectedDiv.node()).find(e.target).length
+      if manuOpen
+        listDiv.style('display', 'none')
+        manuOpen = false
+      else
+        sp = $(selectedDiv.node())
+        pos = sp.position()
+        height = sp.height()
+        listDiv
+          .style('display', null)
+          .style('left', pos.left + 'px')
+          .style('top', (pos.top + height) + 'px')
+        manuOpen = true
+    else
+      listDiv.style('display', 'none')
+      manuOpen = false
+      
+    return
   )
   
   updateSelection = ->
