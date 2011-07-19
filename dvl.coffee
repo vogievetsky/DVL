@@ -3,8 +3,6 @@
 # DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
 
-# hamer@cladera.com
-
 # Check that we have everything we need.
 throw 'd3 is needed for now.' unless d3
 throw 'protovis is needed for now.' unless pv
@@ -113,7 +111,7 @@ dvl.util = {
         row[k] = vs[i]
       return row
       
-  crossSitePost: (url, params) ->
+  crossDomainPost: (url, params) ->
     frame = d3.select('body').append('iframe').style('display', 'none')
     
     clean = (d) -> d.replace(/'/g, "\\'")
@@ -167,6 +165,19 @@ dvl.util = {
     
     return true
 
+  clone: (obj) ->
+    t = dvl.typeOf(obj)
+    switch t
+      when 'array'
+        return obj.slice()
+      when 'object'
+        ret = {}
+        ret[k] = v for k,v of obj
+        return ret
+      when 'date'
+        return new Date(obj.getTime())
+      else
+        return obj
 }
 
 (->
@@ -670,13 +681,13 @@ dvl.util = {
   dvl.postGraph = (file, showId) ->
     file or= 'dvl_graph'
     g = dvl.graphToDot(false, showId)
-    dvl.util.crossSitePost('http://localhost:8124/' + file, { graph: g })
+    dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: g })
     null
     
   dvl.postLatest = (file, showId) ->
     file or= 'dvl_graph_latest'
     g = dvl.graphToDot(true, showId)
-    dvl.util.crossSitePost('http://localhost:8124/' + file, { graph: g })
+    dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: g })
     null
 
 )()
@@ -1092,7 +1103,7 @@ dvl.json.cacheManager = ({max}) ->
     retrieve: (query) ->
       c = cache[query]
       c.time = (new Date()).valueOf()
-      return c.data.slice()
+      return dvl.util.clone(c.data)
   }
 
 
@@ -2638,10 +2649,12 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
   names = dvl.wrapConstIfNeeded(names or values, 'names')
   
   manuOpen = false
+  getClass = ->
+    (if classStr? then classStr else '') + ' ' + (if manuOpen then 'open' else 'closed')
   
   divCont = d3.select(selector)
     .append('div')
-    .attr('class', classStr)
+    .attr('class', getClass())
     .style('position', 'relative')
   
   selectedDiv = divCont.append('div')
@@ -2655,11 +2668,14 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
       .style('left', pos.left + 'px')
       .style('top', (pos.top + height) + 'px')
     manuOpen = true
+    divCont.attr('class', getClass())
     return
     
   close = () ->
     listDiv.style('display', 'none')
     manuOpen = false
+    divCont.attr('class', getClass())
+    return
     
   myOnSelect = (text, i) ->
     # hide the menu after selection

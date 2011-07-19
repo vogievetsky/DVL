@@ -146,7 +146,7 @@ dvl.util = {
       return row;
     }
   },
-  crossSitePost: function(url, params) {
+  crossDomainPost: function(url, params) {
     var clean, frame, inputs, k, post_process, v;
     frame = d3.select('body').append('iframe').style('display', 'none');
     clean = function(d) {
@@ -223,6 +223,25 @@ dvl.util = {
       }
     }
     return true;
+  },
+  clone: function(obj) {
+    var k, ret, t, v;
+    t = dvl.typeOf(obj);
+    switch (t) {
+      case 'array':
+        return obj.slice();
+      case 'object':
+        ret = {};
+        for (k in obj) {
+          v = obj[k];
+          ret[k] = v;
+        }
+        return ret;
+      case 'date':
+        return new Date(obj.getTime());
+      default:
+        return obj;
+    }
   }
 };
 (function() {
@@ -928,7 +947,7 @@ dvl.util = {
     var g;
     file || (file = 'dvl_graph');
     g = dvl.graphToDot(false, showId);
-    dvl.util.crossSitePost('http://localhost:8124/' + file, {
+    dvl.util.crossDomainPost('http://localhost:8124/' + file, {
       graph: g
     });
     return null;
@@ -937,7 +956,7 @@ dvl.util = {
     var g;
     file || (file = 'dvl_graph_latest');
     g = dvl.graphToDot(true, showId);
-    dvl.util.crossSitePost('http://localhost:8124/' + file, {
+    dvl.util.crossDomainPost('http://localhost:8124/' + file, {
       graph: g
     });
     return null;
@@ -1461,7 +1480,7 @@ dvl.json.cacheManager = function(_arg) {
       var c;
       c = cache[query];
       c.time = (new Date()).valueOf();
-      return c.data.slice();
+      return dvl.util.clone(c.data);
     }
   };
 };
@@ -3410,7 +3429,7 @@ dvl.html.linkList = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, list, listDiv, manuOpen, myOnSelect, names, onSelect, open, selectedDiv, selection, selector, updateSelection, values;
+  var classStr, close, divCont, getClass, list, listDiv, manuOpen, myOnSelect, names, onSelect, open, selectedDiv, selection, selector, updateSelection, values;
   selector = _arg.selector, names = _arg.names, values = _arg.values, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr;
   if (!selector) {
     throw 'must have selector';
@@ -3419,7 +3438,10 @@ dvl.html.dropdownList = function(_arg) {
   values = dvl.wrapConstIfNeeded(values, 'values');
   names = dvl.wrapConstIfNeeded(names || values, 'names');
   manuOpen = false;
-  divCont = d3.select(selector).append('div').attr('class', classStr).style('position', 'relative');
+  getClass = function() {
+    return (classStr != null ? classStr : '') + ' ' + (manuOpen ? 'open' : 'closed');
+  };
+  divCont = d3.select(selector).append('div').attr('class', getClass()).style('position', 'relative');
   selectedDiv = divCont.append('div');
   open = function() {
     var height, pos, sp;
@@ -3428,10 +3450,12 @@ dvl.html.dropdownList = function(_arg) {
     height = sp.height();
     listDiv.style('display', null).style('left', pos.left + 'px').style('top', (pos.top + height) + 'px');
     manuOpen = true;
+    divCont.attr('class', getClass());
   };
   close = function() {
     listDiv.style('display', 'none');
-    return manuOpen = false;
+    manuOpen = false;
+    divCont.attr('class', getClass());
   };
   myOnSelect = function(text, i) {
     close();
