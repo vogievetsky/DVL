@@ -1092,7 +1092,7 @@ dvl.json.cacheManager = ({max}) ->
     retrieve: (query) ->
       c = cache[query]
       c.time = (new Date()).valueOf()
-      return c.data
+      return c.data.slice()
   }
 
 
@@ -2646,10 +2646,24 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
   
   selectedDiv = divCont.append('div')
   
-  myOnSelect = (text, i) ->
-    # hide the menu after selection
+  open = () ->
+    sp = $(selectedDiv.node())
+    pos = sp.position()
+    height = sp.height()
+    listDiv
+      .style('display', null)
+      .style('left', pos.left + 'px')
+      .style('top', (pos.top + height) + 'px')
+    manuOpen = true
+    return
+    
+  close = () ->
     listDiv.style('display', 'none')
     manuOpen = false
+    
+  myOnSelect = (text, i) ->
+    # hide the menu after selection
+    close()
     onSelect?(text, i)
   
   list = dvl.html.list {
@@ -2663,6 +2677,7 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
   
   listDiv = d3.select(list.node)
     .style('position', 'absolute')
+    .style('z-index', 1000)
     .style('display', 'none')
   
   $(window).click((e) ->
@@ -2670,22 +2685,17 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
     
     if selectedDiv.node() is e.target or $(selectedDiv.node()).find(e.target).length
       if manuOpen
-        listDiv.style('display', 'none')
-        manuOpen = false
+        close()
       else
-        sp = $(selectedDiv.node())
-        pos = sp.position()
-        height = sp.height()
-        listDiv
-          .style('display', null)
-          .style('left', pos.left + 'px')
-          .style('top', (pos.top + height) + 'px')
-        manuOpen = true
+        open()
     else
-      listDiv.style('display', 'none')
-      manuOpen = false
+      close()
       
-    return
+    return {
+      node: divCont.node()
+      open:  -> setTimeout(open, 1)
+      close: -> setTimeout(close, 1)
+    }
   )
   
   updateSelection = ->

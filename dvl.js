@@ -1461,7 +1461,7 @@ dvl.json.cacheManager = function(_arg) {
       var c;
       c = cache[query];
       c.time = (new Date()).valueOf();
-      return c.data;
+      return c.data.slice();
     }
   };
 };
@@ -3410,7 +3410,7 @@ dvl.html.linkList = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, divCont, list, listDiv, manuOpen, myOnSelect, names, onSelect, selectedDiv, selection, selector, updateSelection, values;
+  var classStr, close, divCont, list, listDiv, manuOpen, myOnSelect, names, onSelect, open, selectedDiv, selection, selector, updateSelection, values;
   selector = _arg.selector, names = _arg.names, values = _arg.values, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr;
   if (!selector) {
     throw 'must have selector';
@@ -3421,9 +3421,20 @@ dvl.html.dropdownList = function(_arg) {
   manuOpen = false;
   divCont = d3.select(selector).append('div').attr('class', classStr).style('position', 'relative');
   selectedDiv = divCont.append('div');
-  myOnSelect = function(text, i) {
+  open = function() {
+    var height, pos, sp;
+    sp = $(selectedDiv.node());
+    pos = sp.position();
+    height = sp.height();
+    listDiv.style('display', null).style('left', pos.left + 'px').style('top', (pos.top + height) + 'px');
+    manuOpen = true;
+  };
+  close = function() {
     listDiv.style('display', 'none');
-    manuOpen = false;
+    return manuOpen = false;
+  };
+  myOnSelect = function(text, i) {
+    close();
     return typeof onSelect === "function" ? onSelect(text, i) : void 0;
   };
   list = dvl.html.list({
@@ -3434,27 +3445,29 @@ dvl.html.dropdownList = function(_arg) {
     onSelect: myOnSelect,
     classStr: classStr != null ? classStr + '_list' : null
   });
-  listDiv = d3.select(list.node).style('position', 'absolute').style('display', 'none');
+  listDiv = d3.select(list.node).style('position', 'absolute').style('z-index', 1000).style('display', 'none');
   $(window).click(function(e) {
-    var height, pos, sp;
     if ($(listDiv.node()).find(e.target).length) {
       return;
     }
     if (selectedDiv.node() === e.target || $(selectedDiv.node()).find(e.target).length) {
       if (manuOpen) {
-        listDiv.style('display', 'none');
-        manuOpen = false;
+        close();
       } else {
-        sp = $(selectedDiv.node());
-        pos = sp.position();
-        height = sp.height();
-        listDiv.style('display', null).style('left', pos.left + 'px').style('top', (pos.top + height) + 'px');
-        manuOpen = true;
+        open();
       }
     } else {
-      listDiv.style('display', 'none');
-      manuOpen = false;
+      close();
     }
+    return {
+      node: divCont.node(),
+      open: function() {
+        return setTimeout(open, 1);
+      },
+      close: function() {
+        return setTimeout(close, 1);
+      }
+    };
   });
   updateSelection = function() {
     var i, len, ng, sel, vg;
