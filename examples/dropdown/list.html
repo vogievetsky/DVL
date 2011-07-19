@@ -19,6 +19,27 @@ li.selected {
   color: red;
 }
 
+#cont1 {
+  background-color: #f0f0f0;
+}
+
+#cont2 {
+  background-color: #f0f0f0;
+}
+
+#cont3 {
+  background-color: #f0f0f0;
+}
+
+#cont3 span {
+  width: 100px;
+}
+
+#cont3 ul {
+  background-color: #e0e0f0;
+  margin: 0px;
+}
+
     </style>
 
   </head>
@@ -27,42 +48,41 @@ li.selected {
     </div>
     <div id="cont2">
     </div>
+    <div id="cont3">
+    </div>
     <div>
       Selection: <span id="out1"></span>
     </div>
-    <div>
-      Selection Index: <span id="out2"></span>
-    </div>
   </body>
   <script type="text/javascript">
-    var items = dvl.def("Hello,How,Are,You".split(','), 'items');
+    var names  = dvl.def("Hello,How,Are,You".split(','), 'items');
+    var values = dvl.def("h3llo,how,are,you".split(','), 'items');
     var links = dvl.def("http://google.com", 'link');
     var selection = dvl.def(null, 'selection');
-    var selectionIndex = dvl.def(null, 'selection_index');
   
     dvl.html.linkList({
       selector: '#cont1',
-      items: items,
+      names: names,
       links: links
     });
   
     dvl.html.list({
       selector: '#cont2',
-      items: items,
-      selection: selection,
-      selectionIndex: selectionIndex
+      names: names,
+      values: values,
+      selection: selection
+    });
+    
+    dvl.html.dropdownList({
+      selector: '#cont3',
+      names: names,
+      values: values,
+      selection: selection
     });
     
     dvl.html.out({
       selector: '#out1',
       data: selection,
-      invalid: '<invalid>',
-      text: true
-    });
-    
-    dvl.html.out({
-      selector: '#out2',
-      data: selectionIndex,
       invalid: '<invalid>',
       text: true
     });

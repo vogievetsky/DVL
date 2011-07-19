@@ -928,21 +928,25 @@ dvl.json = (->
   
     dvl.notify.apply(null, notify)
   
-  getData = (data) ->
+  getData = (data, status) ->
     q = this.q
     if this.url is q.url.get()
-      if q.map
-        m = q.map
-        mappedData = []
-        for d, i in data
-          md = m(d)
-          mappedData.push md if md isnt undefined
-        data = mappedData
+      if not this.url or status isnt 'cache'
+        if q.map
+          m = q.map
+          mappedData = []
+          for d, i in data
+            md = m(d)
+            mappedData.push md if md isnt undefined
+          data = mappedData
   
-      if q.fn
-        data = q.fn(data) 
+        if q.fn
+          data = q.fn(data) 
 
-      q.data = data
+        q.data = data
+        q.cache.store(this.url, data) if this.url and q.cache 
+      else
+        q.data = q.cache.retrieve(this.url)
       
     q.status = 'ready'
     q.curAjax = null
@@ -970,19 +974,26 @@ dvl.json = (->
     url = q.url.get()
     ctx = { q, request, url }
     if url?
-      q.curAjax.abort() if q.curAjax
-      q.curAjax = jQuery.ajax
-        url: url
-        type: 'GET'
-        dataType: 'json'
-        success: getData
-        error: getError
-        context: ctx
-        
-      if q.invalidOnLoad.get()
+      if q.cache?.has(url)
+        # load from cache
         setTimeout((->
-          q.res.update(null)
+          getData.call(ctx, null, 'cache')
         ), 1)
+      else
+        # load from server
+        q.curAjax.abort() if q.curAjax
+        q.curAjax = jQuery.ajax
+          url: url
+          type: 'GET'
+          dataType: 'json'
+          success: getData
+          error: getError
+          context: ctx
+        
+        if q.invalidOnLoad.get()
+          setTimeout((->
+            q.res.update(null)
+          ), 1)
     else
       setTimeout((->
         getData.call(ctx, null)
@@ -1020,7 +1031,7 @@ dvl.json = (->
     null
   
 
-  return ({url, type, map, fn, invalidOnLoad, onError, group, name}) ->
+  return ({url, type, map, fn, invalidOnLoad, onError, group, cache, name}) ->
     throw 'it does not make sense to not have a url' unless url
     throw 'the map function must be non DVL variable' if map and dvl.knows(map)
     throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
@@ -1037,6 +1048,7 @@ dvl.json = (->
       status: 'virgin'
       type: type || 'json'
       group
+      cache
       onError
       invalidOnLoad
     }
@@ -1046,6 +1058,43 @@ dvl.json = (->
     addHoock(url, q.res)
     return q.res
 )()
+
+
+dvl.json.cacheManager = ({max}) ->
+  max = dvl.wrapConstIfNeeded(max or 100)
+  cache = {}
+  count = 0
+  
+  trim = ->
+    m = max.get()
+    while m < count
+      oldestQuery = null
+      oldestTime = 0
+      for q,d of cache
+        if oldestTime < d.time
+          oldestTime = d.time
+          oldestQuery = q
+      delete cache[oldestQuery]
+      count--
+      
+  dvl.register {fn:trim, listen:[max], name:'cache_trim'}
+  
+  return {
+    store: (query, data) ->
+      cache[query] = { time:(new Date()).valueOf(), data }
+      count++
+      trim()
+      return
+
+    has: (query) ->
+      return not not cache[query]
+    
+    retrieve: (query) ->
+      c = cache[query]
+      c.time = (new Date()).valueOf()
+      return c.data
+  }
+
 
 
 # ToDo: rewrite this:
@@ -2506,33 +2555,28 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({selector, items, links, selection, selectionIndex, onSelect, classStr}) ->
+dvl.html.list = ({selector, names, values, selection, onSelect, classStr}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
-  selectionIndex = dvl.wrapVarIfNeeded(selectionIndex, 'selection_index')
-  items = dvl.wrapConstIfNeeded(items, 'items')
+  
+  values = dvl.wrapConstIfNeeded(values, 'values')
+  names = dvl.wrapConstIfNeeded(names or values, 'names')
   
   ul = d3.select(selector).append('ul').attr('class', classStr)
   
-  updateSelection = ->
-    si = selectionIndex.get()
-    ul.selectAll('li')
-      .attr('class', (i) -> if i is si then 'selected' else null)
-    return
-    
-  dvl.register({fn:updateSelection, listen:[selectionIndex], name:'html_list_selection'})
-  
   updateList = ->
-    len = items.len()
-    gen = items.gen()
+    len = Math.min(values.len(), names.len())
+    len = 1 if len is Infinity
+    
+    ng = names.gen()
+    vg = values.gen()
     
     updateLi = (li) ->
-      li.text(gen)
+      li.text(ng)
         .on('click', (i) ->
-          text = gen(i)
-          selection.set(text)
-          selectionIndex.set(i)
-          dvl.notify(selection, selectionIndex)
+          text = ng(i)
+          selection.set(vg(i))
+          dvl.notify(selection)
           onSelect?(text, i)
         )
     
@@ -2542,28 +2586,39 @@ dvl.html.list = ({selector, items, links, selection, selectionIndex, onSelect, c
     sel.exit().remove()
     return
   
-  dvl.register({fn:updateList, listen:[items], name:'html_list'})
-  return { selection, selectionIndex }
+  dvl.register({fn:updateList, listen:[names, values], name:'html_list'})
+  
+  updateSelection = ->
+    sel = selection.get()
+    vg = values.gen()
+    
+    ul.selectAll('li')
+      .attr('class', (i) -> if vg(i) is sel then 'selected' else null)
+    return
+    
+  dvl.register({fn:updateSelection, listen:[selection, values], name:'html_list_selection'})
+  
+  return { selection, node:ul.node() }
 
 
 ##-------------------------------------------------------
 ##
 ##  Create HTML list of links
 ##
-dvl.html.linkList = ({selector, items, links, classStr}) ->
+dvl.html.linkList = ({selector, names, links, classStr}) ->
   throw 'must have selector' unless selector
-  items = dvl.wrapConstIfNeeded(items, 'items')
+  names = dvl.wrapConstIfNeeded(names, 'names')
   links = dvl.wrapConstIfNeeded(links, 'links')
 
   ul = d3.select(selector).append('ul').attr('class', classStr)
 
   updateList = ->
-    len = Math.min(items.len(), links.len())
-    itemGen = items.gen()
+    len = Math.min(names.len(), links.len())
+    nameGen = names.gen()
     linkGen = links.gen()
 
     updateA = (a) ->
-      a.attr('href', linkGen).text(itemGen)
+      a.attr('href', linkGen).text(nameGen)
 
     sel = ul.selectAll('li').data(d3.range(len))
     updateA sel.enter('li').append('a')
@@ -2571,9 +2626,75 @@ dvl.html.linkList = ({selector, items, links, classStr}) ->
     sel.exit().remove()
     return
 
-  dvl.register({fn:updateList, listen:[items], name:'html_link_list'})
-  return
+  dvl.register({fn:updateList, listen:[names], name:'html_link_list'})
+  return { node: ul.node() }
 
+
+dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr}) ->
+  throw 'must have selector' unless selector
+  selection = dvl.wrapVarIfNeeded(selection, 'selection')
+  
+  values = dvl.wrapConstIfNeeded(values, 'values')
+  names = dvl.wrapConstIfNeeded(names or values, 'names')
+  
+  divCont = d3.select(selector)
+    .append('div')
+    .attr('class', classStr)
+    .style('position', 'relative')
+  
+  selectedDiv = divCont.append('div')
+  
+  myOnSelect = (text, i) ->
+    # hide the menu after selection
+    listDiv.style('display', 'none')
+    onSelect?(text, i)
+  
+  list = dvl.html.list {
+    selector: divCont.node()
+    names
+    values
+    selection
+    onSelect: myOnSelect
+    classStr: if classStr? then classStr + '_list' else null
+  }
+  
+  listDiv = d3.select(list.node)
+    .style('position', 'absolute')
+    .style('display', 'none')
+  
+  selectedDiv.on('click', ->
+    sp = $(selectedDiv.node())
+    pos = sp.position()
+    height = sp.height()
+    listDiv
+      .style('display', null)
+      .style('left', pos.left + 'px')
+      .style('top', (pos.top + height) + 'px')
+  )
+  
+  updateSelection = ->
+    sel = selection.get()
+    if sel?
+      len = values.len()
+      ng = names.gen()
+      vg = values.gen()
+      i = 0
+      while i < len
+        if vg(i) is sel
+          selectedDiv.text(ng(i))
+          return
+        i++ 
+    else
+      selectedDiv.html('&nbsp;')
+    return
+    
+  dvl.register {
+    fn:updateSelection
+    listen:[selection, names, values]
+    name:'selection_updater'
+  }
+
+  return { node: divCont.node() }
 
 
 ##-------------------------------------------------------
@@ -2607,6 +2728,7 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
     fn: ->
       if selectEl.node().value isnt selection.get()
         selectEl.node().value = selection.get()
+      return
   }
         
   
