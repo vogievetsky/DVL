@@ -60,10 +60,12 @@ li.selected {
     var links = dvl.def("http://google.com", 'link');
     var selection = dvl.def(null, 'selection');
   
-    dvl.html.linkList({
+    dvl.html.list({
       selector: '#cont1',
       names: names,
-      links: links
+      values: values,
+      links: links,
+      selection: selection
     });
   
     dvl.html.list({

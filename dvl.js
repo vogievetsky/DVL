@@ -3339,37 +3339,67 @@ dvl.html.out = function(_arg) {
   return null;
 };
 dvl.html.list = function(_arg) {
-  var classStr, names, onSelect, selection, selector, ul, updateList, updateSelection, values;
-  selector = _arg.selector, names = _arg.names, values = _arg.values, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr;
+  var classStr, links, names, onSelect, selection, selector, ul, updateList, updateSelection, values;
+  selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr;
   if (!selector) {
     throw 'must have selector';
   }
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
-  values = dvl.wrapConstIfNeeded(values, 'values');
-  names = dvl.wrapConstIfNeeded(names || values, 'names');
+  values = dvl.wrapConstIfNeeded(values);
+  names = dvl.wrapConstIfNeeded(names || values);
+  links = links ? dvl.wrapConstIfNeeded(links) : false;
   ul = d3.select(selector).append('ul').attr('class', classStr);
-  updateList = function() {
-    var len, ng, sel, updateLi, vg;
-    len = Math.min(values.len(), names.len());
-    if (len === Infinity) {
-      len = 1;
-    }
-    ng = names.gen();
-    vg = values.gen();
-    updateLi = function(li) {
-      return li.text(ng).on('click', function(i) {
-        var text;
-        text = ng(i);
-        selection.set(vg(i));
-        dvl.notify(selection);
-        return typeof onSelect === "function" ? onSelect(text, i) : void 0;
-      });
+  if (links) {
+    updateList = function() {
+      var len, lg, ng, sel, updateLi;
+      len = Math.min(names.len(), links.len());
+      if (len === Infinity) {
+        len = 1;
+      }
+      ng = names.gen();
+      lg = links.gen();
+      updateLi = function(li, enter) {
+        var a;
+        li.on('click', function(i) {
+          var text;
+          text = ng(i);
+          if (typeof onSelect === "function") {
+            onSelect(text, i);
+          }
+          return window.location.href = lg(i);
+        });
+        a = enter ? li.append('a') : li.select('a');
+        a.attr('href', lg).text(ng);
+      };
+      sel = ul.selectAll('li').data(d3.range(len));
+      updateLi(sel.enter('li'), true);
+      updateLi(sel);
+      sel.exit().remove();
     };
-    sel = ul.selectAll('li').data(d3.range(len));
-    updateLi(sel.enter('li'));
-    updateLi(sel);
-    sel.exit().remove();
-  };
+  } else {
+    updateList = function() {
+      var len, ng, sel, updateLi, vg;
+      len = Math.min(values.len(), names.len());
+      if (len === Infinity) {
+        len = 1;
+      }
+      ng = names.gen();
+      vg = values.gen();
+      updateLi = function(li) {
+        li.text(ng).on('click', function(i) {
+          var text;
+          text = ng(i);
+          selection.set(vg(i));
+          dvl.notify(selection);
+          return typeof onSelect === "function" ? onSelect(text, i) : void 0;
+        });
+      };
+      sel = ul.selectAll('li').data(d3.range(len));
+      updateLi(sel.enter('li'));
+      updateLi(sel);
+      sel.exit().remove();
+    };
+  }
   dvl.register({
     fn: updateList,
     listen: [names, values],
@@ -3397,58 +3427,33 @@ dvl.html.list = function(_arg) {
     node: ul.node()
   };
 };
-dvl.html.linkList = function(_arg) {
-  var classStr, links, names, selector, ul, updateList;
-  selector = _arg.selector, names = _arg.names, links = _arg.links, classStr = _arg.classStr;
-  if (!selector) {
-    throw 'must have selector';
-  }
-  names = dvl.wrapConstIfNeeded(names, 'names');
-  links = dvl.wrapConstIfNeeded(links, 'links');
-  ul = d3.select(selector).append('ul').attr('class', classStr);
-  updateList = function() {
-    var len, linkGen, nameGen, sel, updateA;
-    len = Math.min(names.len(), links.len());
-    nameGen = names.gen();
-    linkGen = links.gen();
-    updateA = function(a) {
-      return a.attr('href', linkGen).text(nameGen);
-    };
-    sel = ul.selectAll('li').data(d3.range(len));
-    updateA(sel.enter('li').append('a'));
-    updateA(sel.select('a'));
-    sel.exit().remove();
-  };
-  dvl.register({
-    fn: updateList,
-    listen: [names],
-    name: 'html_link_list'
-  });
-  return {
-    node: ul.node()
-  };
-};
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, list, listDiv, manuOpen, myOnSelect, names, onSelect, open, selectedDiv, selection, selector, updateSelection, values;
-  selector = _arg.selector, names = _arg.names, values = _arg.values, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr;
+  var classStr, close, divCont, getClass, links, list, listDiv, manuOpen, menuOffset, myOnSelect, names, onSelect, open, selectedDiv, selection, selector, updateSelection, values;
+  selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, menuOffset = _arg.menuOffset;
   if (!selector) {
     throw 'must have selector';
   }
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
-  values = dvl.wrapConstIfNeeded(values, 'values');
-  names = dvl.wrapConstIfNeeded(names || values, 'names');
+  menuOffset = dvl.wrapConstIfNeeded(menuOffset || {
+    x: 0,
+    y: 0
+  });
+  values = dvl.wrapConstIfNeeded(values);
+  names = dvl.wrapConstIfNeeded(names || values);
+  links = links ? dvl.wrapConstIfNeeded(links) : false;
   manuOpen = false;
   getClass = function() {
     return (classStr != null ? classStr : '') + ' ' + (manuOpen ? 'open' : 'closed');
   };
   divCont = d3.select(selector).append('div').attr('class', getClass()).style('position', 'relative');
-  selectedDiv = divCont.append('div');
+  selectedDiv = divCont.append('div').attr('class', 'selection');
   open = function() {
-    var height, pos, sp;
+    var height, offset, pos, sp;
     sp = $(selectedDiv.node());
     pos = sp.position();
-    height = sp.height();
-    listDiv.style('display', null).style('left', pos.left + 'px').style('top', (pos.top + height) + 'px');
+    height = sp.outerHeight(true);
+    offset = menuOffset.get();
+    listDiv.style('display', null).style('left', (pos.left + offset.x) + 'px').style('top', (pos.top + height + offset.y) + 'px');
     manuOpen = true;
     divCont.attr('class', getClass());
   };
@@ -3465,9 +3470,10 @@ dvl.html.dropdownList = function(_arg) {
     selector: divCont.node(),
     names: names,
     values: values,
+    links: links,
     selection: selection,
     onSelect: myOnSelect,
-    classStr: classStr != null ? classStr + '_list' : null
+    classStr: 'list'
   });
   listDiv = d3.select(list.node).style('position', 'absolute').style('z-index', 1000).style('display', 'none');
   $(window).click(function(e) {

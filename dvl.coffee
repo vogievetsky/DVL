@@ -2566,36 +2566,62 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({selector, names, values, selection, onSelect, classStr}) ->
+dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   
-  values = dvl.wrapConstIfNeeded(values, 'values')
-  names = dvl.wrapConstIfNeeded(names or values, 'names')
+  values = dvl.wrapConstIfNeeded(values)
+  names = dvl.wrapConstIfNeeded(names or values)
+  links = if links then dvl.wrapConstIfNeeded(links) else false
   
   ul = d3.select(selector).append('ul').attr('class', classStr)
   
-  updateList = ->
-    len = Math.min(values.len(), names.len())
-    len = 1 if len is Infinity
-    
-    ng = names.gen()
-    vg = values.gen()
-    
-    updateLi = (li) ->
-      li.text(ng)
-        .on('click', (i) ->
+  if links
+    updateList = ->
+      len = Math.min(names.len(), links.len())
+      len = 1 if len is Infinity
+      
+      ng = names.gen()
+      lg = links.gen()
+
+      updateLi = (li, enter) ->
+        li.on('click', (i) ->
           text = ng(i)
-          selection.set(vg(i))
-          dvl.notify(selection)
           onSelect?(text, i)
+          window.location.href = lg(i)
         )
+        a = if enter then li.append('a') else li.select('a')
+        a.attr('href', lg).text(ng)
+        return
+
+      sel = ul.selectAll('li').data(d3.range(len))
+      updateLi sel.enter('li'), true
+      updateLi sel
+      sel.exit().remove()
+      return
+  else
+    updateList = ->
+      len = Math.min(values.len(), names.len())
+      len = 1 if len is Infinity
     
-    sel = ul.selectAll('li').data(d3.range(len))
-    updateLi sel.enter('li')
-    updateLi sel
-    sel.exit().remove()
-    return
+      ng = names.gen()
+      vg = values.gen()
+    
+      updateLi = (li) ->
+        li.text(ng)
+          .on('click', (i) ->
+            text = ng(i)
+            selection.set(vg(i))
+            dvl.notify(selection)
+            onSelect?(text, i)
+          )
+        return
+    
+      sel = ul.selectAll('li').data(d3.range(len))
+      updateLi sel.enter('li')
+      updateLi sel
+      sel.exit().remove()
+      return
   
   dvl.register({fn:updateList, listen:[names, values], name:'html_list'})
   
@@ -2612,41 +2638,14 @@ dvl.html.list = ({selector, names, values, selection, onSelect, classStr}) ->
   return { selection, node:ul.node() }
 
 
-##-------------------------------------------------------
-##
-##  Create HTML list of links
-##
-dvl.html.linkList = ({selector, names, links, classStr}) ->
-  throw 'must have selector' unless selector
-  names = dvl.wrapConstIfNeeded(names, 'names')
-  links = dvl.wrapConstIfNeeded(links, 'links')
-
-  ul = d3.select(selector).append('ul').attr('class', classStr)
-
-  updateList = ->
-    len = Math.min(names.len(), links.len())
-    nameGen = names.gen()
-    linkGen = links.gen()
-
-    updateA = (a) ->
-      a.attr('href', linkGen).text(nameGen)
-
-    sel = ul.selectAll('li').data(d3.range(len))
-    updateA sel.enter('li').append('a')
-    updateA sel.select('a')
-    sel.exit().remove()
-    return
-
-  dvl.register({fn:updateList, listen:[names], name:'html_link_list'})
-  return { node: ul.node() }
-
-
-dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr}) ->
+dvl.html.dropdownList = ({selector, names, values, links, selection, onSelect, classStr, menuOffset}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
+  menuOffset = dvl.wrapConstIfNeeded(menuOffset or { x:0, y:0 })
   
-  values = dvl.wrapConstIfNeeded(values, 'values')
-  names = dvl.wrapConstIfNeeded(names or values, 'names')
+  values = dvl.wrapConstIfNeeded(values)
+  names = dvl.wrapConstIfNeeded(names or values)
+  links = if links then dvl.wrapConstIfNeeded(links) else false
   
   manuOpen = false
   getClass = ->
@@ -2658,15 +2657,17 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
     .style('position', 'relative')
   
   selectedDiv = divCont.append('div')
+    .attr('class', 'selection')
   
   open = () ->
     sp = $(selectedDiv.node())
     pos = sp.position()
-    height = sp.height()
+    height = sp.outerHeight(true)
+    offset = menuOffset.get()
     listDiv
       .style('display', null)
-      .style('left', pos.left + 'px')
-      .style('top', (pos.top + height) + 'px')
+      .style('left', (pos.left + offset.x) + 'px')
+      .style('top', (pos.top + height + offset.y) + 'px')
     manuOpen = true
     divCont.attr('class', getClass())
     return
@@ -2676,19 +2677,20 @@ dvl.html.dropdownList = ({selector, names, values, selection, onSelect, classStr
     manuOpen = false
     divCont.attr('class', getClass())
     return
-    
+  
   myOnSelect = (text, i) ->
     # hide the menu after selection
     close()
     onSelect?(text, i)
-  
+
   list = dvl.html.list {
     selector: divCont.node()
     names
     values
+    links
     selection
     onSelect: myOnSelect
-    classStr: if classStr? then classStr + '_list' else null
+    classStr: 'list'
   }
   
   listDiv = d3.select(list.node)
