@@ -1,6 +1,6 @@
 # DVL
 
-**DVL** is a free functionally reactive library written in JavaScript. DVL is based on the idea that code should automaticity be run when the variables that it depends on change.
+**DVL** is a free functionally reactive library written in JavaScript. DVL is based on the idea that code should automaticity be run when the variables that it depends on changes.
 
 DVL consists of three parts:
 DVL core – The DVL event dispatcher and miscellaneous helper utilities.
@@ -47,13 +47,17 @@ Registers a function to be called whenever any of the registered listened to obj
 			fn: calc,
 			listen: [a, b],
 			change: [c]
-		})
+		});
 
 		c.get() //== 13
+		
+		a.set(3).notify()
+		b.set(4).notify()
+		c.get() //== 5
 
-The above example ensures that calc will be run when a or b change updating c.
+The above example ensures that calc will be run when a or b change, updating c.
 
-We must explicitly declare that calc will be changing c this is important for DVL to calculate the dependency graph and ensure that it is acyclic. Modifying a variable without specifying that it might be modified will raise an error.
+We must explicitly declare that calc will be changing c. This is important for DVL to calculate the dependency graph and ensure that it is acyclic. Modifying a variable without specifying that it might be modified will raise an error.
 
 **dvl.apply**
 
@@ -64,10 +68,16 @@ The apply function is a short-form for simplifying a common pattern found in DVL
 
 		var c = dvl.apply({
 		  args: [a, b],
-		  fn: function(av, bv) { return Math.sqrt(av*av + bv*bv); }
+		  fn: function(av, bv) { 
+		    return Math.sqrt(av*av + bv*bv); 
+		  }
 		});
 
 		c.get() //== 13
+		
+		a.set(3).notify()
+		b.set(4).notify()
+		c.get() //== 5
 		
 The above example is equivalent to the example given for dvl.register.
 
