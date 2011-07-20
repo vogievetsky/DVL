@@ -17,22 +17,30 @@ Creates a wrapped variable that can dispatch events.
 		x.get(); //== 5
 		x.set(7);
 		x.get(); //== 7
+		x.notify();
 		
-creates a wrapped DVL variable with an initial value of 5. This value can be modified through x.get() and x.set(7). To announce to the rest of the program that x has changed x.notify() can be called.
+The above example creates a wrapped DVL variable with an initial value of 5. This value can be modified through x.get() and x.set(7). To announce to the rest of the program that x has changed x.notify() can be called.
+
+The null value is used to mark that a variable is invalid. 
 
 **dvl.register**
 
 Registers a function to be called whenever any of the registered listened to objects change as well as announcing what objects the function might modify.
 
-		var a = dvl.def(3);
-		var b = dvl.def(4);
+		var a = dvl.def(5);
+		var b = dvl.def(12);
 		var c = dvl.def(null);
 
 		function calc() {
 			var av = a.get();
 			var bv = b.get();
-			c.set(Math.sqrt(av*av + bv*bv));
-			c.notify();
+			if (av !== null && bv !== null) {
+				c.set(Math.sqrt(av*av + bv*bv));
+				c.notify();
+			} else {
+				c.set(null);
+				c.notify();
+			}
 		}
 
 		dvl.register({
@@ -41,4 +49,25 @@ Registers a function to be called whenever any of the registered listened to obj
 			change: [c]
 		})
 
-		c.get() //== 5
+		c.get() //== 13
+
+The above example ensures that calc will be run when a or b change updating c.
+
+We must explicitly declare that calc will be changing c this is important for DVL to calculate the dependency graph and ensure that it is acyclic. Modifying a variable without specifying that it might be modified will raise an error.
+
+**dvl.apply**
+
+The apply function is a short-form for simplifying a common pattern found in DVL.
+
+		var a = dvl.def(5);
+		var b = dvl.def(12);
+
+		var c = dvl.apply({
+		  args: [a, b],
+		  fn: function(av, bv) { return Math.sqrt(av*av + bv*bv); }
+		});
+
+		c.get() //== 13
+		
+The above example is equivalent to the example given for dvl.register.
+
