@@ -357,9 +357,6 @@ dvl.util = {
       var val;
       if (this.lazy) {
         val = this.lazy();
-        if (this.value === val && dvl.typeOf(val) === "object") {
-          throw "lazy return must be new object in " + this.id;
-        }
         this.prev = val;
         this.value = val;
       }
@@ -376,9 +373,6 @@ dvl.util = {
       return this;
     };
     DVLDef.prototype.set = function(val) {
-      if ((val != null) && this.value === val && dvl.typeOf(val) === "object") {
-        throw "must be new object in " + this.id;
-      }
       if (!this.changed) {
         this.prev = this.value;
       }
@@ -3351,22 +3345,26 @@ dvl.html.list = function(_arg) {
   ul = d3.select(selector).append('ul').attr('class', classStr);
   if (links) {
     updateList = function() {
-      var len, lg, ng, sel, updateLi;
+      var len, lg, ng, sel, updateLi, vg;
       len = Math.min(names.len(), links.len());
       if (len === Infinity) {
         len = 1;
       }
       ng = names.gen();
+      vg = values.gen();
       lg = links.gen();
       updateLi = function(li, enter) {
         var a;
         li.on('click', function(i) {
-          var text;
-          text = ng(i);
+          var link, val;
+          val = vg(i);
           if (typeof onSelect === "function") {
-            onSelect(text, i);
+            onSelect(val, i);
           }
-          return window.location.href = lg(i);
+          link = lg(i);
+          if (link) {
+            return window.location.href = link;
+          }
         });
         a = enter ? li.append('a') : li.select('a');
         a.attr('href', lg).text(ng);
@@ -3387,11 +3385,12 @@ dvl.html.list = function(_arg) {
       vg = values.gen();
       updateLi = function(li) {
         li.text(ng).on('click', function(i) {
-          var text;
-          text = ng(i);
-          selection.set(vg(i));
-          dvl.notify(selection);
-          return typeof onSelect === "function" ? onSelect(text, i) : void 0;
+          var val;
+          val = vg(i);
+          if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
+            selection.set(vg(i));
+            return dvl.notify(selection);
+          }
         });
       };
       sel = ul.selectAll('li').data(d3.range(len));
@@ -3428,8 +3427,8 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, links, list, listDiv, manuOpen, menuOffset, myOnSelect, names, onSelect, open, selectedDiv, selection, selector, updateSelection, values;
-  selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, menuOffset = _arg.menuOffset;
+  var classStr, close, divCont, getClass, links, list, listDiv, manuOpen, menuOffset, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selector, updateSelection, values;
+  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, menuOffset = _arg.menuOffset;
   if (!selector) {
     throw 'must have selector';
   }
@@ -3440,6 +3439,7 @@ dvl.html.dropdownList = function(_arg) {
   });
   values = dvl.wrapConstIfNeeded(values);
   names = dvl.wrapConstIfNeeded(names || values);
+  selectionNames = dvl.wrapConstIfNeeded(selectionNames || names);
   links = links ? dvl.wrapConstIfNeeded(links) : false;
   manuOpen = false;
   getClass = function() {
@@ -3504,7 +3504,7 @@ dvl.html.dropdownList = function(_arg) {
     sel = selection.get();
     if (sel != null) {
       len = values.len();
-      ng = names.gen();
+      ng = selectionNames.gen();
       vg = values.gen();
       i = 0;
       while (i < len) {
@@ -3514,13 +3514,12 @@ dvl.html.dropdownList = function(_arg) {
         }
         i++;
       }
-    } else {
-      selectedDiv.html('&nbsp;');
     }
+    selectedDiv.html('&nbsp;');
   };
   dvl.register({
     fn: updateSelection,
-    listen: [selection, names, values],
+    listen: [selection, selectionNames, values],
     name: 'selection_updater'
   });
   return {
@@ -3786,9 +3785,7 @@ dvl.html.table = function(_arg) {
     }
     sel.exit().remove();
     updateTd = function(td) {
-      return td.attr('class', colClass).on('click', function(c, i) {
-        return goOrCall(c.cellClick.gen()(i), c.id);
-      });
+      return td.attr('class', colClass);
     };
     sel = b.selectAll('tr');
     row = sel.selectAll('td').data(columns);
@@ -3798,7 +3795,9 @@ dvl.html.table = function(_arg) {
     for (_m = 0, _len5 = columns.length; _m < _len5; _m++) {
       col = columns[_m];
       gen = col.gen.gen();
-      col.renderer(sel.select('td.' + col.uniquClass), gen, col.sorted);
+      col.renderer(sel.select('td.' + col.uniquClass).on('click', function(i) {
+        return goOrCall(col.cellClick.gen()(i), col.id);
+      }), gen, col.sorted);
     }
     return null;
   };
@@ -3809,7 +3808,8 @@ dvl.html.table = function(_arg) {
   });
   return {
     sortOn: sortOn,
-    sortOrder: sortOrder
+    sortOrder: sortOrder,
+    node: t.node()
   };
 };
 dvl.html.table.renderer = {

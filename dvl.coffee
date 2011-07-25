@@ -246,7 +246,6 @@ dvl.util = {
     resolveLazy: ->
       if @lazy
         val = @lazy()
-        throw "lazy return must be new object in #{@id}" if @value == val and dvl.typeOf(val) is "object"
         @prev = val
         @value = val
       null
@@ -257,7 +256,6 @@ dvl.util = {
       @changed = false
       return this
     set: (val) ->
-      throw "must be new object in #{@id}" if val? and @value is val and dvl.typeOf(val) is "object"
       @prev = @value unless @changed
       @value = val
       @vgen = undefined
@@ -2582,13 +2580,15 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
       len = 1 if len is Infinity
       
       ng = names.gen()
+      vg = values.gen()
       lg = links.gen()
 
       updateLi = (li, enter) ->
         li.on('click', (i) ->
-          text = ng(i)
-          onSelect?(text, i)
-          window.location.href = lg(i)
+          val = vg(i)
+          onSelect?(val, i)
+          link = lg(i)
+          window.location.href = link if link
         )
         a = if enter then li.append('a') else li.select('a')
         a.attr('href', lg).text(ng)
@@ -2610,10 +2610,10 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
       updateLi = (li) ->
         li.text(ng)
           .on('click', (i) ->
-            text = ng(i)
-            selection.set(vg(i))
-            dvl.notify(selection)
-            onSelect?(text, i)
+            val = vg(i)
+            if onSelect?(val, i) isnt false
+              selection.set(vg(i))
+              dvl.notify(selection)
           )
         return
     
@@ -2638,13 +2638,14 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
   return { selection, node:ul.node() }
 
 
-dvl.html.dropdownList = ({selector, names, values, links, selection, onSelect, classStr, menuOffset}) ->
+dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, menuOffset}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   menuOffset = dvl.wrapConstIfNeeded(menuOffset or { x:0, y:0 })
   
   values = dvl.wrapConstIfNeeded(values)
   names = dvl.wrapConstIfNeeded(names or values)
+  selectionNames = dvl.wrapConstIfNeeded(selectionNames or names)
   links = if links then dvl.wrapConstIfNeeded(links) else false
   
   manuOpen = false
@@ -2720,7 +2721,7 @@ dvl.html.dropdownList = ({selector, names, values, links, selection, onSelect, c
     sel = selection.get()
     if sel?
       len = values.len()
-      ng = names.gen()
+      ng = selectionNames.gen()
       vg = values.gen()
       i = 0
       while i < len
@@ -2728,13 +2729,13 @@ dvl.html.dropdownList = ({selector, names, values, links, selection, onSelect, c
           selectedDiv.text(ng(i))
           return
         i++ 
-    else
-      selectedDiv.html('&nbsp;')
+    
+    selectedDiv.html('&nbsp;')
     return
     
   dvl.register {
     fn:updateSelection
-    listen:[selection, names, values]
+    listen:[selection, selectionNames, values]
     name:'selection_updater'
   }
 
@@ -3006,9 +3007,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       sel.attr('class', gen)
     sel.exit().remove()
     
-    updateTd = (td) ->
-      td.attr('class', colClass)
-        .on('click', (c, i) -> goOrCall(c.cellClick.gen()(i), c.id))
+    updateTd = (td) -> td.attr('class', colClass)
 
     sel = b.selectAll('tr')
     row = sel.selectAll('td').data(columns)
@@ -3018,7 +3017,12 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
     for col in columns
       gen = col.gen.gen();
-      col.renderer(sel.select('td.' + col.uniquClass), gen, col.sorted)
+      col.renderer(
+        sel.select('td.' + col.uniquClass)
+          .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id)),
+        gen,
+        col.sorted
+      )
 
     null
   
@@ -3027,6 +3031,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   return {
     sortOn
     sortOrder
+    node: t.node()
   }
 
 dvl.html.table.renderer = 
