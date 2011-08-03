@@ -160,7 +160,6 @@ dvl.util = {
     cmp = if cmp then cmp.slice() else []
     cmp.push {a,b}
     for k of a
-      debug k
       return false unless b[k]? and dvl.util.isEqual(a[k], b[k], cmp)
     
     return true
@@ -733,13 +732,13 @@ dvl.debug = () ->
 
   if arguments.length == 1
     obj = dvl.wrapConstIfNeeded(arguments[0])
-    dbgPrint = ->
-      debug obj.get(), genStr(obj)
+    note = obj.name + ':'
   else
     note = arguments[0]
     obj = dvl.wrapConstIfNeeded(arguments[1])
-    dbgPrint = ->
-      debug note, obj.get(), genStr(obj)
+
+  dbgPrint = ->
+    debug note, obj.get(), genStr(obj)
   
   dvl.register({fn:dbgPrint, listen:[obj], name:'debug'})
   return obj
@@ -768,7 +767,7 @@ dvl.assert = ({data, fn, msg, allowNull}) ->
 ## 
 ##  Sets up a pipline stage that automaticaly applies the given fucntion.
 ##  
-dvl.apply = ({fn, args, out, name, invalid, allowNull}) ->
+dvl.apply = ({fn, args, out, name, invalid, allowNull, update}) ->
   fn = dvl.wrapConstIfNeeded(fn)
   throw 'dvl.apply only makes scense with at least one argument' unless args?
   args = [args] unless dvl.typeOf(args) is 'array'
@@ -789,11 +788,14 @@ dvl.apply = ({fn, args, out, name, invalid, allowNull}) ->
     
     if not nulls or allowNull
       r = f.apply(null, send)
-      if r != undefined
-        ret.set(r)
-        dvl.notify(ret)
+      return if r is undefined
     else
-      ret.set(invalid.get())
+      r = invalid.get()
+    
+    if dvl.valueOf(update)
+      ret.update(r)
+    else
+      ret.set(r)
       dvl.notify(ret)
     
   dvl.register({fn:apply, listen:args.concat([fn, invalid]), change:[ret], name:(name or 'apply')+'_fn'})
@@ -1069,24 +1071,33 @@ dvl.json = (->
 )()
 
 
-dvl.json.cacheManager = ({max}) ->
+dvl.json.cacheManager = ({max, timeout}) ->
   max = dvl.wrapConstIfNeeded(max or 100)
+  timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
   cache = {}
   count = 0
   
   trim = ->
+    tout = timeout.get()
+    if tout > 0
+      cutoff = (new Date()).valueOf() - tout
+      newCache = {}
+      for q,d of cache
+        newCache[q] = d if cutoff < d.time
+      cache = newCache
+    
     m = max.get()
     while m < count
       oldestQuery = null
-      oldestTime = 0
+      oldestTime = Infinity
       for q,d of cache
-        if oldestTime < d.time
+        if d.time < oldestTime
           oldestTime = d.time
           oldestQuery = q
       delete cache[oldestQuery]
       count--
       
-  dvl.register {fn:trim, listen:[max], name:'cache_trim'}
+  dvl.register {fn:trim, listen:[max, timeout], name:'cache_trim'}
   
   return {
     store: (query, data) ->
@@ -1096,6 +1107,7 @@ dvl.json.cacheManager = ({max}) ->
       return
 
     has: (query) ->
+      trim()
       return not not cache[query]
     
     retrieve: (query) ->
@@ -2623,7 +2635,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
       sel.exit().remove()
       return
   
-  dvl.register({fn:updateList, listen:[names, values], name:'html_list'})
+  dvl.register({fn:updateList, listen:[names, values, links], name:'html_list'})
   
   updateSelection = ->
     sel = selection.get()

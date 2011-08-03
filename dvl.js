@@ -217,7 +217,6 @@ dvl.util = {
       b: b
     });
     for (k in a) {
-      debug(k);
       if (!((b[k] != null) && dvl.util.isEqual(a[k], b[k], cmp))) {
         return false;
       }
@@ -1003,16 +1002,14 @@ dvl.debug = function() {
   };
   if (arguments.length === 1) {
     obj = dvl.wrapConstIfNeeded(arguments[0]);
-    dbgPrint = function() {
-      return debug(obj.get(), genStr(obj));
-    };
+    note = obj.name + ':';
   } else {
     note = arguments[0];
     obj = dvl.wrapConstIfNeeded(arguments[1]);
-    dbgPrint = function() {
-      return debug(note, obj.get(), genStr(obj));
-    };
   }
+  dbgPrint = function() {
+    return debug(note, obj.get(), genStr(obj));
+  };
   dvl.register({
     fn: dbgPrint,
     listen: [obj],
@@ -1044,8 +1041,8 @@ dvl.assert = function(_arg) {
   return null;
 };
 dvl.apply = function(_arg) {
-  var allowNull, apply, args, fn, invalid, name, out, ret;
-  fn = _arg.fn, args = _arg.args, out = _arg.out, name = _arg.name, invalid = _arg.invalid, allowNull = _arg.allowNull;
+  var allowNull, apply, args, fn, invalid, name, out, ret, update;
+  fn = _arg.fn, args = _arg.args, out = _arg.out, name = _arg.name, invalid = _arg.invalid, allowNull = _arg.allowNull, update = _arg.update;
   fn = dvl.wrapConstIfNeeded(fn);
   if (args == null) {
     throw 'dvl.apply only makes scense with at least one argument';
@@ -1074,12 +1071,16 @@ dvl.apply = function(_arg) {
     }
     if (!nulls || allowNull) {
       r = f.apply(null, send);
-      if (r !== void 0) {
-        ret.set(r);
-        return dvl.notify(ret);
+      if (r === void 0) {
+        return;
       }
     } else {
-      ret.set(invalid.get());
+      r = invalid.get();
+    }
+    if (dvl.valueOf(update)) {
+      return ret.update(r);
+    } else {
+      ret.set(r);
       return dvl.notify(ret);
     }
   };
@@ -1429,21 +1430,34 @@ dvl.json = (function() {
   };
 })();
 dvl.json.cacheManager = function(_arg) {
-  var cache, count, max, trim;
-  max = _arg.max;
+  var cache, count, max, timeout, trim;
+  max = _arg.max, timeout = _arg.timeout;
   max = dvl.wrapConstIfNeeded(max || 100);
+  timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
   cache = {};
   count = 0;
   trim = function() {
-    var d, m, oldestQuery, oldestTime, q, _results;
+    var cutoff, d, m, newCache, oldestQuery, oldestTime, q, tout, _results;
+    tout = timeout.get();
+    if (tout > 0) {
+      cutoff = (new Date()).valueOf() - tout;
+      newCache = {};
+      for (q in cache) {
+        d = cache[q];
+        if (cutoff < d.time) {
+          newCache[q] = d;
+        }
+      }
+      cache = newCache;
+    }
     m = max.get();
     _results = [];
     while (m < count) {
       oldestQuery = null;
-      oldestTime = 0;
+      oldestTime = Infinity;
       for (q in cache) {
         d = cache[q];
-        if (oldestTime < d.time) {
+        if (d.time < oldestTime) {
           oldestTime = d.time;
           oldestQuery = q;
         }
@@ -1455,7 +1469,7 @@ dvl.json.cacheManager = function(_arg) {
   };
   dvl.register({
     fn: trim,
-    listen: [max],
+    listen: [max, timeout],
     name: 'cache_trim'
   });
   return {
@@ -1468,6 +1482,7 @@ dvl.json.cacheManager = function(_arg) {
       trim();
     },
     has: function(query) {
+      trim();
       return !!cache[query];
     },
     retrieve: function(query) {
@@ -3401,7 +3416,7 @@ dvl.html.list = function(_arg) {
   }
   dvl.register({
     fn: updateList,
-    listen: [names, values],
+    listen: [names, values, links],
     name: 'html_list'
   });
   updateSelection = function() {
