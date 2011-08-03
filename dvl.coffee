@@ -769,7 +769,7 @@ dvl.assert = ({data, fn, msg, allowNull}) ->
 ##  
 dvl.apply = ({fn, args, out, name, invalid, allowNull, update}) ->
   fn = dvl.wrapConstIfNeeded(fn)
-  throw 'dvl.apply only makes scense with at least one argument' unless args?
+  throw 'dvl.apply only makes sense with at least one argument' unless args?
   args = [args] unless dvl.typeOf(args) is 'array'
   args = args.map(dvl.wrapConstIfNeeded)
   invalid = dvl.wrapConstIfNeeded(if invalid? then invalid else null)
