@@ -954,7 +954,7 @@ dvl.delay = ({ data, time, name, init }) ->
     q = this.q
     if this.url is q.url.get()
       if not this.url
-        null
+        q.data = null
       else if status isnt 'cache'
         if q.map
           m = q.map
@@ -1825,17 +1825,20 @@ dvl.svg = {}
   getNextClipPathId = ->
     nextClipPathId += 1
     return 'cp_' + nextClipPathId
+        
   
   selectEnterExit = (g, options, props, numMarks) ->
     if props.key and props.key.gen()
       key_gen = props.key.gen()
-      join = (i) -> key_gen(i)
+      id_gen = (i) -> 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '')
+      join = (i) -> if this.getAttribute then this.getAttribute('id') else key_gen(i)
     
     sel = g.selectAll("#{options.mySvg}.#{options.myClass}").data(pv.range(0, numMarks), join)
     
     sel.exit().remove()
 
     m = sel.enter().append("svg:#{options.mySvg}")
+    m.attr('id', id_gen) if props.key and props.key.gen()
     m.attr('class', options.myClass)
     
     if options.on

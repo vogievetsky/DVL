@@ -1270,7 +1270,7 @@ dvl.delay = function(_arg) {
     q = this.q;
     if (this.url === q.url.get()) {
       if (!this.url) {
-        null;
+        q.data = null;
       } else if (status !== 'cache') {
         if (q.map) {
           m = q.map;
@@ -2387,16 +2387,26 @@ dvl.svg = {};
     return 'cp_' + nextClipPathId;
   };
   selectEnterExit = function(g, options, props, numMarks) {
-    var join, key_gen, m, onFn, sel, what, _ref;
+    var id_gen, join, key_gen, m, onFn, sel, what, _ref;
     if (props.key && props.key.gen()) {
       key_gen = props.key.gen();
+      id_gen = function(i) {
+        return 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '');
+      };
       join = function(i) {
-        return key_gen(i);
+        if (this.getAttribute) {
+          return this.getAttribute('id');
+        } else {
+          return key_gen(i);
+        }
       };
     }
     sel = g.selectAll("" + options.mySvg + "." + options.myClass).data(pv.range(0, numMarks), join);
     sel.exit().remove();
     m = sel.enter().append("svg:" + options.mySvg);
+    if (props.key && props.key.gen()) {
+      m.attr('id', id_gen);
+    }
     m.attr('class', options.myClass);
     if (options.on) {
       _ref = options.on;
