@@ -2248,7 +2248,7 @@ dvl.gen.sub = generator_maker_maker((function(a, b, c) {
 }), 'sub');
 dvl.svg = {};
 (function() {
-  var calcLength, gen_subDouble, gen_subHalf, getNextClipPathId, getNodeKey, initClip, initGroup, listen_attr, makeAnchors, nextClipPathId, processDim2, processDim3, processDim4, processOptions, processProps, removeUndefined, reselectUpdate, selectEnterExit, update_attr;
+  var calcLength, gen_subDouble, gen_subHalf, getNextClipPathId, initClip, initGroup, listen_attr, makeAnchors, nextClipPathId, processDim2, processDim3, processDim4, processOptions, processProps, removeUndefined, reselectUpdate, selectEnterExit, update_attr;
   processOptions = function(options, mySvg, myClass) {
     var out;
     if (!options.panel) {
@@ -2386,29 +2386,17 @@ dvl.svg = {};
     nextClipPathId += 1;
     return 'cp_' + nextClipPathId;
   };
-  getNodeKey = function(n) {
-    return n.getAttribute('id');
-  };
   selectEnterExit = function(g, options, props, numMarks) {
-    var id_gen, join, key_gen, m, onFn, sel, what, _ref;
+    var join, key_gen, m, onFn, sel, what, _ref;
     if (props.key && props.key.gen()) {
       key_gen = props.key.gen();
-      id_gen = function(i) {
-        return 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '');
+      join = function(i) {
+        return key_gen(i);
       };
-      join = {
-        dataKey: id_gen,
-        nodeKey: getNodeKey
-      };
-    } else {
-      join = null;
     }
     sel = g.selectAll("" + options.mySvg + "." + options.myClass).data(pv.range(0, numMarks), join);
     sel.exit().remove();
-    m = sel.enter("svg:" + options.mySvg);
-    if (props.key && props.key.gen()) {
-      m.attr('id', id_gen);
-    }
+    m = sel.enter().append("svg:" + options.mySvg);
     m.attr('class', options.myClass);
     if (options.on) {
       _ref = options.on;
@@ -3405,7 +3393,7 @@ dvl.html.list = function(_arg) {
         a.attr('href', lg).text(ng);
       };
       sel = ul.selectAll('li').data(d3.range(len));
-      updateLi(sel.enter('li'), true);
+      updateLi(sel.enter().append('li'), true);
       updateLi(sel);
       sel.exit().remove();
     };
@@ -3429,7 +3417,7 @@ dvl.html.list = function(_arg) {
         });
       };
       sel = ul.selectAll('li').data(d3.range(len));
-      updateLi(sel.enter('li'));
+      updateLi(sel.enter().append('li'));
       updateLi(sel);
       sel.exit().remove();
     };
@@ -3575,7 +3563,7 @@ dvl.html.select = function(_arg) {
     return selection.update(selectEl.node().value);
   };
   selectEl = d3.select(selector).append('select').attr('class', classStr || null).on('change', selChange);
-  selectEl.selectAll('option').data(d3.range(values.len())).enter('option').attr('value', values.gen()).text(names.gen());
+  selectEl.selectAll('option').data(d3.range(values.len())).enter().append('option').attr('value', values.gen()).text(names.gen());
   dvl.register({
     listen: [selection],
     fn: function() {
@@ -3681,7 +3669,7 @@ dvl.html.table = function(_arg) {
   h = thead.append('tr');
   b = t.append('tbody');
   if (topHeader) {
-    th.selectAll('th').data(topHeader).enter('th').attr('class', function(d) {
+    th.selectAll('th').data(topHeader).enter().append('th').attr('class', function(d) {
       return d.classStr || null;
     }).attr('colspan', function(d) {
       return d.span;
@@ -3689,7 +3677,7 @@ dvl.html.table = function(_arg) {
       return d.title.get();
     });
   }
-  sel = h.selectAll('th').data(columns).enter('th').on('click', function(c) {
+  sel = h.selectAll('th').data(columns).enter().append('th').on('click', function(c) {
     var si;
     if (c.id == null) {
       return;
@@ -3805,7 +3793,7 @@ dvl.html.table = function(_arg) {
       r = r.splice(0, Math.max(0, limit));
     }
     sel = b.selectAll('tr').data(r);
-    ent = sel.enter('tr');
+    ent = sel.enter().append('tr');
     if (rowClassGen) {
       gen = rowClassGen.gen();
       ent.attr('class', gen);
@@ -3817,7 +3805,7 @@ dvl.html.table = function(_arg) {
     };
     sel = b.selectAll('tr');
     row = sel.selectAll('td').data(columns);
-    updateTd(row.enter('td'));
+    updateTd(row.enter().append('td'));
     updateTd(row);
     row.exit().remove();
     for (_m = 0, _len5 = columns.length; _m < _len5; _m++) {
@@ -3865,7 +3853,7 @@ dvl.html.table.renderer = {
           return d.attr('title', titleGen.gen());
         }
       };
-      config(sel.enter('a'));
+      config(sel.enter().append('a'));
       config(sel);
       return null;
     };
@@ -3888,7 +3876,7 @@ dvl.html.table.renderer = {
           return d.attr('title', titleGen.gen());
         }
       };
-      config(sel.enter('span').attr('class', 'span_link'));
+      config(sel.enter().append('span').attr('class', 'span_link'));
       config(sel);
       return null;
     };
@@ -3900,7 +3888,7 @@ dvl.html.table.renderer = {
     sel = col.selectAll('div').data(function(d) {
       return [d];
     });
-    sel.enter('div').attr('class', 'bar_div').style('width', (function(d) {
+    sel.enter().append('div').attr('class', 'bar_div').style('width', (function(d) {
       return dataFn(d) + 'px';
     }));
     sel.style('width', (function(d) {
@@ -3913,7 +3901,7 @@ dvl.html.table.renderer = {
     sel = col.selectAll('img').data(function(d) {
       return [d];
     });
-    sel.enter('img').attr('src', dataFn);
+    sel.enter().append('img').attr('src', dataFn);
     sel.attr('src', dataFn);
     return null;
   },
@@ -3922,7 +3910,7 @@ dvl.html.table.renderer = {
     sel = col.selectAll('div').data(function(d) {
       return [d];
     });
-    sel.enter('div').attr('class', dataFn);
+    sel.enter().append('div').attr('class', dataFn);
     sel.attr('class', dataFn);
     return null;
   },
@@ -3955,7 +3943,7 @@ dvl.html.table.renderer = {
         sel = svg.selectAll('path').data(function(d) {
           return [d];
         });
-        sel.enter("svg:path").attr("class", "line").attr("d", line);
+        sel.enter().append("svg:path").attr("class", "line").attr("d", line);
         sel.attr("d", line);
         points = svg.selectAll('circle').data(function(d) {
           var mmx, mmy, sx, sy;
@@ -3969,7 +3957,7 @@ dvl.html.table.renderer = {
           sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
           return [['top', sx(d[mmy.maxIdx][x]), sy(mmy.max)], ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)], ['right', sx(mmx.max), sy(d[mmx.maxIdx][y])], ['left', sx(mmx.min), sy(d[mmx.minIdx][y])]];
         });
-        points.enter("svg:circle").attr("r", 2).attr("class", function(d) {
+        points.enter().append("svg:circle").attr("r", 2).attr("class", function(d) {
           return d[0];
         }).attr("cx", function(d) {
           return d[1];
@@ -3983,7 +3971,7 @@ dvl.html.table.renderer = {
         });
       };
       make_sparks(svg);
-      make_sparks(svg.enter('svg:svg').attr('class', classStr).attr('width', width).attr('height', height));
+      make_sparks(svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height));
       return null;
     };
     f.depends = [];

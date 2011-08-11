@@ -1826,26 +1826,16 @@ dvl.svg = {}
     nextClipPathId += 1
     return 'cp_' + nextClipPathId
   
-  getNodeKey = (n) ->
-    n.getAttribute('id')
-  
-  
   selectEnterExit = (g, options, props, numMarks) ->
     if props.key and props.key.gen()
       key_gen = props.key.gen()
-      id_gen = (i) -> 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '')
-      join =
-        dataKey: id_gen
-        nodeKey: getNodeKey
-    else
-      join = null
+      join = (i) -> key_gen(i)
     
     sel = g.selectAll("#{options.mySvg}.#{options.myClass}").data(pv.range(0, numMarks), join)
     
     sel.exit().remove()
 
-    m = sel.enter("svg:#{options.mySvg}")
-    m.attr('id', id_gen) if props.key and props.key.gen()
+    m = sel.enter().append("svg:#{options.mySvg}")
     m.attr('class', options.myClass)
     
     if options.on
@@ -2628,7 +2618,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
         return
 
       sel = ul.selectAll('li').data(d3.range(len))
-      updateLi sel.enter('li'), true
+      updateLi sel.enter().append('li'), true
       updateLi sel
       sel.exit().remove()
       return
@@ -2651,7 +2641,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
         return
     
       sel = ul.selectAll('li').data(d3.range(len))
-      updateLi sel.enter('li')
+      updateLi sel.enter().append('li')
       updateLi sel
       sel.exit().remove()
       return
@@ -2798,7 +2788,7 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
     
   selectEl.selectAll('option')
     .data(d3.range(values.len()))
-      .enter('option')
+      .enter().append('option')
         .attr('value', values.gen())
         .text(names.gen())
   
@@ -2931,7 +2921,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   if topHeader
     th.selectAll('th')
       .data(topHeader)
-      .enter('th')
+      .enter().append('th')
         .attr('class', (d) -> d.classStr or null)
         .attr('colspan', (d) -> d.span)
           .append('div')
@@ -2939,7 +2929,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   
   sel = h.selectAll('th')
     .data(columns)
-    .enter('th')
+    .enter().append('th')
       .on('click', (c) ->
         return unless c.id?
         
@@ -3033,7 +3023,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     r = r.splice(0, Math.max(0, limit)) if limit?
 
     sel = b.selectAll('tr').data(r)
-    ent = sel.enter('tr')
+    ent = sel.enter().append('tr')
     if rowClassGen
       gen = rowClassGen.gen()
       ent.attr('class', gen)
@@ -3044,7 +3034,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
     sel = b.selectAll('tr')
     row = sel.selectAll('td').data(columns)
-    updateTd row.enter('td')
+    updateTd row.enter().append('td')
     updateTd row
     row.exit().remove()
 
@@ -3082,7 +3072,7 @@ dvl.html.table.renderer =
       config = (d) ->
         d.attr('href', linkGen.gen()).text(dataFn)
         d.attr('title', titleGen.gen()) if titleGen 
-      config(sel.enter('a'))
+      config(sel.enter().append('a'))
       config(sel)
       null
     f.depends = [linkGen, titleGen]
@@ -3095,24 +3085,24 @@ dvl.html.table.renderer =
         d.html(dataFn)
         d.on('click', click)
         d.attr('title', titleGen.gen()) if titleGen
-      config(sel.enter('span').attr('class', 'span_link'))
+      config(sel.enter().append('span').attr('class', 'span_link'))
       config(sel)
       null
     f.depends = [titleGen]
     return f
   barDiv: (col, dataFn) ->
     sel = col.selectAll('div').data((d) -> [d])
-    sel.enter('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
+    sel.enter().append('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
     sel.style('width', ((d) -> dataFn(d) + 'px'))
     null
   img: (col, dataFn) ->
     sel = col.selectAll('img').data((d) -> [d])
-    sel.enter('img').attr('src', dataFn)
+    sel.enter().append('img').attr('src', dataFn)
     sel.attr('src', dataFn)
     null
   imgDiv: (col, dataFn) ->
     sel = col.selectAll('div').data((d) -> [d])
-    sel.enter('div').attr('class', dataFn)
+    sel.enter().append('div').attr('class', dataFn)
     sel.attr('class', dataFn)
     null
   svgSparkline: ({classStr, width, height, x, y, padding}) -> 
@@ -3130,7 +3120,7 @@ dvl.html.table.renderer =
         sel = svg.selectAll('path')
           .data((d) -> [d])
     
-        sel.enter("svg:path")
+        sel.enter().append("svg:path")
           .attr("class", "line")
           .attr("d", line)
       
@@ -3150,7 +3140,7 @@ dvl.html.table.renderer =
             ]
           )
       
-        points.enter("svg:circle")
+        points.enter().append("svg:circle")
           .attr("r", 2)
           .attr("class", (d) -> d[0])
           .attr("cx", (d) -> d[1])
@@ -3161,7 +3151,7 @@ dvl.html.table.renderer =
           .attr("cy", (d) -> d[2])
     
       make_sparks(svg)
-      make_sparks(svg.enter('svg:svg').attr('class', classStr).attr('width', width).attr('height', height))
+      make_sparks(svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height))
       null
     f.depends = []
     return f

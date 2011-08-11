@@ -41,14 +41,14 @@ body {
     walk: 0.1,
     min: 10000,
     max: 80000,
-    interval: 1000
+    interval: 3000
   });
   
   var data = dvl.recorder({
     data: random,
     value: 'value',
     timestamp: 'time',
-    max: 100
+    max: 3
   })
   
 	var getX = dvl.acc('time');
