@@ -614,11 +614,19 @@ dvl.util = {
     dvl.notify = init_notify
     v.resetChanged() for v in changedInNotify
     l.visited = false for k, l of registerers # reset visited    
-    null
+    return
   
   
   dvl.notify = init_notify
   
+  
+  dvl.debugFind = (name) ->
+    name += '_'
+    ret = []
+    for id,v of variables
+      if id.indexOf(name) is 0 and not isNaN(id.substr(name.length))
+        ret.push v
+    return ret
   
   ######################################################
   ## 
@@ -743,6 +751,8 @@ dvl.debug = () ->
   dvl.register({fn:dbgPrint, listen:[obj], name:'debug'})
   return obj
 
+
+dvl.debug.find = dvl.debugFind
 
 ######################################################
 ## 
@@ -920,10 +930,11 @@ dvl.delay = ({ data, time, name, init }) ->
 ##  map:  a map to apply to the recived array.
 ##  fn:   a function to apply to the recived input.
 ##
-dvl.json = (->
+(->
   nextQueryId = 0
   initQueue = []
   queries = {}
+  outstanding = dvl.def(0, 'json_outstanding')
 
   maybeDone = (request) ->
     for q in request
@@ -942,7 +953,9 @@ dvl.json = (->
   getData = (data, status) ->
     q = this.q
     if this.url is q.url.get()
-      if not this.url or status isnt 'cache'
+      if not this.url
+        null
+      else if status isnt 'cache'
         if q.map
           m = q.map
           mappedData = []
@@ -955,7 +968,9 @@ dvl.json = (->
           data = q.fn(data) 
 
         q.data = data
-        q.cache.store(this.url, data) if this.url and q.cache 
+        q.cache.store(this.url, data) if this.url and q.cache
+        
+        outstanding.set(outstanding.get() - 1).notify()
       else
         q.data = q.cache.retrieve(this.url)
       
@@ -976,6 +991,8 @@ dvl.json = (->
       
       q.status = 'ready'
       q.curAjax = null
+      
+      outstanding.set(outstanding.get() - 1).notify()
       
       maybeDone(request)
     ), 1)
@@ -1000,6 +1017,8 @@ dvl.json = (->
           success: getData
           error: getError
           context: ctx
+        
+        outstanding.set(outstanding.get() + 1).notify()
         
         if q.invalidOnLoad.get()
           setTimeout((->
@@ -1037,12 +1056,12 @@ dvl.json = (->
       fo.addListen(listen)
       inputChange()
     else
-      fo = dvl.register({fn:inputChange, listen:[listen], force:true, name: 'xsr_man' })
+      fo = dvl.register({fn:inputChange, listen:[listen], change:[outstanding], force:true, name: 'xsr_man' })
   
     null
   
 
-  return ({url, type, map, fn, invalidOnLoad, onError, group, cache, name}) ->
+  dvl.json = ({url, type, map, fn, invalidOnLoad, onError, group, cache, name}) ->
     throw 'it does not make sense to not have a url' unless url
     throw 'the map function must be non DVL variable' if map and dvl.knows(map)
     throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
@@ -1068,6 +1087,8 @@ dvl.json = (->
     queries[q.id] = q
     addHoock(url, q.res)
     return q.res
+    
+  dvl.json.outstanding = outstanding
 )()
 
 
@@ -2672,6 +2693,8 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   selectedDiv = divCont.append('div')
     .attr('class', 'selection')
   
+  valueSpan = selectedDiv.append('span')
+  
   open = () ->
     sp = $(selectedDiv.node())
     pos = sp.position()
@@ -2738,11 +2761,11 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
       i = 0
       while i < len
         if vg(i) is sel
-          selectedDiv.text(ng(i))
+          valueSpan.text(ng(i))
           return
         i++ 
     
-    selectedDiv.html('&nbsp;')
+    valueSpan.html('&nbsp;')
     return
     
   dvl.register {
@@ -2931,13 +2954,14 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
             sortOn.set(c.id).notify()
         )
   
-  si = sortIndicator.get();
   sel.append('span') # title text container
-  sel.append('img')
-    .attr('class', 'sort_indicator')
-    .style('display', (c) -> if c.showIndicator.get() and si and si.none and c.sortable.get() then null else 'none')
-    .attr('src', (c) -> if c.showIndicator.get() and si and si.none then si.none else null)
-
+  
+  si = sortIndicator.get();
+  if si
+    sel.append('div')
+      .attr('class', 'sort_indicator')
+      .style('display', (c) -> if c.sortable.get() then null else 'none')
+      
   tableLength = ->
     length = +Infinity
     for c in columns
@@ -2989,17 +3013,14 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
         
       if sortIndicator.get()
         h.selectAll('th').data(columns)
-          .select('img')
-            .style('display', (c) -> if c.sortable.get() and c.showIndicator.get() and sortIndicator.get()[if c is sortCol then dir else 'none'] then null else 'none')
-            .attr('src', (c) ->
-              if c.showIndicator.get()
-                which = if c is sortCol and dir isnt 'none'
-                  if c.reverseIndicator.get() then (if dir is 'asc' then 'desc' else 'asc') else dir
-                else 
-                  'none'
-                sortIndicator.get()[which]
-              else
-                null
+          .select('div.sort_indicator')
+            .style('display', (c) -> if c.sortable.get() then null else 'none')
+            .attr('class', (c) ->
+              which = if c is sortCol and dir isnt 'none'
+                if c.reverseIndicator.get() then (if dir is 'asc' then 'desc' else 'asc') else dir
+              else 
+                'none'
+              return 'sort_indicator ' + which
             )
     
     h.selectAll('th').data(columns)
@@ -3088,6 +3109,11 @@ dvl.html.table.renderer =
     sel = col.selectAll('img').data((d) -> [d])
     sel.enter('img').attr('src', dataFn)
     sel.attr('src', dataFn)
+    null
+  imgDiv: (col, dataFn) ->
+    sel = col.selectAll('div').data((d) -> [d])
+    sel.enter('div').attr('class', dataFn)
+    sel.attr('class', dataFn)
     null
   svgSparkline: ({classStr, width, height, x, y, padding}) -> 
     f = (col, dataFn) -> 

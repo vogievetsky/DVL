@@ -875,9 +875,20 @@ dvl.util = {
       l = registerers[k];
       l.visited = false;
     }
-    return null;
   };
   dvl.notify = init_notify;
+  dvl.debugFind = function(name) {
+    var id, ret, v;
+    name += '_';
+    ret = [];
+    for (id in variables) {
+      v = variables[id];
+      if (id.indexOf(name) === 0 && !isNaN(id.substr(name.length))) {
+        ret.push(v);
+      }
+    }
+    return ret;
+  };
   dvl.graphToDot = function(lastTrace, showId) {
     var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, _i, _j, _k, _len, _len2, _len3, _name, _ref, _ref2;
     execOrder = {};
@@ -1017,6 +1028,7 @@ dvl.debug = function() {
   });
   return obj;
 };
+dvl.debug.find = dvl.debugFind;
 dvl.assert = function(_arg) {
   var allowNull, data, fn, msg;
   data = _arg.data, fn = _arg.fn, msg = _arg.msg, allowNull = _arg.allowNull;
@@ -1045,7 +1057,7 @@ dvl.apply = function(_arg) {
   fn = _arg.fn, args = _arg.args, out = _arg.out, name = _arg.name, invalid = _arg.invalid, allowNull = _arg.allowNull, update = _arg.update;
   fn = dvl.wrapConstIfNeeded(fn);
   if (args == null) {
-    throw 'dvl.apply only makes scense with at least one argument';
+    throw 'dvl.apply only makes sense with at least one argument';
   }
   if (dvl.typeOf(args) !== 'array') {
     args = [args];
@@ -1227,11 +1239,12 @@ dvl.delay = function(_arg) {
   });
   return out;
 };
-dvl.json = (function() {
-  var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries;
+(function() {
+  var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, outstanding, queries;
   nextQueryId = 0;
   initQueue = [];
   queries = {};
+  outstanding = dvl.def(0, 'json_outstanding');
   maybeDone = function(request) {
     var notify, q, _i, _j, _len, _len2;
     for (_i = 0, _len = request.length; _i < _len; _i++) {
@@ -1256,7 +1269,9 @@ dvl.json = (function() {
     var d, i, m, mappedData, md, q, _len;
     q = this.q;
     if (this.url === q.url.get()) {
-      if (!this.url || status !== 'cache') {
+      if (!this.url) {
+        null;
+      } else if (status !== 'cache') {
         if (q.map) {
           m = q.map;
           mappedData = [];
@@ -1276,6 +1291,7 @@ dvl.json = (function() {
         if (this.url && q.cache) {
           q.cache.store(this.url, data);
         }
+        outstanding.set(outstanding.get() - 1).notify();
       } else {
         q.data = q.cache.retrieve(this.url);
       }
@@ -1301,6 +1317,7 @@ dvl.json = (function() {
       }
       q.status = 'ready';
       q.curAjax = null;
+      outstanding.set(outstanding.get() - 1).notify();
       return maybeDone(request);
     }), 1);
   };
@@ -1330,6 +1347,7 @@ dvl.json = (function() {
           error: getError,
           context: ctx
         });
+        outstanding.set(outstanding.get() + 1).notify();
         if (q.invalidOnLoad.get()) {
           return setTimeout((function() {
             return q.res.update(null);
@@ -1382,13 +1400,14 @@ dvl.json = (function() {
       fo = dvl.register({
         fn: inputChange,
         listen: [listen],
+        change: [outstanding],
         force: true,
         name: 'xsr_man'
       });
     }
     return null;
   };
-  return function(_arg) {
+  dvl.json = function(_arg) {
     var cache, fn, group, invalidOnLoad, map, name, onError, q, type, url;
     url = _arg.url, type = _arg.type, map = _arg.map, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, group = _arg.group, cache = _arg.cache, name = _arg.name;
     if (!url) {
@@ -1428,6 +1447,7 @@ dvl.json = (function() {
     addHoock(url, q.res);
     return q.res;
   };
+  return dvl.json.outstanding = outstanding;
 })();
 dvl.json.cacheManager = function(_arg) {
   var cache, count, max, timeout, trim;
@@ -3442,7 +3462,7 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, links, list, listDiv, manuOpen, menuOffset, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selector, updateSelection, values;
+  var classStr, close, divCont, getClass, links, list, listDiv, manuOpen, menuOffset, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selector, updateSelection, valueSpan, values;
   selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, menuOffset = _arg.menuOffset;
   if (!selector) {
     throw 'must have selector';
@@ -3462,6 +3482,7 @@ dvl.html.dropdownList = function(_arg) {
   };
   divCont = d3.select(selector).append('div').attr('class', getClass()).style('position', 'relative');
   selectedDiv = divCont.append('div').attr('class', 'selection');
+  valueSpan = selectedDiv.append('span');
   open = function() {
     var height, offset, pos, sp;
     sp = $(selectedDiv.node());
@@ -3524,13 +3545,13 @@ dvl.html.dropdownList = function(_arg) {
       i = 0;
       while (i < len) {
         if (vg(i) === sel) {
-          selectedDiv.text(ng(i));
+          valueSpan.text(ng(i));
           return;
         }
         i++;
       }
     }
-    selectedDiv.html('&nbsp;');
+    valueSpan.html('&nbsp;');
   };
   dvl.register({
     fn: updateSelection,
@@ -3684,21 +3705,17 @@ dvl.html.table = function(_arg) {
       }
     }
   });
-  si = sortIndicator.get();
   sel.append('span');
-  sel.append('img').attr('class', 'sort_indicator').style('display', function(c) {
-    if (c.showIndicator.get() && si && si.none && c.sortable.get()) {
-      return null;
-    } else {
-      return 'none';
-    }
-  }).attr('src', function(c) {
-    if (c.showIndicator.get() && si && si.none) {
-      return si.none;
-    } else {
-      return null;
-    }
-  });
+  si = sortIndicator.get();
+  if (si) {
+    sel.append('div').attr('class', 'sort_indicator').style('display', function(c) {
+      if (c.sortable.get()) {
+        return null;
+      } else {
+        return 'none';
+      }
+    });
+  }
   tableLength = function() {
     var c, l, length, _l, _len4;
     length = +Infinity;
@@ -3765,20 +3782,16 @@ dvl.html.table = function(_arg) {
         }
       }
       if (sortIndicator.get()) {
-        h.selectAll('th').data(columns).select('img').style('display', function(c) {
-          if (c.sortable.get() && c.showIndicator.get() && sortIndicator.get()[c === sortCol ? dir : 'none']) {
+        h.selectAll('th').data(columns).select('div.sort_indicator').style('display', function(c) {
+          if (c.sortable.get()) {
             return null;
           } else {
             return 'none';
           }
-        }).attr('src', function(c) {
+        }).attr('class', function(c) {
           var which;
-          if (c.showIndicator.get()) {
-            which = c === sortCol && dir !== 'none' ? c.reverseIndicator.get() ? (dir === 'asc' ? 'desc' : 'asc') : dir : 'none';
-            return sortIndicator.get()[which];
-          } else {
-            return null;
-          }
+          which = c === sortCol && dir !== 'none' ? c.reverseIndicator.get() ? (dir === 'asc' ? 'desc' : 'asc') : dir : 'none';
+          return 'sort_indicator ' + which;
         });
       }
     }
@@ -3902,6 +3915,15 @@ dvl.html.table.renderer = {
     });
     sel.enter('img').attr('src', dataFn);
     sel.attr('src', dataFn);
+    return null;
+  },
+  imgDiv: function(col, dataFn) {
+    var sel;
+    sel = col.selectAll('div').data(function(d) {
+      return [d];
+    });
+    sel.enter('div').attr('class', dataFn);
+    sel.attr('class', dataFn);
     return null;
   },
   svgSparkline: function(_arg) {

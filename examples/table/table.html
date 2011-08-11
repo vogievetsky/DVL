@@ -38,6 +38,16 @@ svg.sparkline circle {
   stroke: none;
 }
 
+.sort_indicator {
+  display: inline-block;
+  width: 9px;
+  height: 5px;
+}
+
+.sort_indicator.none { background: url('sort_none.png') no-repeat; }
+.sort_indicator.desc { background: url('sort_arrow_up.png') no-repeat; }
+.sort_indicator.asc  { background: url('sort_arrow_down.png') no-repeat; }
+
     </style>
 
   </head>
@@ -78,11 +88,7 @@ svg.sparkline circle {
       on: sort,
       order: order,
       modes: ['asc', 'none'], 
-      indicator: {
-        none: 'sort_none.png',
-        desc: 'sort_arrow_up.png',
-        asc:  'sort_arrow_down.png'
-      }
+      indicator: true
     },
     columns: [
       { id:'a', title:'A', headerTooltip: 'Apple',  gen: dvl.gen.fromArray(data, dvl.acc('a')) },
@@ -99,11 +105,7 @@ svg.sparkline circle {
       on: sort,
       order: order,
       modes: ['asc', 'none'], 
-      indicator: {
-        none: 'sort_none.png',
-        desc: 'sort_arrow_up.png',
-        asc:  'sort_arrow_down.png'
-      }
+      indicator: true
     },
     columns: [
       {
