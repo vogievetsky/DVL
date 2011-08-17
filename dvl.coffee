@@ -341,7 +341,7 @@ dvl.util = {
     if dvl.knows(v)
       return v.get()
     else
-      return if v? then v else null
+      return v ? null
 
   registerers = {}
   
@@ -782,9 +782,9 @@ dvl.apply = ({fn, args, out, name, invalid, allowNull, update}) ->
   throw 'dvl.apply only makes sense with at least one argument' unless args?
   args = [args] unless dvl.typeOf(args) is 'array'
   args = args.map(dvl.wrapConstIfNeeded)
-  invalid = dvl.wrapConstIfNeeded(if invalid? then invalid else null)
+  invalid = dvl.wrapConstIfNeeded(invalid ? null)
   
-  ret = dvl.wrapVarIfNeeded((if out? then out else invalid.get()), name or 'apply_out')
+  ret = dvl.wrapVarIfNeeded((out ? invalid.get()), name or 'apply_out')
   
   apply = ->
     f = fn.get()
@@ -969,8 +969,7 @@ dvl.delay = ({ data, time, name, init }) ->
 
         q.data = data
         q.cache.store(this.url, data) if this.url and q.cache
-        
-        outstanding.set(outstanding.get() - 1).notify()
+
       else
         q.data = q.cache.retrieve(this.url)
       
@@ -992,10 +991,12 @@ dvl.delay = ({ data, time, name, init }) ->
       q.status = 'ready'
       q.curAjax = null
       
-      outstanding.set(outstanding.get() - 1).notify()
-      
       maybeDone(request)
     ), 1)
+    
+  onComplete = ->
+    outstanding.set(outstanding.get() - 1).notify()
+    return
 
   makeRequest = (q, request) ->
     q.status = 'requesting'
@@ -1011,12 +1012,13 @@ dvl.delay = ({ data, time, name, init }) ->
         # load from server
         q.curAjax.abort() if q.curAjax
         q.curAjax = jQuery.ajax
-          url: url
-          type: 'GET'
+          url:      url
+          type:     'GET'
           dataType: 'json'
-          success: getData
-          error: getError
-          context: ctx
+          success:  getData
+          error:    getError
+          complete: onComplete
+          context:  ctx
         
         outstanding.set(outstanding.get() + 1).notify()
         
@@ -1067,7 +1069,7 @@ dvl.delay = ({ data, time, name, init }) ->
     throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
     url = dvl.wrapConstIfNeeded(url)
     type = type.get() if dvl.knows(type)
-    group = dvl.wrapConstIfNeeded(if group? then group else true)
+    group = dvl.wrapConstIfNeeded(group ? true)
     invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad or false)
     
     nextQueryId++
@@ -1711,7 +1713,7 @@ dvl.svg = {}
       out.classStr = options.classStr
       out.clip = options.clip
       out.on = options.on
-      out.visible = dvl.wrapConstIfNeeded(if options.visible? then options.visible else true)
+      out.visible = dvl.wrapConstIfNeeded(options.visible ? true)
 
     return out
     
@@ -2590,9 +2592,9 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}) ->
+dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr, multi}) ->
   throw 'must have selector' unless selector
-  selection = dvl.wrapVarIfNeeded(selection, 'selection')
+  selection = dvl.wrapVarIfNeeded(selection or (if multi then [] else null), 'selection')
   
   values = dvl.wrapConstIfNeeded(values)
   names = dvl.wrapConstIfNeeded(names or values)
@@ -2638,7 +2640,17 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
           .on('click', (i) ->
             val = vg(i)
             if onSelect?(val, i) isnt false
-              selection.set(vg(i))
+              if multi
+                sl = (selection.get() or []).slice()
+                i = sl.indexOf(val)
+                if i is -1
+                  sl.push(val)
+                else
+                  sl.splice(i,1)
+                selection.set(sl)
+              else
+                selection.set(val)
+              
               dvl.notify(selection)
           )
         return
@@ -2656,7 +2668,12 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
     vg = values.gen()
     
     ul.selectAll('li')
-      .attr('class', (i) -> if vg(i) is sel then 'selected' else null)
+      .attr('class', (i) ->
+        if multi
+          if sel and vg(i) in sel then 'selected' else null
+        else
+          if vg(i) is sel then 'selected' else null
+      )
     return
     
   dvl.register({fn:updateSelection, listen:[selection, values], name:'html_list_selection'})
@@ -2664,7 +2681,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr}
   return { selection, node:ul.node() }
 
 
-dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, menuOffset}) ->
+dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, menuOffset, multi, title}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   menuOffset = dvl.wrapConstIfNeeded(menuOffset or { x:0, y:0 })
@@ -2674,9 +2691,9 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   selectionNames = dvl.wrapConstIfNeeded(selectionNames or names)
   links = if links then dvl.wrapConstIfNeeded(links) else false
   
-  manuOpen = false
+  menuOpen = false
   getClass = ->
-    (if classStr? then classStr else '') + ' ' + (if manuOpen then 'open' else 'closed')
+    (classStr ? '') + ' ' + (if menuOpen then 'open' else 'closed')
   
   divCont = d3.select(selector)
     .append('div')
@@ -2697,19 +2714,19 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
       .style('display', null)
       .style('left', (pos.left + offset.x) + 'px')
       .style('top', (pos.top + height + offset.y) + 'px')
-    manuOpen = true
+    menuOpen = true
     divCont.attr('class', getClass())
     return
     
   close = () ->
     listDiv.style('display', 'none')
-    manuOpen = false
+    menuOpen = false
     divCont.attr('class', getClass())
     return
   
   myOnSelect = (text, i) ->
     # hide the menu after selection
-    close()
+    close() unless multi
     onSelect?(text, i)
 
   list = dvl.html.list {
@@ -2720,6 +2737,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     selection
     onSelect: myOnSelect
     classStr: 'list'
+    multi
   }
   
   listDiv = d3.select(list.node)
@@ -2731,7 +2749,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     return if $(listDiv.node()).find(e.target).length
     
     if selectedDiv.node() is e.target or $(selectedDiv.node()).find(e.target).length
-      if manuOpen
+      if menuOpen
         close()
       else
         open()
@@ -2746,21 +2764,24 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   )
   
   updateSelection = ->
-    sel = selection.get()
-    if sel?
-      len = values.len()
-      ng = selectionNames.gen()
-      vg = values.gen()
-      i = 0
-      while i < len
-        if vg(i) is sel
-          valueSpan.text(ng(i))
-          return
-        i++ 
-    
-    valueSpan.html('&nbsp;')
+    if multi
+      valueSpan.text(title.get())
+    else
+      sel = selection.get()
+      if sel?
+        len = values.len()
+        ng = selectionNames.gen()
+        vg = values.gen()
+        i = 0
+        while i < len
+          if vg(i) is sel
+            valueSpan.text(ng(i))
+            return
+          i++ 
+  
+      valueSpan.html('&nbsp;')
     return
-    
+  
   dvl.register {
     fn:updateSelection
     listen:[selection, selectionNames, values]
@@ -2834,16 +2855,14 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
 ##     -sortGen:          The generator generator that will drive the sorting, if not provided then gen will be used instead. [gen]
 ##     ~showIndicator:    Toggle the display of the sorting indicator for this column. [true]
 ##     ~reverseIndicator: Reverses the asc / desc directions of the indicator for this column. [false]
+##     ~visible:          Toggles the visibility of the column
 ##
 ##  sort:
 ##   ~on:              The id of the column on which to sort.
 ##   ~order:           The order of the sort. Must be one of {'asc', 'desc', 'none'}.
 ##   ~modes:           The order rotation that is allowed. Must be an array of [{'asc', 'desc', 'none'}].
 ##   ~autoOnClick:     Toggle wheather the table will be sorted (updating sort.on and/or possibly sort.order) automaticaly when clicked. [true]
-##   ~indicator:       
-##     none:             The image url for the 'none' sorting mode.
-##     desc:             The image url for the 'desc' sorting mode.
-##     asc:              The image url for the 'asc' sorting mode.
+##   ~indicator:       [true / false]
 ##                     
 ## ~showHeader:        Toggle showing the header [true]
 ## ~onHeaderClick:     Callback or url when the header of a column is clicked.
@@ -2855,9 +2874,9 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   throw 'columns has to be a plain array.' if dvl.knows(columns)
   throw 'sort has to be a plain object.' if dvl.knows(sort)
   
-  visible = dvl.wrapConstIfNeeded(if visible? then visible else true)
+  visible = dvl.wrapConstIfNeeded(visible ? true)
   
-  showHeader = dvl.wrapConstIfNeeded(if showHeader? then showHeader else true)
+  showHeader = dvl.wrapConstIfNeeded(showHeader ? true)
   onHeaderClick = dvl.wrapConstIfNeeded(onHeaderClick)
   headerTooltip = dvl.wrapConstIfNeeded(headerTooltip or null)
   
@@ -2866,7 +2885,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   sort = sort or {}
   
   sortOn = dvl.wrapVarIfNeeded(sort.on)
-  sortOnClick = dvl.wrapConstIfNeeded(if sort.autoOnClick? then sort.autoOnClick else true)
+  sortOnClick = dvl.wrapConstIfNeeded(sort.autoOnClick ? true)
   sortModes = dvl.wrapConstIfNeeded(sort.modes or ['asc', 'desc', 'none'])
   modes = sortModes.get()
   sortOrder = dvl.wrapVarIfNeeded(sort.order or (if modes.length > 0 then modes[0] else 'none'))
@@ -2899,13 +2918,14 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   # process columns
   for i, c of columns
     c.title = dvl.wrapConstIfNeeded(c.title or '')
-    c.sortable = dvl.wrapConstIfNeeded(if c.sortable? then c.sortable else true)
-    c.showIndicator = dvl.wrapConstIfNeeded(if c.showIndicator? then c.showIndicator else true);
+    c.sortable = dvl.wrapConstIfNeeded(c.sortable ? true)
+    c.showIndicator = dvl.wrapConstIfNeeded(c.showIndicator ? true);
     c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator or false);
     c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip or null)
     c.cellClick = dvl.wrapConstIfNeeded(c.cellClick or null)
+    c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
     c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'html']
-    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick
+    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick, c.visible
     if c.renderer.depends
       listen.push d for d in c.renderer.depends
     c.uniquClass = 'column_' + i 
@@ -3018,6 +3038,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     
     h.selectAll('th').data(columns)
       .attr('class', headerColClass)
+      .style('display', (c) -> if c.visible.get() then null else "none")
       .attr('title', (c) -> c.headerTooltip.get())
         .select('span')
           .text((c) -> c.title.get())
@@ -3043,12 +3064,15 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
     for col in columns
       gen = col.gen.gen();
-      col.renderer(
-        sel.select('td.' + col.uniquClass)
-          .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id)),
-        gen,
-        col.sorted
-      )
+      csel = sel.select('td.' + col.uniquClass)
+      if col.visible.get()
+        col.renderer(
+          csel.on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id)).style('display', null),
+          gen,
+          col.sorted
+        )
+      else
+        csel.style('display', 'none')
 
     null
   

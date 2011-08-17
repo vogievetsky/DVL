@@ -516,11 +516,7 @@ dvl.util = {
     if (dvl.knows(v)) {
       return v.get();
     } else {
-      if (v != null) {
-        return v;
-      } else {
-        return null;
-      }
+      return v != null ? v : null;
     }
   };
   registerers = {};
@@ -1064,7 +1060,7 @@ dvl.apply = function(_arg) {
   }
   args = args.map(dvl.wrapConstIfNeeded);
   invalid = dvl.wrapConstIfNeeded(invalid != null ? invalid : null);
-  ret = dvl.wrapVarIfNeeded((out != null ? out : invalid.get()), name || 'apply_out');
+  ret = dvl.wrapVarIfNeeded(out != null ? out : invalid.get(), name || 'apply_out');
   apply = function() {
     var a, f, nulls, r, send, v, _i, _len;
     f = fn.get();
@@ -1240,7 +1236,7 @@ dvl.delay = function(_arg) {
   return out;
 };
 (function() {
-  var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, outstanding, queries;
+  var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, onComplete, outstanding, queries;
   nextQueryId = 0;
   initQueue = [];
   queries = {};
@@ -1291,7 +1287,6 @@ dvl.delay = function(_arg) {
         if (this.url && q.cache) {
           q.cache.store(this.url, data);
         }
-        outstanding.set(outstanding.get() - 1).notify();
       } else {
         q.data = q.cache.retrieve(this.url);
       }
@@ -1317,9 +1312,11 @@ dvl.delay = function(_arg) {
       }
       q.status = 'ready';
       q.curAjax = null;
-      outstanding.set(outstanding.get() - 1).notify();
       return maybeDone(request);
     }), 1);
+  };
+  onComplete = function() {
+    outstanding.set(outstanding.get() - 1).notify();
   };
   makeRequest = function(q, request) {
     var ctx, url, _ref;
@@ -1345,6 +1342,7 @@ dvl.delay = function(_arg) {
           dataType: 'json',
           success: getData,
           error: getError,
+          complete: onComplete,
           context: ctx
         });
         outstanding.set(outstanding.get() + 1).notify();
@@ -2250,7 +2248,7 @@ dvl.svg = {};
 (function() {
   var calcLength, gen_subDouble, gen_subHalf, getNextClipPathId, initClip, initGroup, listen_attr, makeAnchors, nextClipPathId, processDim2, processDim3, processDim4, processOptions, processProps, removeUndefined, reselectUpdate, selectEnterExit, update_attr;
   processOptions = function(options, mySvg, myClass) {
-    var out;
+    var out, _ref;
     if (!options.panel) {
       throw 'No panel defined.';
     }
@@ -2263,7 +2261,7 @@ dvl.svg = {};
       out.classStr = options.classStr;
       out.clip = options.clip;
       out.on = options.on;
-      out.visible = dvl.wrapConstIfNeeded(options.visible != null ? options.visible : true);
+      out.visible = dvl.wrapConstIfNeeded((_ref = options.visible) != null ? _ref : true);
     }
     return out;
   };
@@ -3366,12 +3364,12 @@ dvl.html.out = function(_arg) {
   return null;
 };
 dvl.html.list = function(_arg) {
-  var classStr, links, names, onSelect, selection, selector, ul, updateList, updateSelection, values;
-  selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr;
+  var classStr, links, multi, names, onSelect, selection, selector, ul, updateList, updateSelection, values;
+  selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, multi = _arg.multi;
   if (!selector) {
     throw 'must have selector';
   }
-  selection = dvl.wrapVarIfNeeded(selection, 'selection');
+  selection = dvl.wrapVarIfNeeded(selection || (multi ? [] : null), 'selection');
   values = dvl.wrapConstIfNeeded(values);
   names = dvl.wrapConstIfNeeded(names || values);
   links = links ? dvl.wrapConstIfNeeded(links) : false;
@@ -3418,10 +3416,21 @@ dvl.html.list = function(_arg) {
       vg = values.gen();
       updateLi = function(li) {
         li.text(ng).on('click', function(i) {
-          var val;
+          var sl, val;
           val = vg(i);
           if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
-            selection.set(vg(i));
+            if (multi) {
+              sl = (selection.get() || []).slice();
+              i = sl.indexOf(val);
+              if (i === -1) {
+                sl.push(val);
+              } else {
+                sl.splice(i, 1);
+              }
+              selection.set(sl);
+            } else {
+              selection.set(val);
+            }
             return dvl.notify(selection);
           }
         });
@@ -3442,10 +3451,19 @@ dvl.html.list = function(_arg) {
     sel = selection.get();
     vg = values.gen();
     ul.selectAll('li').attr('class', function(i) {
-      if (vg(i) === sel) {
-        return 'selected';
+      var _ref;
+      if (multi) {
+        if (sel && (_ref = vg(i), __indexOf.call(sel, _ref) >= 0)) {
+          return 'selected';
+        } else {
+          return null;
+        }
       } else {
-        return null;
+        if (vg(i) === sel) {
+          return 'selected';
+        } else {
+          return null;
+        }
       }
     });
   };
@@ -3460,8 +3478,8 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, links, list, listDiv, manuOpen, menuOffset, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selector, updateSelection, valueSpan, values;
-  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, menuOffset = _arg.menuOffset;
+  var classStr, close, divCont, getClass, links, list, listDiv, menuOffset, menuOpen, multi, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selector, title, updateSelection, valueSpan, values;
+  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, menuOffset = _arg.menuOffset, multi = _arg.multi, title = _arg.title;
   if (!selector) {
     throw 'must have selector';
   }
@@ -3474,9 +3492,9 @@ dvl.html.dropdownList = function(_arg) {
   names = dvl.wrapConstIfNeeded(names || values);
   selectionNames = dvl.wrapConstIfNeeded(selectionNames || names);
   links = links ? dvl.wrapConstIfNeeded(links) : false;
-  manuOpen = false;
+  menuOpen = false;
   getClass = function() {
-    return (classStr != null ? classStr : '') + ' ' + (manuOpen ? 'open' : 'closed');
+    return (classStr != null ? classStr : '') + ' ' + (menuOpen ? 'open' : 'closed');
   };
   divCont = d3.select(selector).append('div').attr('class', getClass()).style('position', 'relative');
   selectedDiv = divCont.append('div').attr('class', 'selection');
@@ -3488,16 +3506,18 @@ dvl.html.dropdownList = function(_arg) {
     height = sp.outerHeight(true);
     offset = menuOffset.get();
     listDiv.style('display', null).style('left', (pos.left + offset.x) + 'px').style('top', (pos.top + height + offset.y) + 'px');
-    manuOpen = true;
+    menuOpen = true;
     divCont.attr('class', getClass());
   };
   close = function() {
     listDiv.style('display', 'none');
-    manuOpen = false;
+    menuOpen = false;
     divCont.attr('class', getClass());
   };
   myOnSelect = function(text, i) {
-    close();
+    if (!multi) {
+      close();
+    }
     return typeof onSelect === "function" ? onSelect(text, i) : void 0;
   };
   list = dvl.html.list({
@@ -3507,7 +3527,8 @@ dvl.html.dropdownList = function(_arg) {
     links: links,
     selection: selection,
     onSelect: myOnSelect,
-    classStr: 'list'
+    classStr: 'list',
+    multi: multi
   });
   listDiv = d3.select(list.node).style('position', 'absolute').style('z-index', 1000).style('display', 'none');
   $(window).click(function(e) {
@@ -3515,7 +3536,7 @@ dvl.html.dropdownList = function(_arg) {
       return;
     }
     if (selectedDiv.node() === e.target || $(selectedDiv.node()).find(e.target).length) {
-      if (manuOpen) {
+      if (menuOpen) {
         close();
       } else {
         open();
@@ -3535,21 +3556,25 @@ dvl.html.dropdownList = function(_arg) {
   });
   updateSelection = function() {
     var i, len, ng, sel, vg;
-    sel = selection.get();
-    if (sel != null) {
-      len = values.len();
-      ng = selectionNames.gen();
-      vg = values.gen();
-      i = 0;
-      while (i < len) {
-        if (vg(i) === sel) {
-          valueSpan.text(ng(i));
-          return;
+    if (multi) {
+      valueSpan.text(title.get());
+    } else {
+      sel = selection.get();
+      if (sel != null) {
+        len = values.len();
+        ng = selectionNames.gen();
+        vg = values.gen();
+        i = 0;
+        while (i < len) {
+          if (vg(i) === sel) {
+            valueSpan.text(ng(i));
+            return;
+          }
+          i++;
         }
-        i++;
       }
+      valueSpan.html('&nbsp;');
     }
-    valueSpan.html('&nbsp;');
   };
   dvl.register({
     fn: updateSelection,
@@ -3586,7 +3611,7 @@ dvl.html.select = function(_arg) {
   return selection;
 };
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columns, d, goOrCall, h, headerColClass, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2;
+  var b, c, classStr, colClass, columns, d, goOrCall, h, headerColClass, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
   selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
@@ -3604,7 +3629,7 @@ dvl.html.table = function(_arg) {
   rowLimit = dvl.wrapConstIfNeeded(rowLimit || null);
   sort = sort || {};
   sortOn = dvl.wrapVarIfNeeded(sort.on);
-  sortOnClick = dvl.wrapConstIfNeeded(sort.autoOnClick != null ? sort.autoOnClick : true);
+  sortOnClick = dvl.wrapConstIfNeeded((_ref = sort.autoOnClick) != null ? _ref : true);
   sortModes = dvl.wrapConstIfNeeded(sort.modes || ['asc', 'desc', 'none']);
   modes = sortModes.get();
   sortOrder = dvl.wrapVarIfNeeded(sort.order || (modes.length > 0 ? modes[0] : 'none'));
@@ -3635,9 +3660,9 @@ dvl.html.table = function(_arg) {
         span: tc.columns.length
       });
       listen.push(tc.title);
-      _ref = tc.columns;
-      for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
-        c = _ref[_j];
+      _ref2 = tc.columns;
+      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+        c = _ref2[_j];
         newColumns.push(c);
       }
     }
@@ -3646,17 +3671,18 @@ dvl.html.table = function(_arg) {
   for (i in columns) {
     c = columns[i];
     c.title = dvl.wrapConstIfNeeded(c.title || '');
-    c.sortable = dvl.wrapConstIfNeeded(c.sortable != null ? c.sortable : true);
-    c.showIndicator = dvl.wrapConstIfNeeded(c.showIndicator != null ? c.showIndicator : true);
+    c.sortable = dvl.wrapConstIfNeeded((_ref3 = c.sortable) != null ? _ref3 : true);
+    c.showIndicator = dvl.wrapConstIfNeeded((_ref4 = c.showIndicator) != null ? _ref4 : true);
     c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator || false);
     c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip || null);
     c.cellClick = dvl.wrapConstIfNeeded(c.cellClick || null);
+    c.visible = dvl.wrapConstIfNeeded((_ref5 = c.visible) != null ? _ref5 : true);
     c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'html'];
-    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick);
+    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick, c.visible);
     if (c.renderer.depends) {
-      _ref2 = c.renderer.depends;
-      for (_k = 0, _len3 = _ref2.length; _k < _len3; _k++) {
-        d = _ref2[_k];
+      _ref6 = c.renderer.depends;
+      for (_k = 0, _len3 = _ref6.length; _k < _len3; _k++) {
+        d = _ref6[_k];
         listen.push(d);
       }
     }
@@ -3730,7 +3756,7 @@ dvl.html.table = function(_arg) {
     return length;
   };
   makeTable = function() {
-    var c, col, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, updateTd, _l, _len4, _len5, _m;
+    var c, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, updateTd, _l, _len4, _len5, _m;
     length = tableLength();
     r = pv.range(length);
     if (visible.hasChanged()) {
@@ -3793,7 +3819,13 @@ dvl.html.table = function(_arg) {
         });
       }
     }
-    h.selectAll('th').data(columns).attr('class', headerColClass).attr('title', function(c) {
+    h.selectAll('th').data(columns).attr('class', headerColClass).style('display', function(c) {
+      if (c.visible.get()) {
+        return null;
+      } else {
+        return "none";
+      }
+    }).attr('title', function(c) {
       return c.headerTooltip.get();
     }).select('span').text(function(c) {
       return c.title.get();
@@ -3821,9 +3853,14 @@ dvl.html.table = function(_arg) {
     for (_m = 0, _len5 = columns.length; _m < _len5; _m++) {
       col = columns[_m];
       gen = col.gen.gen();
-      col.renderer(sel.select('td.' + col.uniquClass).on('click', function(i) {
-        return goOrCall(col.cellClick.gen()(i), col.id);
-      }), gen, col.sorted);
+      csel = sel.select('td.' + col.uniquClass);
+      if (col.visible.get()) {
+        col.renderer(csel.on('click', function(i) {
+          return goOrCall(col.cellClick.gen()(i), col.id);
+        }).style('display', null), gen, col.sorted);
+      } else {
+        csel.style('display', 'none');
+      }
     }
     return null;
   };
