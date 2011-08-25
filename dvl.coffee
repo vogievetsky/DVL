@@ -1024,7 +1024,7 @@ dvl.delay = ({ data, time, name, init }) ->
         
         if q.invalidOnLoad.get()
           setTimeout((->
-            q.res.update(null)
+            q.res.update(null) if q.curAjax
           ), 1)
     else
       setTimeout((->
@@ -2592,7 +2592,7 @@ dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr, multi}) ->
+dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr, multi, iconDiv}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection or (if multi then [] else null), 'selection')
   
@@ -2618,8 +2618,16 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
           link = lg(i)
           window.location.href = link if link
         )
-        a = if enter then li.append('a') else li.select('a')
-        a.attr('href', lg).text(ng)
+        if enter
+          a = li.append('a')
+          a.append('div').attr('class', 'icon') if iconDiv is 'prepend'
+          span = a.append('span')
+          a.append('div').attr('class', 'icon') if iconDiv is 'append'
+        else
+          a = li.select('a')
+          span = a.select('span')
+        a.attr('href', lg)
+        span.text(ng)
         return
 
       sel = ul.selectAll('li').data(d3.range(len))
@@ -2635,9 +2643,8 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
       ng = names.gen()
       vg = values.gen()
     
-      updateLi = (li) ->
-        li.text(ng)
-          .on('click', (i) ->
+      updateLi = (li, enter) ->
+        li.on('click', (i) ->
             val = vg(i)
             if onSelect?(val, i) isnt false
               if multi
@@ -2653,10 +2660,17 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
               
               dvl.notify(selection)
           )
+        if enter
+          li.append('div').attr('class', 'icon') if iconDiv is 'prepend'
+          span = li.append('span')
+          li.append('div').attr('class', 'icon') if iconDiv is 'append'
+        else
+          span = li.select('span')
+        span.text(ng)
         return
     
       sel = ul.selectAll('li').data(d3.range(len))
-      updateLi sel.enter().append('li')
+      updateLi sel.enter().append('li'), true
       updateLi sel
       sel.exit().remove()
       return
@@ -2681,7 +2695,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
   return { selection, node:ul.node() }
 
 
-dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, menuOffset, multi, title}) ->
+dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, menuOffset, multi, title, iconDiv}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   menuOffset = dvl.wrapConstIfNeeded(menuOffset or { x:0, y:0 })
@@ -2690,6 +2704,10 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   names = dvl.wrapConstIfNeeded(names or values)
   selectionNames = dvl.wrapConstIfNeeded(selectionNames or names)
   links = if links then dvl.wrapConstIfNeeded(links) else false
+  if multi
+    title = dvl.wrapConstIfNeeded(title or '')
+  else
+    title = undefined
   
   menuOpen = false
   getClass = ->
@@ -2738,6 +2756,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     onSelect: myOnSelect
     classStr: 'list'
     multi
+    iconDiv
   }
   
   listDiv = d3.select(list.node)
@@ -2784,7 +2803,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   
   dvl.register {
     fn:updateSelection
-    listen:[selection, selectionNames, values]
+    listen:[selection, selectionNames, values, title]
     name:'selection_updater'
   }
 
