@@ -177,6 +177,9 @@ dvl.util = {
         return new Date(obj.getTime())
       else
         return obj
+        
+  escapeHTML: (str) -> 
+    return str.replace(/&/g,'&amp;').replace(/>/g,'&gt;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
 }
 
 (->
@@ -2548,9 +2551,10 @@ dvl.html = {}
 ##
 ##  Output to an HTML attribute
 ##
-dvl.html.out = ({selector, data, format, invalid, hideInvalid, attr, style, text}) ->
+dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, text}) ->
   throw 'must have data' unless data
   data = dvl.wrapConstIfNeeded(data)
+  format = format ? fn
 
   throw 'must have selector' unless selector
   selector = dvl.wrapConstIfNeeded(selector)
@@ -2695,9 +2699,10 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
   return { selection, node:ul.node() }
 
 
-dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, menuOffset, multi, title, iconDiv}) ->
+dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, menuAnchor, menuOffset, multi, title, iconDiv}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
+  menuAnchor = dvl.wrapConstIfNeeded(menuAnchor or 'left')
   menuOffset = dvl.wrapConstIfNeeded(menuOffset or { x:0, y:0 })
   
   values = dvl.wrapConstIfNeeded(values)
@@ -2727,11 +2732,17 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     sp = $(selectedDiv.node())
     pos = sp.position()
     height = sp.outerHeight(true)
+    anchor = menuAnchor.get()
     offset = menuOffset.get()
     listDiv
       .style('display', null)
-      .style('left', (pos.left + offset.x) + 'px')
       .style('top', (pos.top + height + offset.y) + 'px')
+      
+    if anchor is 'left'
+      listDiv.style('left', (pos.left + offset.x) + 'px')
+    else
+      listDiv.style('right', (pos.left - offset.x) + 'px')
+      
     menuOpen = true
     divCont.attr('class', getClass())
     return
@@ -3110,13 +3121,14 @@ dvl.html.table.renderer =
   html: (col, dataFn) ->
     col.html(dataFn)
     null
-  aLink: ({linkGen, titleGen}) ->
+  aLink: ({linkGen, titleGen, html}) ->
+    what = if html then 'html' else 'text'
     linkGen = dvl.wrapConstIfNeeded(linkGen)
     titleGen = dvl.wrapConstIfNeeded(titleGen)
     f = (col, dataFn) ->
       sel = col.selectAll('a').data((d) -> [d])
       config = (d) ->
-        d.attr('href', linkGen.gen()).text(dataFn)
+        d.attr('href', linkGen.gen())[what](dataFn)
         d.attr('title', titleGen.gen()) if titleGen 
       config(sel.enter().append('a'))
       config(sel)

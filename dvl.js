@@ -241,6 +241,9 @@ dvl.util = {
       default:
         return obj;
     }
+  },
+  escapeHTML: function(str) {
+    return str.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   }
 };
 (function() {
@@ -3305,12 +3308,13 @@ dvl.svg = {};
 })();
 dvl.html = {};
 dvl.html.out = function(_arg) {
-  var attr, data, format, hideInvalid, invalid, out, selector, style, text, updateHtml, what;
-  selector = _arg.selector, data = _arg.data, format = _arg.format, invalid = _arg.invalid, hideInvalid = _arg.hideInvalid, attr = _arg.attr, style = _arg.style, text = _arg.text;
+  var attr, data, fn, format, hideInvalid, invalid, out, selector, style, text, updateHtml, what;
+  selector = _arg.selector, data = _arg.data, fn = _arg.fn, format = _arg.format, invalid = _arg.invalid, hideInvalid = _arg.hideInvalid, attr = _arg.attr, style = _arg.style, text = _arg.text;
   if (!data) {
     throw 'must have data';
   }
   data = dvl.wrapConstIfNeeded(data);
+  format = format != null ? format : fn;
   if (!selector) {
     throw 'must have selector';
   }
@@ -3506,12 +3510,13 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, iconDiv, links, list, listDiv, menuOffset, menuOpen, multi, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selector, title, updateSelection, valueSpan, values;
-  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, menuOffset = _arg.menuOffset, multi = _arg.multi, title = _arg.title, iconDiv = _arg.iconDiv;
+  var classStr, close, divCont, getClass, iconDiv, links, list, listDiv, menuAnchor, menuOffset, menuOpen, multi, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selector, title, updateSelection, valueSpan, values;
+  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, onSelect = _arg.onSelect, classStr = _arg.classStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, multi = _arg.multi, title = _arg.title, iconDiv = _arg.iconDiv;
   if (!selector) {
     throw 'must have selector';
   }
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
+  menuAnchor = dvl.wrapConstIfNeeded(menuAnchor || 'left');
   menuOffset = dvl.wrapConstIfNeeded(menuOffset || {
     x: 0,
     y: 0
@@ -3533,12 +3538,18 @@ dvl.html.dropdownList = function(_arg) {
   selectedDiv = divCont.append('div').attr('class', 'selection');
   valueSpan = selectedDiv.append('span');
   open = function() {
-    var height, offset, pos, sp;
+    var anchor, height, offset, pos, sp;
     sp = $(selectedDiv.node());
     pos = sp.position();
     height = sp.outerHeight(true);
+    anchor = menuAnchor.get();
     offset = menuOffset.get();
-    listDiv.style('display', null).style('left', (pos.left + offset.x) + 'px').style('top', (pos.top + height + offset.y) + 'px');
+    listDiv.style('display', null).style('top', (pos.top + height + offset.y) + 'px');
+    if (anchor === 'left') {
+      listDiv.style('left', (pos.left + offset.x) + 'px');
+    } else {
+      listDiv.style('right', (pos.left - offset.x) + 'px');
+    }
     menuOpen = true;
     divCont.attr('class', getClass());
   };
@@ -3919,8 +3930,9 @@ dvl.html.table.renderer = {
     return null;
   },
   aLink: function(_arg) {
-    var f, linkGen, titleGen;
-    linkGen = _arg.linkGen, titleGen = _arg.titleGen;
+    var f, html, linkGen, titleGen, what;
+    linkGen = _arg.linkGen, titleGen = _arg.titleGen, html = _arg.html;
+    what = html ? 'html' : 'text';
     linkGen = dvl.wrapConstIfNeeded(linkGen);
     titleGen = dvl.wrapConstIfNeeded(titleGen);
     f = function(col, dataFn) {
@@ -3929,7 +3941,7 @@ dvl.html.table.renderer = {
         return [d];
       });
       config = function(d) {
-        d.attr('href', linkGen.gen()).text(dataFn);
+        d.attr('href', linkGen.gen())[what](dataFn);
         if (titleGen) {
           return d.attr('title', titleGen.gen());
         }
