@@ -2596,27 +2596,29 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr, multi, iconDiv}) ->
+dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr, listClassStr, multi, iconDiv}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection or (if multi then [] else null), 'selection')
   
   values = dvl.wrapConstIfNeeded(values)
   names = dvl.wrapConstIfNeeded(names or values)
   links = if links then dvl.wrapConstIfNeeded(links) else false
+  listClassStr = dvl.wrapConstIfNeeded(listClassStr or '')
   
   ul = d3.select(selector).append('ul').attr('class', classStr)
   
   if links
     updateList = ->
-      len = Math.min(names.len(), links.len())
+      len = Math.min(names.len(), links.len(), listClassStr.len())
       len = 1 if len is Infinity
       
       ng = names.gen()
       vg = values.gen()
       lg = links.gen()
+      cs = listClassStr.get()
 
       updateLi = (li, enter) ->
-        li.on('click', (i) ->
+        li.attr('class', cs).on('click', (i) ->
           val = vg(i)
           onSelect?(val, i)
           link = lg(i)
@@ -2641,29 +2643,30 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
       return
   else
     updateList = ->
-      len = Math.min(values.len(), names.len())
+      len = Math.min(values.len(), names.len(), listClassStr.len())
       len = 1 if len is Infinity
     
       ng = names.gen()
       vg = values.gen()
+      cs = listClassStr.get()
     
       updateLi = (li, enter) ->
-        li.on('click', (i) ->
-            val = vg(i)
-            if onSelect?(val, i) isnt false
-              if multi
-                sl = (selection.get() or []).slice()
-                i = sl.indexOf(val)
-                if i is -1
-                  sl.push(val)
-                else
-                  sl.splice(i,1)
-                selection.set(sl)
+        li.attr('class', cs).on('click', (i) ->
+          val = vg(i)
+          if onSelect?(val, i) isnt false
+            if multi
+              sl = (selection.get() or []).slice()
+              i = sl.indexOf(val)
+              if i is -1
+                sl.push(val)
               else
-                selection.set(val)
-              
-              dvl.notify(selection)
-          )
+                sl.splice(i,1)
+              selection.set(sl)
+            else
+              selection.set(val)
+            
+            dvl.notify(selection)
+        )
         if enter
           li.append('div').attr('class', 'icon') if iconDiv is 'prepend'
           span = li.append('span')
@@ -2679,7 +2682,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
       sel.exit().remove()
       return
   
-  dvl.register({fn:updateList, listen:[names, values, links], name:'html_list'})
+  dvl.register({fn:updateList, listen:[names, values, links, listClassStr], name:'html_list'})
   
   updateSelection = ->
     sel = selection.get()
@@ -2699,7 +2702,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
   return { selection, node:ul.node() }
 
 
-dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, menuAnchor, menuOffset, multi, title, iconDiv}) ->
+dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, onSelect, classStr, listClassStr, menuAnchor, menuOffset, multi, title, iconDiv}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   menuAnchor = dvl.wrapConstIfNeeded(menuAnchor or 'left')
@@ -2709,10 +2712,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   names = dvl.wrapConstIfNeeded(names or values)
   selectionNames = dvl.wrapConstIfNeeded(selectionNames or names)
   links = if links then dvl.wrapConstIfNeeded(links) else false
-  if multi
-    title = dvl.wrapConstIfNeeded(title or '')
-  else
-    title = undefined
+  title = dvl.wrapConstIfNeeded(title) if title
   
   menuOpen = false
   getClass = ->
@@ -2766,6 +2766,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     selection
     onSelect: myOnSelect
     classStr: 'list'
+    listClassStr
     multi
     iconDiv
   }
@@ -2786,15 +2787,11 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     else
       close()
       
-    return {
-      node: divCont.node()
-      open:  -> setTimeout(open, 1)
-      close: -> setTimeout(close, 1)
-    }
+    return
   )
   
   updateSelection = ->
-    if multi
+    if title
       valueSpan.text(title.get())
     else
       sel = selection.get()
@@ -2818,7 +2815,10 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     name:'selection_updater'
   }
 
-  return { node: divCont.node() }
+  return {
+    node: divCont.node()
+    selection
+  }
 
 
 ##-------------------------------------------------------
