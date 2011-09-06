@@ -3452,6 +3452,7 @@ dvl.html.list = function(_arg) {
               }
               selection.set(sl);
             } else {
+              console.log('val', val);
               selection.set(val);
             }
             return dvl.notify(selection);

@@ -2663,6 +2663,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
                 sl.splice(i,1)
               selection.set(sl)
             else
+              console.log('val', val)
               selection.set(val)
             
             dvl.notify(selection)
