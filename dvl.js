@@ -3379,7 +3379,7 @@ dvl.html.list = function(_arg) {
   values = dvl.wrapConstIfNeeded(values);
   names = dvl.wrapConstIfNeeded(names || values);
   links = links ? dvl.wrapConstIfNeeded(links) : false;
-  listClassStr = dvl.wrapConstIfNeeded(listClassStr || '');
+  listClassStr = dvl.wrapConstIfNeeded(listClassStr);
   ul = d3.select(selector).append('ul').attr('class', classStr);
   if (links) {
     updateList = function() {
@@ -3391,7 +3391,7 @@ dvl.html.list = function(_arg) {
       ng = names.gen();
       vg = values.gen();
       lg = links.gen();
-      cs = listClassStr.get();
+      cs = listClassStr.gen();
       updateLi = function(li, enter) {
         var a, span;
         li.attr('class', cs).on('click', function(i) {
@@ -3419,7 +3419,7 @@ dvl.html.list = function(_arg) {
           span = a.select('span');
         }
         a.attr('href', lg);
-        span.text(ng);
+        span.text(ng).attr('class', cs);
       };
       sel = ul.selectAll('li').data(d3.range(len));
       updateLi(sel.enter().append('li'), true);
@@ -3435,10 +3435,10 @@ dvl.html.list = function(_arg) {
       }
       ng = names.gen();
       vg = values.gen();
-      cs = listClassStr.get();
+      cs = listClassStr.gen();
       updateLi = function(li, enter) {
         var span;
-        li.attr('class', cs).on('click', function(i) {
+        li.on('click', function(i) {
           var sl, val;
           val = vg(i);
           if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
@@ -3452,7 +3452,6 @@ dvl.html.list = function(_arg) {
               }
               selection.set(sl);
             } else {
-              console.log('val', val);
               selection.set(val);
             }
             return dvl.notify(selection);
@@ -3469,7 +3468,7 @@ dvl.html.list = function(_arg) {
         } else {
           span = li.select('span');
         }
-        span.text(ng);
+        span.text(ng).attr('class', cs);
       };
       sel = ul.selectAll('li').data(d3.range(len));
       updateLi(sel.enter().append('li'), true);

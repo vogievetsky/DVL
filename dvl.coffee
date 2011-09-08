@@ -2603,7 +2603,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
   values = dvl.wrapConstIfNeeded(values)
   names = dvl.wrapConstIfNeeded(names or values)
   links = if links then dvl.wrapConstIfNeeded(links) else false
-  listClassStr = dvl.wrapConstIfNeeded(listClassStr or '')
+  listClassStr = dvl.wrapConstIfNeeded(listClassStr)
   
   ul = d3.select(selector).append('ul').attr('class', classStr)
   
@@ -2615,7 +2615,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
       ng = names.gen()
       vg = values.gen()
       lg = links.gen()
-      cs = listClassStr.get()
+      cs = listClassStr.gen()
 
       updateLi = (li, enter) ->
         li.attr('class', cs).on('click', (i) ->
@@ -2633,7 +2633,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
           a = li.select('a')
           span = a.select('span')
         a.attr('href', lg)
-        span.text(ng)
+        span.text(ng).attr('class', cs)
         return
 
       sel = ul.selectAll('li').data(d3.range(len))
@@ -2648,10 +2648,10 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
     
       ng = names.gen()
       vg = values.gen()
-      cs = listClassStr.get()
+      cs = listClassStr.gen()
     
       updateLi = (li, enter) ->
-        li.attr('class', cs).on('click', (i) ->
+        li.on('click', (i) ->
           val = vg(i)
           if onSelect?(val, i) isnt false
             if multi
@@ -2663,7 +2663,6 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
                 sl.splice(i,1)
               selection.set(sl)
             else
-              console.log('val', val)
               selection.set(val)
             
             dvl.notify(selection)
@@ -2674,7 +2673,7 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
           li.append('div').attr('class', 'icon') if iconDiv is 'append'
         else
           span = li.select('span')
-        span.text(ng)
+        span.text(ng).attr('class', cs)
         return
     
       sel = ul.selectAll('li').data(d3.range(len))
