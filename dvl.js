@@ -52,7 +52,7 @@ debug = function() {
   return arguments[0];
 };
 window.dvl = {
-  version: '0.81'
+  version: '0.90'
 };
 (function() {
   var array_ctor, date_ctor, regex_ctor;
@@ -80,6 +80,27 @@ window.dvl = {
   };
 })();
 dvl.util = {
+  strObj: function(obj) {
+    var k, keys, str, type, _i, _len;
+    type = dvl.typeOf(obj);
+    if (type === 'object' || type === 'array') {
+      str = [];
+      keys = [];
+      for (k in obj) {
+        keys.push(k);
+      }
+      keys.sort();
+      for (_i = 0, _len = keys.length; _i < _len; _i++) {
+        k = keys[_i];
+        str.push(k, dvl.util.strObj(obj[k]));
+      }
+      return str.join('|');
+    }
+    if (type === 'function') {
+      return '&';
+    }
+    return String(obj);
+  },
   uniq: function(array) {
     var a, seen, uniq, _i, _len;
     seen = {};
@@ -248,17 +269,6 @@ dvl.util = {
 };
 (function() {
   var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, collect_notify, constants, curCollectListener, curNotifyListener, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
-  dvl.intersectSize = function(as, bs) {
-    var a, count, _i, _len;
-    count = 0;
-    for (_i = 0, _len = as.length; _i < _len; _i++) {
-      a = as[_i];
-      if (__indexOf.call(bs, a) >= 0) {
-        count += 1;
-      }
-    }
-    return count;
-  };
   nextObjId = 1;
   constants = {};
   variables = {};
@@ -523,14 +533,14 @@ dvl.util = {
     }
   };
   registerers = {};
-  uniqById = function(vs) {
+  uniqById = function(vs, allowConst) {
     var res, seen, v, _i, _len;
     res = [];
     if (vs) {
       seen = {};
       for (_i = 0, _len = vs.length; _i < _len; _i++) {
         v = vs[_i];
-        if ((v != null) && v.listeners && v.changers && !seen[v.id]) {
+        if ((v != null) && (allowConst || (v.listeners && v.changers)) && !seen[v.id]) {
           seen[v.id] = true;
           res.push(v);
         }
@@ -588,62 +598,80 @@ dvl.util = {
       this.level = 0;
       return this;
     }
-    DVLFunctionObject.prototype.addChange = function(v) {
-      var lis, _i, _len, _ref;
-      if (!(v.listeners && v.changers)) {
-        return this;
-      }
-      this.change.push(v);
-      v.changers.push(this);
-      _ref = v.listeners;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        lis = _ref[_i];
-        this.updates.push(lis);
-      }
-      bfsUpdate([this]);
-      return this;
-    };
-    DVLFunctionObject.prototype.addListen = function(v) {
-      var changedSave, chng, _i, _len, _ref;
-      if (v.listeners && v.changers) {
-        this.listen.push(v);
-        v.listeners.push(this);
-        _ref = v.changers;
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          chng = _ref[_i];
-          chng.updates.push(this);
-          this.level = Math.max(this.level, chng.level + 1);
+    DVLFunctionObject.prototype.addChange = function() {
+      var l, uv, v, _i, _j, _len, _len2, _ref;
+      uv = uniqById(arguments);
+      if (uv.length) {
+        for (_i = 0, _len = uv.length; _i < _len; _i++) {
+          v = uv[_i];
+          this.change.push(v);
+          v.changers.push(this);
+          _ref = v.listeners;
+          for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
+            l = _ref[_j];
+            this.updates.push(l);
+          }
         }
         bfsUpdate([this]);
       }
+      return this;
+    };
+    DVLFunctionObject.prototype.addListen = function() {
+      var c, changedSave, i, uv, v, _i, _j, _k, _len, _len2, _len3, _len4, _ref;
+      uv = uniqById(arguments);
+      if (uv.length) {
+        for (_i = 0, _len = uv.length; _i < _len; _i++) {
+          v = uv[_i];
+          this.listen.push(v);
+          v.listeners.push(this);
+          _ref = v.changers;
+          for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
+            c = _ref[_j];
+            c.updates.push(this);
+            this.level = Math.max(this.level, c.level + 1);
+          }
+        }
+        bfsUpdate([this]);
+      }
+      uv = uniqById(arguments, true);
       start_notify_collect(this);
-      changedSave = v.changed;
-      v.changed = true;
+      changedSave = [];
+      for (_k = 0, _len3 = uv.length; _k < _len3; _k++) {
+        v = uv[_k];
+        changedSave.push(v.changed);
+        v.changed = true;
+      }
       this.fn.apply(this.ctx);
-      v.changed = changedSave;
+      for (i = 0, _len4 = uv.length; i < _len4; i++) {
+        v = uv[i];
+        v.changed = changedSave[i];
+      }
       end_notify_collect();
       return this;
     };
     DVLFunctionObject.prototype.remove = function() {
-      var k, l, queue, v, _i, _j, _len, _len2, _ref, _ref2;
+      var cf, lv, queue, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref, _ref2, _ref3, _ref4;
       delete registerers[this.id];
       bfsZero([this]);
       queue = [];
-      for (k in registerers) {
-        l = registerers[k];
-        if (dvl.intersectSize(l.change, this.listen) > 0) {
-          queue.push(l);
-          l.updates.splice(l.updates.indexOf(l), 1);
+      _ref = this.listen;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        lv = _ref[_i];
+        _ref2 = lv.changers;
+        for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+          cf = _ref2[_j];
+          queue.push(cf);
+          cf.updates.splice(cf.updates.indexOf(cf), 1);
         }
       }
-      _ref = this.change;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        v = _ref[_i];
+      _ref3 = this.change;
+      for (_k = 0, _len3 = _ref3.length; _k < _len3; _k++) {
+        v = _ref3[_k];
         v.changers.splice(v.changers.indexOf(this), 1);
       }
-      _ref2 = this.listen;
-      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
-        v = _ref2[_j];
+      _ref4 = this.listen;
+      for (_l = 0, _len4 = _ref4.length; _l < _len4; _l++) {
+        v = _ref4[_l];
         v.listeners.splice(v.listeners.indexOf(this), 1);
       }
       bfsUpdate(queue);
@@ -652,19 +680,13 @@ dvl.util = {
     return DVLFunctionObject;
   })();
   dvl.register = function(_arg) {
-    var c, change, changedSave, ctx, fn, fo, force, i, id, k, l, listen, listenConst, name, noRun, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _len5, _len6, _len7, _m;
+    var c, cf, change, changedSave, ctx, cv, fn, fo, force, i, id, l, lf, listen, listenConst, lv, name, noRun, v, _i, _j, _k, _l, _len, _len10, _len11, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _len9, _m, _n, _o, _p, _q, _ref, _ref2;
     ctx = _arg.ctx, fn = _arg.fn, listen = _arg.listen, change = _arg.change, name = _arg.name, force = _arg.force, noRun = _arg.noRun;
     if (curNotifyListener) {
       throw 'cannot call register from within a notify';
     }
     if (typeof fn !== 'function') {
       throw 'fn must be a function';
-    }
-    for (k in registerers) {
-      l = registerers[k];
-      if (l.ctx === ctx && l.fn === fn) {
-        throw 'called twice';
-      }
     }
     listenConst = [];
     if (listen) {
@@ -695,14 +717,21 @@ dvl.util = {
         }
         v.changers.push(fo);
       }
-      for (k in registerers) {
-        l = registerers[k];
-        if (dvl.intersectSize(change, l.listen) > 0) {
-          fo.updates.push(l);
+      for (_l = 0, _len4 = change.length; _l < _len4; _l++) {
+        cv = change[_l];
+        _ref = cv.listeners;
+        for (_m = 0, _len5 = _ref.length; _m < _len5; _m++) {
+          lf = _ref[_m];
+          fo.updates.push(lf);
         }
-        if (dvl.intersectSize(listen, l.change) > 0) {
-          l.updates.push(fo);
-          fo.level = Math.max(fo.level, l.level + 1);
+      }
+      for (_n = 0, _len6 = listen.length; _n < _len6; _n++) {
+        lv = listen[_n];
+        _ref2 = lv.changers;
+        for (_o = 0, _len7 = _ref2.length; _o < _len7; _o++) {
+          cf = _ref2[_o];
+          cf.updates.push(fo);
+          fo.level = Math.max(fo.level, cf.level + 1);
         }
       }
       registerers[id] = fo;
@@ -710,24 +739,24 @@ dvl.util = {
     }
     if (!noRun) {
       changedSave = [];
-      for (i = 0, _len4 = listen.length; i < _len4; i++) {
+      for (i = 0, _len8 = listen.length; i < _len8; i++) {
         l = listen[i];
         changedSave[i] = l.changed;
         l.changed = true;
       }
-      for (_l = 0, _len5 = listenConst.length; _l < _len5; _l++) {
-        l = listenConst[_l];
+      for (_p = 0, _len9 = listenConst.length; _p < _len9; _p++) {
+        l = listenConst[_p];
         l.changed = true;
       }
       start_notify_collect(fo);
       fn.apply(ctx);
       end_notify_collect();
-      for (i = 0, _len6 = changedSave.length; i < _len6; i++) {
+      for (i = 0, _len10 = changedSave.length; i < _len10; i++) {
         c = changedSave[i];
         listen[i].changed = c;
       }
-      for (_m = 0, _len7 = listenConst.length; _m < _len7; _m++) {
-        l = listenConst[_m];
+      for (_q = 0, _len11 = listenConst.length; _q < _len11; _q++) {
+        l = listenConst[_q];
         l.changed = false;
       }
     }
@@ -835,11 +864,12 @@ dvl.util = {
     return null;
   };
   init_notify = function() {
-    var k, l, v, _i, _j, _k, _len, _len2, _len3, _ref;
+    var l, v, visitedListener, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref;
     if (curNotifyListener) {
       throw 'bad stuff happened init';
     }
     lastNotifyRun = [];
+    visitedListener = [];
     changedInNotify = [];
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
@@ -861,6 +891,7 @@ dvl.util = {
         continue;
       }
       curNotifyListener.visited = true;
+      visitedListener.push(curNotifyListener);
       lastNotifyRun.push(curNotifyListener.id);
       curNotifyListener.fn.apply(curNotifyListener.ctx);
     }
@@ -870,8 +901,8 @@ dvl.util = {
       v = changedInNotify[_k];
       v.resetChanged();
     }
-    for (k in registerers) {
-      l = registerers[k];
+    for (_l = 0, _len4 = visitedListener.length; _l < _len4; _l++) {
+      l = visitedListener[_l];
       l.visited = false;
     }
   };
@@ -1239,139 +1270,134 @@ dvl.delay = function(_arg) {
   return out;
 };
 (function() {
-  var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, onComplete, outstanding, queries;
-  nextQueryId = 0;
-  initQueue = [];
-  queries = {};
+  var ajaxManagers, makeManager, nextGroupId, outstanding;
   outstanding = dvl.def(0, 'json_outstanding');
-  maybeDone = function(request) {
-    var notify, q, _i, _j, _len, _len2;
-    for (_i = 0, _len = request.length; _i < _len; _i++) {
-      q = request[_i];
-      if (q.status !== 'ready') {
+  ajaxManagers = [];
+  makeManager = function() {
+    var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, onComplete, queries;
+    nextQueryId = 0;
+    initQueue = [];
+    queries = {};
+    maybeDone = function(request) {
+      var notify, q, _i, _j, _len, _len2;
+      for (_i = 0, _len = request.length; _i < _len; _i++) {
+        q = request[_i];
+        if (q.status !== 'ready') {
+          return;
+        }
+      }
+      notify = [];
+      for (_j = 0, _len2 = request.length; _j < _len2; _j++) {
+        q = request[_j];
+        if (q.resVal !== void 0) {
+          q.res.set(q.resVal);
+          notify.push(q.res);
+          q.status = '';
+          delete q.resVal;
+        }
+      }
+      return dvl.notify.apply(null, notify);
+    };
+    getData = function(resVal, status) {
+      var d, i, m, mappedData, md, q, _len;
+      q = this.q;
+      if (this.url === q.url.get()) {
+        if (!this.url) {
+          q.resVal = null;
+        } else if (status !== 'cache') {
+          if (q.map) {
+            m = q.map;
+            mappedData = [];
+            for (i = 0, _len = resVal.length; i < _len; i++) {
+              d = resVal[i];
+              md = m(d);
+              if (md !== void 0) {
+                mappedData.push(md);
+              }
+            }
+            resVal = mappedData;
+          }
+          if (q.fn) {
+            resVal = q.fn(resVal);
+          }
+          q.resVal = resVal;
+          if (this.url && q.cache) {
+            q.cache.store(this.url, this.data, resVal);
+          }
+        } else {
+          q.resVal = q.cache.retrieve(this.url, this.data);
+        }
+      }
+      q.status = 'ready';
+      q.curAjax = null;
+      return maybeDone(this.request);
+    };
+    getError = function(xhr, textStatus) {
+      var q, url;
+      if (textStatus === "abort") {
         return;
       }
-    }
-    notify = [];
-    for (_j = 0, _len2 = request.length; _j < _len2; _j++) {
-      q = request[_j];
-      if (q.data !== void 0) {
-        q.res.set(q.data);
-        notify.push(q.res);
-        q.stauts = '';
-        delete q.data;
-      }
-    }
-    return dvl.notify.apply(null, notify);
-  };
-  getData = function(data, status) {
-    var d, i, m, mappedData, md, q, _len;
-    q = this.q;
-    if (this.url === q.url.get()) {
-      if (!this.url) {
-        q.data = null;
-      } else if (status !== 'cache') {
-        if (q.map) {
-          m = q.map;
-          mappedData = [];
-          for (i = 0, _len = data.length; i < _len; i++) {
-            d = data[i];
-            md = m(d);
-            if (md !== void 0) {
-              mappedData.push(md);
-            }
-          }
-          data = mappedData;
-        }
-        if (q.fn) {
-          data = q.fn(data);
-        }
-        q.data = data;
-        if (this.url && q.cache) {
-          q.cache.store(this.url, data);
-        }
-      } else {
-        q.data = q.cache.retrieve(this.url);
-      }
-    }
-    q.status = 'ready';
-    q.curAjax = null;
-    return maybeDone(this.request);
-  };
-  getError = function(xhr, textStatus) {
-    var q, request, url;
-    if (textStatus === "abort") {
-      return;
-    }
-    q = this.q;
-    url = this.url;
-    request = this.request;
-    return setTimeout((function() {
+      q = this.q;
+      url = this.url;
       if (url === q.url.get()) {
-        q.data = null;
+        q.resVal = null;
         if (q.onError) {
           q.onError(textStatus);
         }
       }
       q.status = 'ready';
       q.curAjax = null;
-      return maybeDone(request);
-    }), 1);
-  };
-  onComplete = function() {
-    outstanding.set(outstanding.get() - 1).notify();
-  };
-  makeRequest = function(q, request) {
-    var ctx, url, _ref;
-    q.status = 'requesting';
-    url = q.url.get();
-    ctx = {
-      q: q,
-      request: request,
-      url: url
+      return maybeDone(this.request);
     };
-    if (url != null) {
-      if ((_ref = q.cache) != null ? _ref.has(url) : void 0) {
-        return setTimeout((function() {
+    onComplete = function() {
+      outstanding.set(outstanding.get() - 1).notify();
+    };
+    makeRequest = function(q, request) {
+      var ctx, data, method, url, _ref;
+      q.status = 'requesting';
+      url = q.url.get();
+      data = q.data.get();
+      method = q.method.get();
+      ctx = {
+        q: q,
+        request: request,
+        url: url,
+        data: data
+      };
+      if ((url != null) && !(method !== 'GET' && !(data != null))) {
+        if ((_ref = q.cache) != null ? _ref.has(url, data) : void 0) {
           return getData.call(ctx, null, 'cache');
-        }), 1);
+        } else {
+          if (q.curAjax) {
+            q.curAjax.abort();
+          }
+          q.curAjax = jQuery.ajax({
+            url: url,
+            data: data,
+            type: method,
+            dataType: 'json',
+            success: getData,
+            error: getError,
+            complete: onComplete,
+            context: ctx
+          });
+          outstanding.set(outstanding.get() + 1).notify();
+          if (q.invalidOnLoad.get()) {
+            return q.res.update(null);
+          }
+        }
       } else {
-        if (q.curAjax) {
-          q.curAjax.abort();
-        }
-        q.curAjax = jQuery.ajax({
-          url: url,
-          type: 'GET',
-          dataType: 'json',
-          success: getData,
-          error: getError,
-          complete: onComplete,
-          context: ctx
-        });
-        outstanding.set(outstanding.get() + 1).notify();
-        if (q.invalidOnLoad.get()) {
-          return setTimeout((function() {
-            if (q.curAjax) {
-              return q.res.update(null);
-            }
-          }), 1);
-        }
-      }
-    } else {
-      return setTimeout((function() {
         return getData.call(ctx, null);
-      }), 1);
-    }
-  };
-  inputChange = function() {
-    var bundle, id, q, _i, _len;
-    bundle = [];
-    for (id in queries) {
-      q = queries[id];
-      if (!q.url.hasChanged()) {
-        continue;
       }
-      if (q.group.get()) {
+    };
+    inputChange = function() {
+      var bundle, id, q, _i, _len;
+      bundle = [];
+      for (id in queries) {
+        q = queries[id];
+        if (!(q.url.hasChanged() || q.data.hasChanged())) {
+          continue;
+        }
         if (q.status === 'virgin') {
           if (q.url.get()) {
             initQueue.push(q);
@@ -1382,37 +1408,61 @@ dvl.delay = function(_arg) {
         } else {
           bundle.push(q);
         }
+      }
+      if (bundle.length > 0) {
+        for (_i = 0, _len = bundle.length; _i < _len; _i++) {
+          q = bundle[_i];
+          makeRequest(q, bundle);
+        }
+      }
+      return null;
+    };
+    fo = null;
+    addHoock = function(url, data, ret) {
+      if (fo) {
+        fo.addListen(url, data);
+        fo.addChange(ret);
       } else {
-        makeRequest(q, [q]);
+        fo = dvl.register({
+          name: 'ajax_man',
+          listen: [url, data],
+          change: [ret, outstanding],
+          fn: inputChange,
+          force: true
+        });
       }
-    }
-    if (bundle.length > 0) {
-      for (_i = 0, _len = bundle.length; _i < _len; _i++) {
-        q = bundle[_i];
-        makeRequest(q, bundle);
+      return null;
+    };
+    return function(url, data, method, type, map, fn, invalidOnLoad, onError, cache, name) {
+      var q, res;
+      nextQueryId++;
+      res = dvl.def(null, name);
+      q = {
+        id: nextQueryId,
+        url: url,
+        data: data,
+        method: method,
+        res: res,
+        status: 'virgin',
+        type: type,
+        cache: cache,
+        onError: onError,
+        invalidOnLoad: invalidOnLoad
+      };
+      if (map) {
+        q.map = map;
       }
-    }
-    return null;
+      if (fn) {
+        q.fn = fn;
+      }
+      queries[q.id] = q;
+      addHoock(url, data, res);
+      return res;
+    };
   };
-  fo = null;
-  addHoock = function(listen, change) {
-    if (fo) {
-      fo.addListen(listen);
-      inputChange();
-    } else {
-      fo = dvl.register({
-        fn: inputChange,
-        listen: [listen],
-        change: [outstanding],
-        force: true,
-        name: 'xsr_man'
-      });
-    }
-    return null;
-  };
-  dvl.json = function(_arg) {
-    var cache, fn, group, invalidOnLoad, map, name, onError, q, type, url;
-    url = _arg.url, type = _arg.type, map = _arg.map, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, group = _arg.group, cache = _arg.cache, name = _arg.name;
+  dvl.ajax = function(_arg) {
+    var cache, data, fn, groupId, invalidOnLoad, map, method, name, onError, type, url;
+    url = _arg.url, data = _arg.data, method = _arg.method, type = _arg.type, map = _arg.map, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, cache = _arg.cache, name = _arg.name;
     if (!url) {
       throw 'it does not make sense to not have a url';
     }
@@ -1423,36 +1473,31 @@ dvl.delay = function(_arg) {
       throw 'the fn function must be non DVL variable';
     }
     url = dvl.wrapConstIfNeeded(url);
+    data = dvl.wrapConstIfNeeded(data);
+    method = dvl.wrapConstIfNeeded(method || 'GET');
     if (dvl.knows(type)) {
       type = type.get();
     }
-    group = dvl.wrapConstIfNeeded(group != null ? group : true);
     invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad || false);
-    nextQueryId++;
-    q = {
-      id: nextQueryId,
-      url: url,
-      res: dvl.def(null, name || 'json_data'),
-      status: 'virgin',
-      type: type || 'json',
-      group: group,
-      cache: cache,
-      onError: onError,
-      invalidOnLoad: invalidOnLoad
-    };
-    if (map) {
-      q.map = map;
+    type || (type = 'json');
+    name || (name = name + '_data');
+    if (groupId == null) {
+      groupId = dvl.ajax.getGroupId();
     }
-    if (fn) {
-      q.fn = fn;
-    }
-    queries[q.id] = q;
-    addHoock(url, q.res);
-    return q.res;
+    ajaxManagers[groupId] || (ajaxManagers[groupId] = makeManager());
+    return ajaxManagers[groupId](url, data, method, type, map, fn, invalidOnLoad, onError, cache, name);
   };
-  return dvl.json.outstanding = outstanding;
+  dvl.json = dvl.ajax;
+  dvl.ajax.outstanding = outstanding;
+  nextGroupId = 0;
+  return dvl.ajax.getGroupId = function() {
+    var id;
+    id = nextGroupId;
+    nextGroupId++;
+    return id;
+  };
 })();
-dvl.json.cacheManager = function(_arg) {
+dvl.ajax.cacheManager = function(_arg) {
   var cache, count, max, timeout, trim;
   max = _arg.max, timeout = _arg.timeout;
   max = dvl.wrapConstIfNeeded(max || 100);
@@ -1496,23 +1541,37 @@ dvl.json.cacheManager = function(_arg) {
     name: 'cache_trim'
   });
   return {
-    store: function(query, data) {
-      cache[query] = {
+    store: function(url, data, value) {
+      var q;
+      q = url;
+      if (data != null) {
+        q += '@@' + dvl.util.strObj(data);
+      }
+      cache[q] = {
         time: (new Date()).valueOf(),
-        data: data
+        value: value
       };
       count++;
       trim();
     },
-    has: function(query) {
+    has: function(url, data) {
+      var q;
+      q = url;
+      if (data != null) {
+        q += '@@' + dvl.util.strObj(data);
+      }
       trim();
-      return !!cache[query];
+      return !!cache[q];
     },
-    retrieve: function(query) {
-      var c;
-      c = cache[query];
+    retrieve: function(url, data) {
+      var c, q;
+      q = url;
+      if (data != null) {
+        q += '@@' + dvl.util.strObj(data);
+      }
+      c = cache[q];
       c.time = (new Date()).valueOf();
-      return dvl.util.clone(c.data);
+      return dvl.util.clone(c.value);
     }
   };
 };

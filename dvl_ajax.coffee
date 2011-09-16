@@ -74,7 +74,7 @@ dvl.util = {
       return str.join('|')
     
     if type is 'function'
-      return fn
+      return '&'
     
     return String(obj)  
 

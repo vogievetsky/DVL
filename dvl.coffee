@@ -45,7 +45,7 @@ debug = ->
   return arguments[0]
 
 window.dvl =
-  version: '0.81'
+  version: '0.90'
   
 (->
   array_ctor = (new Array).constructor
@@ -63,6 +63,22 @@ window.dvl =
 )()
   
 dvl.util = {
+  strObj: (obj) ->
+    type = dvl.typeOf(obj)
+    if type in ['object', 'array']
+      str = []
+      keys = []
+      keys.push k for k of obj
+      keys.sort()
+      str.push k, dvl.util.strObj(obj[k]) for k in keys
+      return str.join('|')
+    
+    if type is 'function'
+      return '&'
+    
+    return String(obj)
+    
+    
   uniq: (array) ->
     seen = {}
     uniq = []
@@ -183,12 +199,6 @@ dvl.util = {
 }
 
 (->
-  dvl.intersectSize = (as, bs) ->
-    count = 0
-    for a in as
-      count += 1 if a in bs
-    return count
-
   nextObjId = 1
   constants = {}
   variables = {}
@@ -349,12 +359,12 @@ dvl.util = {
   registerers = {}
   
   # filter out undefineds and nulls and constants also make unique
-  uniqById = (vs) ->
+  uniqById = (vs, allowConst) ->
     res = []
     if vs
       seen = {}
       for v in vs
-        if v? and v.listeners and v.changers and not seen[v.id]
+        if v? and (allowConst or (v.listeners and v.changers)) and not seen[v.id]
           seen[v.id] = true
           res.push v
     return res
@@ -397,31 +407,41 @@ dvl.util = {
       @level = 0
       return this
       
-    addChange: (v) ->
-      return this unless v.listeners and v.changers
-
-      @change.push(v)
-      v.changers.push(this)
-      @updates.push(lis) for lis in v.listeners
-
-      bfsUpdate([this])
-      return this
-
-    addListen: (v) ->
-      if v.listeners and v.changers
-        @listen.push(v)
-        v.listeners.push(this)
-        for chng in v.changers
-          chng.updates.push(this)
-          @level = Math.max(@level, chng.level+1)
+    addChange: ->
+      uv = uniqById(arguments)
+      
+      if uv.length
+        for v in uv
+          @change.push(v)
+          v.changers.push(this)
+          @updates.push(l) for l in v.listeners
 
         bfsUpdate([this])
       
+      return this
+
+    addListen: ->
+      uv = uniqById(arguments)
+
+      if uv.length
+        for v in uv
+          @listen.push(v)
+          v.listeners.push(this)
+          for c in v.changers
+            c.updates.push(this)
+            @level = Math.max(@level, c.level+1)
+
+        bfsUpdate([this])
+      
+      uv = uniqById(arguments, true)
       start_notify_collect(this) 
-      changedSave = v.changed
-      v.changed = true
+      changedSave = []
+      for v in uv
+        changedSave.push(v.changed) 
+        v.changed = true
       @fn.apply(@ctx)
-      v.changed = changedSave
+      for v,i in uv
+        v.changed = changedSave[i]
       end_notify_collect()
       return this
 
@@ -432,10 +452,10 @@ dvl.util = {
       bfsZero([this])
 
       queue = []
-      for k, l of registerers
-        if dvl.intersectSize(l.change, @listen) > 0
-          queue.push l
-          l.updates.splice(l.updates.indexOf(l), 1)
+      for lv in @listen
+        for cf in lv.changers
+          queue.push cf
+          cf.updates.splice(cf.updates.indexOf(cf), 1)
 
       for v in @change
         v.changers.splice(v.changers.indexOf(this), 1)
@@ -445,16 +465,16 @@ dvl.util = {
 
       bfsUpdate(queue)
       return null
-    
+
   
-  dvl.register = ({ctx, fn, listen, change, name, force, noRun}) -> 
+  dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
     throw 'cannot call register from within a notify' if curNotifyListener
     throw 'fn must be a function' if typeof(fn) != 'function'
 
     # Check to see if (ctx, fu) already exists, raise error for now
-    for k, l of registerers
-      throw 'called twice' if l.ctx == ctx and l.fn == fn      
-    
+    # for k, l of registerers
+    #   throw 'called twice' if l.ctx is ctx and l.fn is fn      
+     
     listenConst = []
     if listen
       for v in listen
@@ -478,12 +498,14 @@ dvl.util = {
         v.changers.push fo  
 
       # Update dependancy graph
-      for k, l of registerers
-        if dvl.intersectSize(change, l.listen) > 0
-          fo.updates.push l 
-        if dvl.intersectSize(listen, l.change) > 0
-          l.updates.push fo 
-          fo.level = Math.max(fo.level, l.level+1)
+      for cv in change      
+        for lf in cv.listeners
+          fo.updates.push lf
+          
+      for lv in listen
+        for cf in lv.changers
+          cf.updates.push fo
+          fo.level = Math.max(fo.level, cf.level+1)
 
       registerers[id] = fo
       bfsUpdate([fo])
@@ -505,7 +527,7 @@ dvl.util = {
         listen[i].changed = c
       for l in listenConst
         l.changed = false
-      
+    
     return fo 
 
   
@@ -595,6 +617,7 @@ dvl.util = {
     throw 'bad stuff happened init' if curNotifyListener
 
     lastNotifyRun = []
+    visitedListener = []
     changedInNotify = []
     
     for v in arguments
@@ -610,13 +633,14 @@ dvl.util = {
       curNotifyListener = levelPriorityQueue.shift()
       continue if curNotifyListener.visited
       curNotifyListener.visited = true
+      visitedListener.push(curNotifyListener)
       lastNotifyRun.push(curNotifyListener.id)      
       curNotifyListener.fn.apply(curNotifyListener.ctx)
     
     curNotifyListener = null
     dvl.notify = init_notify
     v.resetChanged() for v in changedInNotify
-    l.visited = false for k, l of registerers # reset visited    
+    l.visited = false for l in visitedListener # reset visited    
     return
   
   
@@ -922,123 +946,122 @@ dvl.delay = ({ data, time, name, init }) ->
 
 ##-------------------------------------------------------
 ##
-##  Asynchronous json fetcher.
+##  Asynchronous ajax fetcher.
 ##
-##  Fetches json data form the server at the given url.
+##  Fetches ajax data form the server at the given url.
 ##  This function addes the given url to the global json getter,
 ##  the getter then automaticly groups requests that come from the same event cycle. 
 ##
 ## ~url:  the url to fetch.
+## ~data: data to send
 ##  type: the type of the request. [json]
 ##  map:  a map to apply to the recived array.
 ##  fn:   a function to apply to the recived input.
 ##
 (->
-  nextQueryId = 0
-  initQueue = []
-  queries = {}
   outstanding = dvl.def(0, 'json_outstanding')
+  ajaxManagers = []
 
-  maybeDone = (request) ->
-    for q in request
-      return if q.status isnt 'ready'
-  
-    notify = []
-    for q in request
-      if q.data isnt undefined
-        q.res.set(q.data)
-        notify.push(q.res)
-        q.stauts = ''
-        delete q.data
-  
-    dvl.notify.apply(null, notify)
-  
-  getData = (data, status) ->
-    q = this.q
-    if this.url is q.url.get()
-      if not this.url
-        q.data = null
-      else if status isnt 'cache'
-        if q.map
-          m = q.map
-          mappedData = []
-          for d, i in data
-            md = m(d)
-            mappedData.push md if md isnt undefined
-          data = mappedData
-  
-        if q.fn
-          data = q.fn(data) 
+  makeManager = ->
+    nextQueryId = 0
+    initQueue = []
+    queries = {}
 
-        q.data = data
-        q.cache.store(this.url, data) if this.url and q.cache
+    maybeDone = (request) ->
+      for q in request
+        return if q.status isnt 'ready'
 
-      else
-        q.data = q.cache.retrieve(this.url)
-      
-    q.status = 'ready'
-    q.curAjax = null
-  
-    maybeDone(this.request)
-  
-  getError = (xhr, textStatus) ->
-    return if textStatus is "abort"
-    q = this.q
-    url = this.url
-    request = this.request
-    setTimeout((->
-      if url is q.url.get()
-        q.data = null
-        q.onError(textStatus) if q.onError
-      
+      notify = []
+      for q in request
+        if q.resVal isnt undefined
+          q.res.set(q.resVal)
+          notify.push(q.res)
+          q.status = ''
+          delete q.resVal
+
+      dvl.notify.apply(null, notify)
+
+    getData = (resVal, status) ->
+      q = this.q
+      if this.url is q.url.get()
+        if not this.url
+          q.resVal = null
+        else if status isnt 'cache'
+          if q.map
+            m = q.map
+            mappedData = []
+            for d, i in resVal
+              md = m(d)
+              mappedData.push md if md isnt undefined
+            resVal = mappedData
+
+          resVal = q.fn(resVal) if q.fn 
+
+          q.resVal = resVal
+          q.cache.store(this.url, this.data, resVal) if this.url and q.cache
+
+        else
+          q.resVal = q.cache.retrieve(this.url, this.data)
+
       q.status = 'ready'
       q.curAjax = null
-      
-      maybeDone(request)
-    ), 1)
-    
-  onComplete = ->
-    outstanding.set(outstanding.get() - 1).notify()
-    return
 
-  makeRequest = (q, request) ->
-    q.status = 'requesting'
-    url = q.url.get()
-    ctx = { q, request, url }
-    if url?
-      if q.cache?.has(url)
-        # load from cache
-        setTimeout((->
+      maybeDone(this.request)
+
+    getError = (xhr, textStatus) ->
+      return if textStatus is "abort"
+      q = this.q
+      url = this.url
+
+      if url is q.url.get()
+        q.resVal = null
+        q.onError(textStatus) if q.onError
+
+      q.status = 'ready'
+      q.curAjax = null
+
+      maybeDone(this.request)
+
+    onComplete = ->
+      outstanding.set(outstanding.get() - 1).notify()
+      return
+
+    makeRequest = (q, request) ->
+      q.status = 'requesting'
+      url = q.url.get()
+      data = q.data.get()
+      method = q.method.get()
+      ctx = { q, request, url, data }
+      if url? and not (method isnt 'GET' and not data?)
+        if q.cache?.has(url, data)
+          # load from cache
           getData.call(ctx, null, 'cache')
-        ), 1)
+        else
+          # load from server
+          q.curAjax.abort() if q.curAjax
+          q.curAjax = jQuery.ajax {
+            url:      url
+            data:     data
+            type:     method
+            dataType: 'json'
+            success:  getData
+            error:    getError
+            complete: onComplete
+            context:  ctx
+          }
+
+          outstanding.set(outstanding.get() + 1).notify()
+
+          if q.invalidOnLoad.get()
+            q.res.update(null)
       else
-        # load from server
-        q.curAjax.abort() if q.curAjax
-        q.curAjax = jQuery.ajax
-          url:      url
-          type:     'GET'
-          dataType: 'json'
-          success:  getData
-          error:    getError
-          complete: onComplete
-          context:  ctx
-        
-        outstanding.set(outstanding.get() + 1).notify()
-        
-        if q.invalidOnLoad.get()
-          setTimeout((->
-            q.res.update(null) if q.curAjax
-          ), 1)
-    else
-      setTimeout((->
         getData.call(ctx, null)
-      ), 1)
-      
-  inputChange = ->
-    bundle = []
-    for id, q of queries
-      continue unless q.url.hasChanged()
-      if q.group.get()
+
+    inputChange = ->
+      bundle = []
+      for id, q of queries
+        continue unless q.url.hasChanged() or q.data.hasChanged()
+        
         if q.status is 'virgin'
           if q.url.get()
             initQueue.push q
@@ -1047,62 +1070,85 @@ dvl.delay = ({ data, time, name, init }) ->
             q.status = ''
         else
           bundle.push(q)
+
+      if bundle.length > 0
+        makeRequest(q, bundle) for q in bundle
+
+      null
+
+    fo = null
+    addHoock = (url, data, ret) ->
+      if fo
+        fo.addListen(url, data)
+        fo.addChange(ret)
       else
-        makeRequest(q, [q])
-  
-    if bundle.length > 0
-      makeRequest(q, bundle) for q in bundle
+        fo = dvl.register {
+          name:   'ajax_man'
+          listen: [url, data]
+          change: [ret, outstanding]
+          fn:     inputChange
+          force:  true
+        }
 
-    null
+      null
 
-  fo = null
-  addHoock = (listen, change) ->
-    if fo
-      fo.addListen(listen)
-      inputChange()
-    else
-      fo = dvl.register({fn:inputChange, listen:[listen], change:[outstanding], force:true, name: 'xsr_man' })
-  
-    null
-  
 
-  dvl.json = ({url, type, map, fn, invalidOnLoad, onError, group, cache, name}) ->
+    return (url, data, method, type, map, fn, invalidOnLoad, onError, cache, name) ->
+      nextQueryId++
+      res = dvl.def(null, name)
+      q = {
+        id: nextQueryId
+        url
+        data
+        method
+        res
+        status: 'virgin'
+        type
+        cache
+        onError
+        invalidOnLoad
+      }
+      q.map = map if map
+      q.fn = fn if fn
+      queries[q.id] = q
+      addHoock(url, data, res)
+      return res
+
+
+  dvl.ajax = ({url, data, method, type, map, fn, invalidOnLoad, onError, groupId, cache, name}) ->
     throw 'it does not make sense to not have a url' unless url
     throw 'the map function must be non DVL variable' if map and dvl.knows(map)
     throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
-    url = dvl.wrapConstIfNeeded(url)
+    url  = dvl.wrapConstIfNeeded(url)
+    data = dvl.wrapConstIfNeeded(data)
+    method = dvl.wrapConstIfNeeded(method or 'GET')
     type = type.get() if dvl.knows(type)
-    group = dvl.wrapConstIfNeeded(group ? true)
     invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad or false)
+    type or= 'json'
+    name or= name + '_data'
     
-    nextQueryId++
-    q = {
-      id: nextQueryId
-      url: url
-      res: dvl.def(null, name or 'json_data')
-      status: 'virgin'
-      type: type || 'json'
-      group
-      cache
-      onError
-      invalidOnLoad
-    }
-    q.map = map if map
-    q.fn = fn if fn
-    queries[q.id] = q
-    addHoock(url, q.res)
-    return q.res
-    
-  dvl.json.outstanding = outstanding
+    groupId = dvl.ajax.getGroupId() unless groupId?
+    ajaxManagers[groupId] or= makeManager()
+    return ajaxManagers[groupId](url, data, method, type, map, fn, invalidOnLoad, onError, cache, name)
+
+  dvl.json = dvl.ajax
+  dvl.ajax.outstanding = outstanding
+
+  nextGroupId = 0
+  dvl.ajax.getGroupId = ->
+    id = nextGroupId
+    nextGroupId++
+    return id
+
 )()
 
 
-dvl.json.cacheManager = ({max, timeout}) ->
+dvl.ajax.cacheManager = ({max, timeout}) ->
   max = dvl.wrapConstIfNeeded(max or 100)
   timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
   cache = {}
   count = 0
-  
+
   trim = ->
     tout = timeout.get()
     if tout > 0
@@ -1111,7 +1157,7 @@ dvl.json.cacheManager = ({max, timeout}) ->
       for q,d of cache
         newCache[q] = d if cutoff < d.time
       cache = newCache
-    
+
     m = max.get()
     while m < count
       oldestQuery = null
@@ -1122,26 +1168,31 @@ dvl.json.cacheManager = ({max, timeout}) ->
           oldestQuery = q
       delete cache[oldestQuery]
       count--
-      
+
   dvl.register {fn:trim, listen:[max, timeout], name:'cache_trim'}
-  
+
   return {
-    store: (query, data) ->
-      cache[query] = { time:(new Date()).valueOf(), data }
+    store: (url, data, value) ->
+      q = url
+      q += '@@' + dvl.util.strObj(data) if data?
+      cache[q] = { time:(new Date()).valueOf(), value }
       count++
       trim()
       return
 
-    has: (query) ->
+    has: (url, data) ->
+      q = url
+      q += '@@' + dvl.util.strObj(data) if data?
       trim()
-      return not not cache[query]
-    
-    retrieve: (query) ->
-      c = cache[query]
-      c.time = (new Date()).valueOf()
-      return dvl.util.clone(c.data)
-  }
+      return not not cache[q]
 
+    retrieve: (url, data) ->
+      q = url
+      q += '@@' + dvl.util.strObj(data) if data?
+      c = cache[q]
+      c.time = (new Date()).valueOf()
+      return dvl.util.clone(c.value)
+  }
 
 
 # ToDo: rewrite this:
