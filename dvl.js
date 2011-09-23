@@ -1353,18 +1353,19 @@ dvl.delay = function(_arg) {
       outstanding.set(outstanding.get() - 1).notify();
     };
     makeRequest = function(q, request) {
-      var ctx, data, method, url, _ref;
+      var ctx, data, dataType, method, url, _ref;
       q.status = 'requesting';
       url = q.url.get();
       data = q.data.get();
       method = q.method.get();
+      dataType = q.type.get();
       ctx = {
         q: q,
         request: request,
         url: url,
         data: data
       };
-      if ((url != null) && !(method !== 'GET' && !(data != null))) {
+      if ((url != null) && !(method !== 'GET' && !(data != null)) && dataType) {
         if ((_ref = q.cache) != null ? _ref.has(url, data) : void 0) {
           return getData.call(ctx, null, 'cache');
         } else {
@@ -1375,7 +1376,9 @@ dvl.delay = function(_arg) {
             url: url,
             data: data,
             type: method,
-            dataType: 'json',
+            dataType: dataType,
+            contentType: q.contentType.get(),
+            processData: q.processData.get(),
             success: getData,
             error: getError,
             complete: onComplete,
@@ -1433,7 +1436,7 @@ dvl.delay = function(_arg) {
       }
       return null;
     };
-    return function(url, data, method, type, map, fn, invalidOnLoad, onError, cache, name) {
+    return function(url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name) {
       var q, res;
       nextQueryId++;
       res = dvl.def(null, name);
@@ -1442,6 +1445,8 @@ dvl.delay = function(_arg) {
         url: url,
         data: data,
         method: method,
+        contentType: contentType,
+        processData: processData,
         res: res,
         status: 'virgin',
         type: type,
@@ -1461,8 +1466,8 @@ dvl.delay = function(_arg) {
     };
   };
   dvl.ajax = function(_arg) {
-    var cache, data, fn, groupId, invalidOnLoad, map, method, name, onError, type, url;
-    url = _arg.url, data = _arg.data, method = _arg.method, type = _arg.type, map = _arg.map, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, cache = _arg.cache, name = _arg.name;
+    var cache, contentType, data, fn, groupId, invalidOnLoad, map, method, name, onError, processData, type, url;
+    url = _arg.url, data = _arg.data, method = _arg.method, type = _arg.type, contentType = _arg.contentType, processData = _arg.processData, map = _arg.map, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, cache = _arg.cache, name = _arg.name;
     if (!url) {
       throw 'it does not make sense to not have a url';
     }
@@ -1475,17 +1480,16 @@ dvl.delay = function(_arg) {
     url = dvl.wrapConstIfNeeded(url);
     data = dvl.wrapConstIfNeeded(data);
     method = dvl.wrapConstIfNeeded(method || 'GET');
-    if (dvl.knows(type)) {
-      type = type.get();
-    }
+    type = dvl.wrapConstIfNeeded(type || 'json');
+    contentType = dvl.wrapConstIfNeeded(contentType || 'application/x-www-form-urlencoded');
+    processData = dvl.wrapConstIfNeeded(processData != null ? processData : true);
     invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad || false);
-    type || (type = 'json');
-    name || (name = name + '_data');
+    name || (name = 'ajax_data');
     if (groupId == null) {
       groupId = dvl.ajax.getGroupId();
     }
     ajaxManagers[groupId] || (ajaxManagers[groupId] = makeManager());
-    return ajaxManagers[groupId](url, data, method, type, map, fn, invalidOnLoad, onError, cache, name);
+    return ajaxManagers[groupId](url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name);
   };
   dvl.json = dvl.ajax;
   dvl.ajax.outstanding = outstanding;

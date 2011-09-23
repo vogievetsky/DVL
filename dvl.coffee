@@ -1031,8 +1031,9 @@ dvl.delay = ({ data, time, name, init }) ->
       url = q.url.get()
       data = q.data.get()
       method = q.method.get()
+      dataType = q.type.get()
       ctx = { q, request, url, data }
-      if url? and not (method isnt 'GET' and not data?)
+      if url? and not (method isnt 'GET' and not data?) and dataType
         if q.cache?.has(url, data)
           # load from cache
           getData.call(ctx, null, 'cache')
@@ -1040,14 +1041,16 @@ dvl.delay = ({ data, time, name, init }) ->
           # load from server
           q.curAjax.abort() if q.curAjax
           q.curAjax = jQuery.ajax {
-            url:      url
-            data:     data
-            type:     method
-            dataType: 'json'
-            success:  getData
-            error:    getError
-            complete: onComplete
-            context:  ctx
+            url:         url
+            data:        data
+            type:        method
+            dataType:    dataType
+            contentType: q.contentType.get()
+            processData: q.processData.get()
+            success:     getData
+            error:       getError
+            complete:    onComplete
+            context:     ctx
           }
 
           outstanding.set(outstanding.get() + 1).notify()
@@ -1093,7 +1096,7 @@ dvl.delay = ({ data, time, name, init }) ->
       null
 
 
-    return (url, data, method, type, map, fn, invalidOnLoad, onError, cache, name) ->
+    return (url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name) ->
       nextQueryId++
       res = dvl.def(null, name)
       q = {
@@ -1101,6 +1104,8 @@ dvl.delay = ({ data, time, name, init }) ->
         url
         data
         method
+        contentType
+        processData
         res
         status: 'virgin'
         type
@@ -1115,21 +1120,22 @@ dvl.delay = ({ data, time, name, init }) ->
       return res
 
 
-  dvl.ajax = ({url, data, method, type, map, fn, invalidOnLoad, onError, groupId, cache, name}) ->
+  dvl.ajax = ({url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, groupId, cache, name}) ->
     throw 'it does not make sense to not have a url' unless url
     throw 'the map function must be non DVL variable' if map and dvl.knows(map)
     throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
     url  = dvl.wrapConstIfNeeded(url)
     data = dvl.wrapConstIfNeeded(data)
     method = dvl.wrapConstIfNeeded(method or 'GET')
-    type = type.get() if dvl.knows(type)
+    type = dvl.wrapConstIfNeeded(type or 'json')
+    contentType = dvl.wrapConstIfNeeded(contentType or 'application/x-www-form-urlencoded')
+    processData = dvl.wrapConstIfNeeded(processData ? true)
     invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad or false)
-    type or= 'json'
-    name or= name + '_data'
+    name or= 'ajax_data'
     
     groupId = dvl.ajax.getGroupId() unless groupId?
     ajaxManagers[groupId] or= makeManager()
-    return ajaxManagers[groupId](url, data, method, type, map, fn, invalidOnLoad, onError, cache, name)
+    return ajaxManagers[groupId](url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name)
 
   dvl.json = dvl.ajax
   dvl.ajax.outstanding = outstanding
