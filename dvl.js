@@ -1502,7 +1502,7 @@ dvl.delay = function(_arg) {
   };
 })();
 dvl.ajax.cacheManager = function(_arg) {
-  var cache, count, max, timeout, trim;
+  var cache, count, make_key, max, timeout, trim;
   max = _arg.max, timeout = _arg.timeout;
   max = dvl.wrapConstIfNeeded(max || 100);
   timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
@@ -1544,13 +1544,28 @@ dvl.ajax.cacheManager = function(_arg) {
     listen: [max, timeout],
     name: 'cache_trim'
   });
+  make_key = function(url, data) {
+    var q;
+    q = url;
+    if (data != null) {
+      q += '@@' + dvl.util.strObj(data);
+    }
+    return q;
+  };
   return {
+    clear: function(url, data) {
+      var q;
+      if (url != null) {
+        q = make_key(url, data);
+        delete cache[q];
+        trim();
+      } else {
+        cache = {};
+      }
+    },
     store: function(url, data, value) {
       var q;
-      q = url;
-      if (data != null) {
-        q += '@@' + dvl.util.strObj(data);
-      }
+      q = make_key(url, data);
       cache[q] = {
         time: (new Date()).valueOf(),
         value: value
@@ -1560,19 +1575,13 @@ dvl.ajax.cacheManager = function(_arg) {
     },
     has: function(url, data) {
       var q;
-      q = url;
-      if (data != null) {
-        q += '@@' + dvl.util.strObj(data);
-      }
+      q = make_key(url, data);
       trim();
       return !!cache[q];
     },
     retrieve: function(url, data) {
       var c, q;
-      q = url;
-      if (data != null) {
-        q += '@@' + dvl.util.strObj(data);
-      }
+      q = make_key(url, data);
       c = cache[q];
       c.time = (new Date()).valueOf();
       return dvl.util.clone(c.value);
