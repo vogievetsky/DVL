@@ -805,7 +805,7 @@ dvl.assert = ({data, fn, msg, allowNull}) ->
 ##  Sets up a pipline stage that automaticaly applies the given fucntion.
 ##  
 dvl.apply = ({fn, args, out, name, invalid, allowNull, update}) ->
-  fn = dvl.wrapConstIfNeeded(fn)
+  fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
   throw 'dvl.apply only makes sense with at least one argument' unless args?
   args = [args] unless dvl.typeOf(args) is 'array'
   args = args.map(dvl.wrapConstIfNeeded)

@@ -1085,7 +1085,7 @@ dvl.assert = function(_arg) {
 dvl.apply = function(_arg) {
   var allowNull, apply, args, fn, invalid, name, out, ret, update;
   fn = _arg.fn, args = _arg.args, out = _arg.out, name = _arg.name, invalid = _arg.invalid, allowNull = _arg.allowNull, update = _arg.update;
-  fn = dvl.wrapConstIfNeeded(fn);
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
   if (args == null) {
     throw 'dvl.apply only makes sense with at least one argument';
   }
