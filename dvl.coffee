@@ -1177,24 +1177,35 @@ dvl.ajax.cacheManager = ({max, timeout}) ->
 
   dvl.register {fn:trim, listen:[max, timeout], name:'cache_trim'}
 
+  make_key = (url, data) ->
+    q = url
+    q += '@@' + dvl.util.strObj(data) if data?
+    return q
+
   return {
+    clear: (url, data) ->
+      if url?
+        q = make_key(url, data)
+        delete cache[q]
+        trim()
+      else
+        cache = {}
+      return 
+      
     store: (url, data, value) ->
-      q = url
-      q += '@@' + dvl.util.strObj(data) if data?
+      q = make_key(url, data)
       cache[q] = { time:(new Date()).valueOf(), value }
       count++
       trim()
       return
 
     has: (url, data) ->
-      q = url
-      q += '@@' + dvl.util.strObj(data) if data?
+      q = make_key(url, data)
       trim()
       return not not cache[q]
 
     retrieve: (url, data) ->
-      q = url
-      q += '@@' + dvl.util.strObj(data) if data?
+      q = make_key(url, data)
       c = cache[q]
       c.time = (new Date()).valueOf()
       return dvl.util.clone(c.value)
