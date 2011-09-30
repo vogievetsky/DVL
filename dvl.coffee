@@ -260,7 +260,7 @@ dvl.util = {
         val = @lazy()
         @prev = val
         @value = val
-      null
+      return
     
     toString: -> "|#{@id}:#{@value}|"
     hasChanged: -> @changed
@@ -544,7 +544,7 @@ dvl.util = {
     constants = {}
     variables = {}
     registerers = {}
-    null
+    return
 
   
   levelPriorityQueue = (->
@@ -575,7 +575,7 @@ dvl.util = {
     toNotify = []
     curCollectListener = listener
     dvl.notify = collect_notify
-    null
+    return
     
     
   end_notify_collect = ->
@@ -584,7 +584,7 @@ dvl.util = {
     
     dvl.notify.apply(null, toNotify)
     toNotify = null
-    null
+    return
     
   
   collect_notify = ->
@@ -595,7 +595,7 @@ dvl.util = {
       throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
       toNotify.push v
       
-    null
+    return
     
   
   within_notify = ->
@@ -610,7 +610,7 @@ dvl.util = {
         if not l.visited
           levelPriorityQueue.push l
     
-    null
+    return
     
   
   init_notify = ->
@@ -714,13 +714,13 @@ dvl.util = {
     file or= 'dvl_graph'
     g = dvl.graphToDot(false, showId)
     dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: g })
-    null
+    return
     
   dvl.postLatest = (file, showId) ->
     file or= 'dvl_graph_latest'
     g = dvl.graphToDot(true, showId)
     dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: g })
-    null
+    return
 
 )()
 
@@ -798,7 +798,7 @@ dvl.assert = ({data, fn, msg, allowNull}) ->
       throw msg
 
   dvl.register({fn:verifyAssert, listen:[obj], name:'assert_fn'})
-  null
+  return
   
 ######################################################
 ## 
@@ -1077,7 +1077,7 @@ dvl.delay = ({ data, time, name, init }) ->
       if bundle.length > 0
         makeRequest(q, bundle) for q in bundle
 
-      null
+      return
 
     fo = null
     addHoock = (url, data, ret) ->
@@ -1093,7 +1093,7 @@ dvl.delay = ({ data, time, name, init }) ->
           force:  true
         }
 
-      null
+      return
 
 
     return (url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name) ->
@@ -1246,7 +1246,7 @@ dvl.resizer = (sizeRef, marginRef, options) ->
   
   d3.select(window).on('resize', onResize)
   onResize()
-  null
+  return
 
 
 
@@ -1346,7 +1346,7 @@ dvl.orDefs = ({args, name}) ->
         return
     
     out.set(null).setGen(null).notify()
-    null
+    return
   
   dvl.register({fn:update, listen:args, change:[out]})
   return out
@@ -1358,7 +1358,7 @@ dvl.hasher = (obj) ->
     window.location.hash = h unless window.location.hash == h
     
   dvl.register({fn:updateHash, listen:[obj], name:'hash_changer'})
-  null
+  return
   
 # Scales # ------------------------------------------------
 
@@ -1420,7 +1420,7 @@ dvl.scale = {}
       ticksRef.setLazy(-> s.ticks(numTicks.get()))
       formatRef.set(s.tickFormat)
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-      null
+      return
 
     makeScaleFnSingle = ->
       isColor = typeof(rangeFrom.get()) == 'string'
@@ -1439,7 +1439,7 @@ dvl.scale = {}
       ticksRef.set([domainFrom])
       formatRef.set((x) -> '')
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-      null
+      return
 
     makeScaleFnEmpty = () ->
       scaleRef.set(null)
@@ -1447,7 +1447,7 @@ dvl.scale = {}
       ticksRef.set(null)
       formatRef.set(null)
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-      null
+      return
 
     updateData = () ->
       min = +Infinity
@@ -1508,7 +1508,7 @@ dvl.scale = {}
         domainTo = NaN
         makeScaleFnEmpty()
 
-      null
+      return
 
     listenData = []
     for dom in optDomain
@@ -1564,7 +1564,7 @@ dvl.scale = {}
       formatRef.set(s.tickFormat)
       bandRef.set(Math.abs(rt - rf) / domain.length)
       dvl.notify(scaleRef, ticksRef, formatRef, bandRef)
-      null
+      return
 
     makeScaleFnEmpty = () ->
       scaleRef.set(null)
@@ -1572,7 +1572,7 @@ dvl.scale = {}
       formatRef.set(null)
       bandRef.set(0)
       dvl.notify(scaleRef, ticksRef, formatRef, bandRef)
-      null
+      return
 
     updateData = () -> 
       domain = optDomain.data.get()
@@ -1598,7 +1598,7 @@ dvl.scale = {}
       else
         makeScaleFnEmpty()
 
-      null
+      return
 
     dvl.register({fn:makeScaleFn, listen:[rangeFrom, rangeTo], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_range_change', noRun:true})
     dvl.register({fn:updateData, listen:[optDomain.data, optDomain.acc], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_data_change'})
@@ -1759,7 +1759,7 @@ generator_maker_maker = (combiner, name) ->
         gen.setGen(null)
 
       dvl.notify(gen)
-      null
+      return
 
     dvl.register({fn:makeGen, listen:args, change:[gen], name:name + '_make_gen'})
     return gen
@@ -1809,7 +1809,7 @@ dvl.svg = {}
     #else
     #  We have everything we need to know
         
-    null
+    return
           
     
   processDim3 = (props, panelWidth, left, width, right) ->
@@ -1825,7 +1825,7 @@ dvl.svg = {}
         props[left] = dvl.zero
         props[width] = panelWidth
     
-    null
+    return
     
     
   processDim4 = (props, panelWidth, left, width, right, center) ->
@@ -1851,7 +1851,7 @@ dvl.svg = {}
           props[left] = dvl.zero
           props[width] = panelWidth
 
-    null
+    return
   
   
   removeUndefined = (obj) ->
@@ -2046,7 +2046,7 @@ dvl.svg = {}
     
     height = p.height
     m.attr('height', height[gen]()) if height and (prev or height.hasChanged())
-    null
+    return
       
   dvl.svg.panels = (options) ->
     o = processOptions(options, 'g', 'panels')
@@ -2101,12 +2101,12 @@ dvl.svg = {}
       else
         g.style('display', 'none')
         
-      null
+      return
     
     listen = [panel.width, panel.height]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'panels_render'})
-    null
+    return
     
 
   listen_attr.line = ['left', 'top', 'stroke']
@@ -2127,7 +2127,7 @@ dvl.svg = {}
 
     stroke = p.stroke
     m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-    null
+    return
 
   dvl.svg.line = (options) ->
     o = processOptions(options, 'line', 'line')
@@ -2173,9 +2173,9 @@ dvl.svg = {}
       else
         g.style('display', 'none')
         
-      null
+      return
 
-    listen = [panel.width, panel.height]
+    listen = [panel.width, panel.height, o.visible]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'render_line'})
     makeAnchors(anchors, o)
@@ -2229,9 +2229,9 @@ dvl.svg = {}
       else
         g.style('display', 'none')
 
-      null
+      return
 
-    dvl.register({fn:render, listen:[panel.width, panel.height, p.x, p.y], name:'render_area'})
+    dvl.register({fn:render, listen:[panel.width, panel.height, o.visible, p.x, p.y], name:'render_area'})
     makeAnchors(anchors, o)
 
       
@@ -2253,7 +2253,7 @@ dvl.svg = {}
 
     stroke = p.stroke
     m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-    null
+    return
 
   dvl.svg.lines = (options) ->  
     o = processOptions(options, 'line', 'lines')
@@ -2338,9 +2338,9 @@ dvl.svg = {}
       else
         g.style('display', 'none')
         
-      null
+      return
 
-    listen = [panel.width, panel.height]
+    listen = [panel.width, panel.height, o.visible]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'lines_render'})
     makeAnchors(anchors, o)
@@ -2368,7 +2368,7 @@ dvl.svg = {}
     
     stroke = p.stroke
     m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-    null
+    return
 
   dvl.svg.bars = (options) ->     
     o = processOptions(options, 'rect', 'bars')
@@ -2417,7 +2417,7 @@ dvl.svg = {}
       else
         g.style('display', 'none')
         
-      null
+      return
     
     listen = [panel.width, panel.height]
     listen.push p[k] for k in listen_attr[o.myClass]
@@ -2453,7 +2453,7 @@ dvl.svg = {}
     
     color = p.color
     m.style('fill', color[gen]()) if color and (prev or color.hasChanged())
-    null
+    return
 
   dvl.svg.labels = (options) ->
     o = processOptions(options, 'text', 'labels')
@@ -2492,9 +2492,9 @@ dvl.svg = {}
       else
         g.style('display', 'none')
       
-      null
+      return
 
-    listen = [panel.width, panel.height]
+    listen = [panel.width, panel.height, o.visible]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'labels_render'})
     makeAnchors(anchors, o)
@@ -2518,7 +2518,7 @@ dvl.svg = {}
 
     stroke = p.stroke
     m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-    null
+    return
     
   dvl.svg.dots = (options) ->
     o = processOptions(options, 'circle', 'dots')
@@ -2590,21 +2590,26 @@ dvl.svg = {}
     render = ->
       len = calcLength(p)
 
-      m = selectEnterExit(g, o, p, len)
-      update_attr[o.myClass](m, p, true)
+      if len > 0 and o.visible.get()
+        m = selectEnterExit(g, o, p, len)
+        update_attr[o.myClass](m, p, true)
 
-      if panel.width.hasChanged() or panel.height.hasChanged()
-        clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
-        dur = 0
+        if panel.width.hasChanged() or panel.height.hasChanged()
+          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
+          dur = 0
+        else
+          dur = o.duration.get()
+
+        m = reselectUpdate(g, o, dur)
+        update_attr[o.myClass](m, p)
+      
+        g.style('display', null)
       else
-        dur = o.duration.get()
-      
-      m = reselectUpdate(g, o, dur)
-      update_attr[o.myClass](m, p)
-      
-      null
+        g.style('display', 'none')
+    
+      return
 
-    listen = [panel.width, panel.height]
+    listen = [panel.width, panel.height, o.visible]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'dots_renderer'})
     makeAnchors(anchors, o)  
@@ -2654,10 +2659,10 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
         inv = invalid.get()
         out(s, inv)
         d3.select(s).style('display', 'none') if hideInvalid.get()
-    null
+    return
 
   dvl.register({fn:updateHtml, listen:[data, selector, format], name:'html_out'})
-  null
+  return
 
 
 ##-------------------------------------------------------
@@ -2999,7 +3004,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       arg(id)
     else if t is 'string'
       window.location.href = arg
-    null
+    return
   
   # flatten possible merge header columns
   if columns.length and columns[0].columns
@@ -3172,7 +3177,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       else
         csel.style('display', 'none')
 
-    null
+    return
   
   dvl.register({fn:makeTable, listen:listen, name:'table_maker'})
   
@@ -3185,10 +3190,10 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 dvl.html.table.renderer = 
   text: (col, dataFn) ->
     col.text(dataFn)
-    null
+    return
   html: (col, dataFn) ->
     col.html(dataFn)
-    null
+    return
   aLink: ({linkGen, titleGen, html}) ->
     what = if html then 'html' else 'text'
     linkGen = dvl.wrapConstIfNeeded(linkGen)
@@ -3200,7 +3205,7 @@ dvl.html.table.renderer =
         d.attr('title', titleGen.gen()) if titleGen 
       config(sel.enter().append('a'))
       config(sel)
-      null
+      return
     f.depends = [linkGen, titleGen]
     return f
   spanLink: ({click, titleGen}) -> 
@@ -3213,24 +3218,24 @@ dvl.html.table.renderer =
         d.attr('title', titleGen.gen()) if titleGen
       config(sel.enter().append('span').attr('class', 'span_link'))
       config(sel)
-      null
+      return
     f.depends = [titleGen]
     return f
   barDiv: (col, dataFn) ->
     sel = col.selectAll('div').data((d) -> [d])
     sel.enter().append('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
     sel.style('width', ((d) -> dataFn(d) + 'px'))
-    null
+    return
   img: (col, dataFn) ->
     sel = col.selectAll('img').data((d) -> [d])
     sel.enter().append('img').attr('src', dataFn)
     sel.attr('src', dataFn)
-    null
+    return
   imgDiv: (col, dataFn) ->
     sel = col.selectAll('div').data((d) -> [d])
     sel.enter().append('div').attr('class', dataFn)
     sel.attr('class', dataFn)
-    null
+    return
   svgSparkline: ({classStr, width, height, x, y, padding}) -> 
     f = (col, dataFn) -> 
       svg = col.selectAll('svg').data((i) -> [dataFn(i)])
@@ -3278,7 +3283,7 @@ dvl.html.table.renderer =
     
       make_sparks(svg)
       make_sparks(svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height))
-      null
+      return
     f.depends = []
     return f
     

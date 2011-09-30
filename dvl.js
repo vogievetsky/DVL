@@ -372,7 +372,6 @@ dvl.util = {
         this.prev = val;
         this.value = val;
       }
-      return null;
     };
     DVLDef.prototype.toString = function() {
       return "|" + this.id + ":" + this.value + "|";
@@ -776,7 +775,6 @@ dvl.util = {
     constants = {};
     variables = {};
     registerers = {};
-    return null;
   };
   levelPriorityQueue = (function() {
     var len, minLevel, queue;
@@ -812,14 +810,12 @@ dvl.util = {
     toNotify = [];
     curCollectListener = listener;
     dvl.notify = collect_notify;
-    return null;
   };
   end_notify_collect = function() {
     curCollectListener = null;
     dvl.notify = init_notify;
     dvl.notify.apply(null, toNotify);
     toNotify = null;
-    return null;
   };
   collect_notify = function() {
     var v, _i, _len;
@@ -836,7 +832,6 @@ dvl.util = {
       }
       toNotify.push(v);
     }
-    return null;
   };
   within_notify = function() {
     var l, v, _i, _j, _len, _len2, _ref;
@@ -861,7 +856,6 @@ dvl.util = {
         }
       }
     }
-    return null;
   };
   init_notify = function() {
     var l, v, visitedListener, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref;
@@ -984,7 +978,6 @@ dvl.util = {
     dvl.util.crossDomainPost('http://localhost:8124/' + file, {
       graph: g
     });
-    return null;
   };
   return dvl.postLatest = function(file, showId) {
     var g;
@@ -993,7 +986,6 @@ dvl.util = {
     dvl.util.crossDomainPost('http://localhost:8124/' + file, {
       graph: g
     });
-    return null;
   };
 })();
 dvl.alwaysLazy = function(v, fn) {
@@ -1080,7 +1072,6 @@ dvl.assert = function(_arg) {
     listen: [obj],
     name: 'assert_fn'
   });
-  return null;
 };
 dvl.apply = function(_arg) {
   var allowNull, apply, args, fn, invalid, name, out, ret, update;
@@ -1418,7 +1409,6 @@ dvl.delay = function(_arg) {
           makeRequest(q, bundle);
         }
       }
-      return null;
     };
     fo = null;
     addHoock = function(url, data, ret) {
@@ -1434,7 +1424,6 @@ dvl.delay = function(_arg) {
           force: true
         });
       }
-      return null;
     };
     return function(url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name) {
       var q, res;
@@ -1647,7 +1636,6 @@ dvl.resizer = function(sizeRef, marginRef, options) {
   };
   d3.select(window).on('resize', onResize);
   onResize();
-  return null;
 };
 dvl.format = function(string, subs) {
   var list, makeString, out, s, _i, _j, _len, _len2;
@@ -1782,7 +1770,6 @@ dvl.orDefs = function(_arg) {
       }
     }
     out.set(null).setGen(null).notify();
-    return null;
   };
   dvl.register({
     fn: update,
@@ -1805,7 +1792,6 @@ dvl.hasher = function(obj) {
     listen: [obj],
     name: 'hash_changer'
   });
-  return null;
 };
 dvl.scale = {};
 (function() {
@@ -1872,7 +1858,6 @@ dvl.scale = {};
       });
       formatRef.set(s.tickFormat);
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-      return null;
     };
     makeScaleFnSingle = function() {
       var avg, isColor, rf, rt;
@@ -1900,7 +1885,6 @@ dvl.scale = {};
         return '';
       });
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-      return null;
     };
     makeScaleFnEmpty = function() {
       scaleRef.set(null);
@@ -1908,7 +1892,6 @@ dvl.scale = {};
       ticksRef.set(null);
       formatRef.set(null);
       dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-      return null;
     };
     updateData = function() {
       var a, acc, d0, data, dn, dom, f, max, min, mm, t, _i, _len;
@@ -1995,7 +1978,6 @@ dvl.scale = {};
         domainTo = NaN;
         makeScaleFnEmpty();
       }
-      return null;
     };
     listenData = [];
     for (_i = 0, _len = optDomain.length; _i < _len; _i++) {
@@ -2064,7 +2046,6 @@ dvl.scale = {};
       formatRef.set(s.tickFormat);
       bandRef.set(Math.abs(rt - rf) / domain.length);
       dvl.notify(scaleRef, ticksRef, formatRef, bandRef);
-      return null;
     };
     makeScaleFnEmpty = function() {
       scaleRef.set(null);
@@ -2072,7 +2053,6 @@ dvl.scale = {};
       formatRef.set(null);
       bandRef.set(0);
       dvl.notify(scaleRef, ticksRef, formatRef, bandRef);
-      return null;
     };
     updateData = function() {
       var a;
@@ -2099,7 +2079,6 @@ dvl.scale = {};
       } else {
         makeScaleFnEmpty();
       }
-      return null;
     };
     dvl.register({
       fn: makeScaleFn,
@@ -2304,7 +2283,6 @@ generator_maker_maker = function(combiner, name) {
         gen.setGen(null);
       }
       dvl.notify(gen);
-      return null;
     };
     dvl.register({
       fn: makeGen,
@@ -2368,7 +2346,6 @@ dvl.svg = {};
         props[left] = dvl.zero;
       }
     }
-    return null;
   };
   processDim3 = function(props, panelWidth, left, width, right) {
     if (props[left]) {
@@ -2383,7 +2360,6 @@ dvl.svg = {};
         props[width] = panelWidth;
       }
     }
-    return null;
   };
   processDim4 = function(props, panelWidth, left, width, right, center) {
     if (props[left]) {
@@ -2411,7 +2387,6 @@ dvl.svg = {};
         }
       }
     }
-    return null;
   };
   removeUndefined = function(obj) {
     var k, p;
@@ -2654,7 +2629,6 @@ dvl.svg = {};
     if (height && (prev || height.hasChanged())) {
       m.attr('height', height[gen]());
     }
-    return null;
   };
   dvl.svg.panels = function(options) {
     var clip, content, g, heights, k, listen, o, p, panel, render, widths, _i, _len, _ref;
@@ -2709,7 +2683,6 @@ dvl.svg = {};
       } else {
         g.style('display', 'none');
       }
-      return null;
     };
     listen = [panel.width, panel.height];
     _ref = listen_attr[o.myClass];
@@ -2722,7 +2695,6 @@ dvl.svg = {};
       listen: listen,
       name: 'panels_render'
     });
-    return null;
   };
   listen_attr.line = ['left', 'top', 'stroke'];
   update_attr.line = function(m, p, prev) {
@@ -2748,7 +2720,6 @@ dvl.svg = {};
     if (stroke && (prev || stroke.hasChanged())) {
       m.style('stroke', stroke[gen]());
     }
-    return null;
   };
   dvl.svg.line = function(options) {
     var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
@@ -2803,9 +2774,8 @@ dvl.svg = {};
       } else {
         g.style('display', 'none');
       }
-      return null;
     };
-    listen = [panel.width, panel.height];
+    listen = [panel.width, panel.height, o.visible];
     _ref = listen_attr[o.myClass];
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       k = _ref[_i];
@@ -2869,11 +2839,10 @@ dvl.svg = {};
       } else {
         g.style('display', 'none');
       }
-      return null;
     };
     dvl.register({
       fn: render,
-      listen: [panel.width, panel.height, p.x, p.y],
+      listen: [panel.width, panel.height, o.visible, p.x, p.y],
       name: 'render_area'
     });
     return makeAnchors(anchors, o);
@@ -2902,7 +2871,6 @@ dvl.svg = {};
     if (stroke && (prev || stroke.hasChanged())) {
       m.style('stroke', stroke[gen]());
     }
-    return null;
   };
   dvl.svg.lines = function(options) {
     var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
@@ -3008,9 +2976,8 @@ dvl.svg = {};
       } else {
         g.style('display', 'none');
       }
-      return null;
     };
-    listen = [panel.width, panel.height];
+    listen = [panel.width, panel.height, o.visible];
     _ref = listen_attr[o.myClass];
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       k = _ref[_i];
@@ -3052,7 +3019,6 @@ dvl.svg = {};
     if (stroke && (prev || stroke.hasChanged())) {
       m.style('stroke', stroke[gen]());
     }
-    return null;
   };
   dvl.svg.bars = function(options) {
     var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
@@ -3110,7 +3076,6 @@ dvl.svg = {};
       } else {
         g.style('display', 'none');
       }
-      return null;
     };
     listen = [panel.width, panel.height];
     _ref = listen_attr[o.myClass];
@@ -3169,7 +3134,6 @@ dvl.svg = {};
     if (color && (prev || color.hasChanged())) {
       m.style('fill', color[gen]());
     }
-    return null;
   };
   dvl.svg.labels = function(options) {
     var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
@@ -3212,9 +3176,8 @@ dvl.svg = {};
       } else {
         g.style('display', 'none');
       }
-      return null;
     };
-    listen = [panel.width, panel.height];
+    listen = [panel.width, panel.height, o.visible];
     _ref = listen_attr[o.myClass];
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       k = _ref[_i];
@@ -3251,7 +3214,6 @@ dvl.svg = {};
     if (stroke && (prev || stroke.hasChanged())) {
       m.style('stroke', stroke[gen]());
     }
-    return null;
   };
   return dvl.svg.dots = function(options) {
     var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
@@ -3350,21 +3312,25 @@ dvl.svg = {};
     render = function() {
       var dur, len, m;
       len = calcLength(p);
-      m = selectEnterExit(g, o, p, len);
-      update_attr[o.myClass](m, p, true);
-      if (panel.width.hasChanged() || panel.height.hasChanged()) {
-        if (clip) {
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get());
+      if (len > 0 && o.visible.get()) {
+        m = selectEnterExit(g, o, p, len);
+        update_attr[o.myClass](m, p, true);
+        if (panel.width.hasChanged() || panel.height.hasChanged()) {
+          if (clip) {
+            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
+          }
+          dur = 0;
+        } else {
+          dur = o.duration.get();
         }
-        dur = 0;
+        m = reselectUpdate(g, o, dur);
+        update_attr[o.myClass](m, p);
+        g.style('display', null);
       } else {
-        dur = o.duration.get();
+        g.style('display', 'none');
       }
-      m = reselectUpdate(g, o, dur);
-      update_attr[o.myClass](m, p);
-      return null;
     };
-    listen = [panel.width, panel.height];
+    listen = [panel.width, panel.height, o.visible];
     _ref = listen_attr[o.myClass];
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       k = _ref[_i];
@@ -3432,14 +3398,12 @@ dvl.html.out = function(_arg) {
         }
       }
     }
-    return null;
   };
   dvl.register({
     fn: updateHtml,
     listen: [data, selector, format],
     name: 'html_out'
   });
-  return null;
 };
 dvl.html.list = function(_arg) {
   var classStr, iconDiv, links, listClassStr, multi, names, onSelect, selection, selector, ul, updateList, updateSelection, values;
@@ -3755,7 +3719,6 @@ dvl.html.table = function(_arg) {
     } else if (t === 'string') {
       window.location.href = arg;
     }
-    return null;
   };
   if (columns.length && columns[0].columns) {
     topHeader = [];
@@ -3973,7 +3936,6 @@ dvl.html.table = function(_arg) {
         csel.style('display', 'none');
       }
     }
-    return null;
   };
   dvl.register({
     fn: makeTable,
@@ -3989,11 +3951,9 @@ dvl.html.table = function(_arg) {
 dvl.html.table.renderer = {
   text: function(col, dataFn) {
     col.text(dataFn);
-    return null;
   },
   html: function(col, dataFn) {
     col.html(dataFn);
-    return null;
   },
   aLink: function(_arg) {
     var f, html, linkGen, titleGen, what;
@@ -4014,7 +3974,6 @@ dvl.html.table.renderer = {
       };
       config(sel.enter().append('a'));
       config(sel);
-      return null;
     };
     f.depends = [linkGen, titleGen];
     return f;
@@ -4037,7 +3996,6 @@ dvl.html.table.renderer = {
       };
       config(sel.enter().append('span').attr('class', 'span_link'));
       config(sel);
-      return null;
     };
     f.depends = [titleGen];
     return f;
@@ -4053,7 +4011,6 @@ dvl.html.table.renderer = {
     sel.style('width', (function(d) {
       return dataFn(d) + 'px';
     }));
-    return null;
   },
   img: function(col, dataFn) {
     var sel;
@@ -4062,7 +4019,6 @@ dvl.html.table.renderer = {
     });
     sel.enter().append('img').attr('src', dataFn);
     sel.attr('src', dataFn);
-    return null;
   },
   imgDiv: function(col, dataFn) {
     var sel;
@@ -4071,7 +4027,6 @@ dvl.html.table.renderer = {
     });
     sel.enter().append('div').attr('class', dataFn);
     sel.attr('class', dataFn);
-    return null;
   },
   svgSparkline: function(_arg) {
     var classStr, f, height, padding, width, x, y;
@@ -4131,7 +4086,6 @@ dvl.html.table.renderer = {
       };
       make_sparks(svg);
       make_sparks(svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height));
-      return null;
     };
     f.depends = [];
     return f;
