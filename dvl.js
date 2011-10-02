@@ -925,14 +925,14 @@ dvl.util = {
     nameMap = {};
     for (k in registerers) {
       l = registerers[k];
-      fnName = l.id;
+      fnName = l.id.replace(/\n/g, '');
       fnName = fnName + ' (' + l.level + ')';
       fnName = '"' + fnName + '"';
       nameMap[l.id] = fnName;
     }
     for (id in variables) {
       v = variables[id];
-      varName = id;
+      varName = id.replace(/\n/g, '');
       varName = '"' + varName + '"';
       nameMap[id] = varName;
     }
@@ -976,7 +976,7 @@ dvl.util = {
     file || (file = 'dvl_graph');
     g = dvl.graphToDot(false, showId);
     dvl.util.crossDomainPost('http://localhost:8124/' + file, {
-      graph: g
+      graph: JSON.stringify(g)
     });
   };
   return dvl.postLatest = function(file, showId) {
@@ -984,7 +984,7 @@ dvl.util = {
     file || (file = 'dvl_graph_latest');
     g = dvl.graphToDot(true, showId);
     dvl.util.crossDomainPost('http://localhost:8124/' + file, {
-      graph: g
+      graph: JSON.stringify(g)
     });
   };
 })();
@@ -3686,7 +3686,7 @@ dvl.html.select = function(_arg) {
   return selection;
 };
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columns, d, goOrCall, h, headerColClass, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
+  var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
   selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
@@ -3752,7 +3752,8 @@ dvl.html.table = function(_arg) {
     c.cellClick = dvl.wrapConstIfNeeded(c.cellClick || null);
     c.visible = dvl.wrapConstIfNeeded((_ref5 = c.visible) != null ? _ref5 : true);
     c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'html'];
-    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick, c.visible);
+    c.cellClassGen = c.cellClassGen ? dvl.wrapConstIfNeeded(c.cellClassGen) : null;
+    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen);
     if (c.renderer.depends) {
       _ref6 = c.renderer.depends;
       for (_k = 0, _len3 = _ref6.length; _k < _len3; _k++) {
@@ -3767,10 +3768,7 @@ dvl.html.table = function(_arg) {
     t.attr('class', classStr);
   }
   colClass = function(c) {
-    return (c.classStr || c.id) + ' ' + c.uniquClass + (c.sorted ? ' sorted' : '');
-  };
-  headerColClass = function(c) {
-    return colClass(c) + (c.sortable.get() ? ' sortable' : ' unsortable');
+    return (c.classStr || c.id) + ' ' + c.uniquClass + (c.sorted ? ' sorted' : '') + (c.sortable.get() ? ' sortable' : ' unsortable');
   };
   thead = t.append('thead');
   if (topHeader) {
@@ -3830,7 +3828,7 @@ dvl.html.table = function(_arg) {
     return length;
   };
   makeTable = function() {
-    var c, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, updateTd, _l, _len4, _len5, _m;
+    var c, cg, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, updateTd, _l, _len4, _len5, _m;
     length = tableLength();
     r = pv.range(length);
     if (visible.hasChanged()) {
@@ -3893,7 +3891,7 @@ dvl.html.table = function(_arg) {
         });
       }
     }
-    h.selectAll('th').data(columns).attr('class', headerColClass).style('display', function(c) {
+    h.selectAll('th').data(columns).attr('class', colClass).style('display', function(c) {
       if (c.visible.get()) {
         return null;
       } else {
@@ -3929,9 +3927,16 @@ dvl.html.table = function(_arg) {
       gen = col.gen.gen();
       csel = sel.select('td.' + col.uniquClass);
       if (col.visible.get()) {
-        col.renderer(csel.on('click', function(i) {
+        csel.on('click', function(i) {
           return goOrCall(col.cellClick.gen()(i), col.id);
-        }).style('display', null), gen, col.sorted);
+        }).style('display', null);
+        if (col.cellClassGen) {
+          cg = col.cellClassGen.gen();
+          csel.attr('class', function(i) {
+            return colClass(col) + ' ' + cg(i);
+          });
+        }
+        col.renderer(csel, gen, col.sorted);
       } else {
         csel.style('display', 'none');
       }

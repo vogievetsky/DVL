@@ -668,7 +668,7 @@ dvl.util = {
     nameMap = {}
     
     for k, l of registerers
-      fnName = l.id;
+      fnName = l.id.replace(/\n/g, '')
       #fnName = fnName.replace(/_\d+/, '') unless showId
       fnName = fnName + ' (' + l.level + ')'
       # fnName += ' [[' + execOrder[l.id] + ']]' if execOrder[l.id]
@@ -676,7 +676,7 @@ dvl.util = {
       nameMap[l.id] = fnName
     
     for id,v of variables
-      varName = id
+      varName = id.replace(/\n/g, '')
       #varName = varName.replace(/_\d+/, '') unless showId
       # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]
       varName = '"' + varName + '"'
@@ -713,13 +713,13 @@ dvl.util = {
   dvl.postGraph = (file, showId) ->
     file or= 'dvl_graph'
     g = dvl.graphToDot(false, showId)
-    dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: g })
+    dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
     return
     
   dvl.postLatest = (file, showId) ->
     file or= 'dvl_graph_latest'
     g = dvl.graphToDot(true, showId)
-    dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: g })
+    dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
     return
 
 )()
@@ -2952,6 +2952,7 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
 ##     ~title:            The title of the column header.
 ##     ~headerTooltip:    The popup tool tip (title element text) of the column header.
 ##      classStr:         The class given to the 'th' and 'td' elements in this column, if not specified will default to the id.
+##      cellClassGen:     The class generator for the cell 
 ##     ~cellClick:        The generator of click handlers
 ##     -gen:              The generator that drives the column data.
 ##     ~sortable:         Toggles wheather the column is sortable or not. [true]
@@ -3028,7 +3029,8 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     c.cellClick = dvl.wrapConstIfNeeded(c.cellClick or null)
     c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
     c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'html']
-    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick, c.visible
+    c.cellClassGen = if c.cellClassGen then dvl.wrapConstIfNeeded(c.cellClassGen) else null
+    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen
     if c.renderer.depends
       listen.push d for d in c.renderer.depends
     c.uniquClass = 'column_' + i 
@@ -3036,8 +3038,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   t = d3.select(selector).append('table')
   t.attr('class', classStr) if classStr
   
-  colClass = (c) -> (c.classStr or c.id) + ' ' + c.uniquClass + if c.sorted then ' sorted' else ''
-  headerColClass = (c) -> colClass(c) + if c.sortable.get() then ' sortable' else ' unsortable'
+  colClass = (c) -> (c.classStr or c.id) + ' ' + c.uniquClass + (if c.sorted then ' sorted' else '') + (if c.sortable.get() then ' sortable' else ' unsortable')
 
   thead = t.append('thead')
   th = thead.append('tr').attr('class', 'top_header') if topHeader
@@ -3140,7 +3141,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
             )
     
     h.selectAll('th').data(columns)
-      .attr('class', headerColClass)
+      .attr('class', colClass)
       .style('display', (c) -> if c.visible.get() then null else "none")
       .attr('title', (c) -> c.headerTooltip.get())
         .select('span')
@@ -3169,11 +3170,15 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       gen = col.gen.gen();
       csel = sel.select('td.' + col.uniquClass)
       if col.visible.get()
-        col.renderer(
-          csel.on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id)).style('display', null),
-          gen,
-          col.sorted
-        )
+        csel
+          .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id))
+          .style('display', null)
+        
+        if col.cellClassGen
+          cg = col.cellClassGen.gen()
+          csel.attr('class', (i) -> colClass(col) + ' ' + cg(i))
+          
+        col.renderer(csel, gen, col.sorted)
       else
         csel.style('display', 'none')
 
