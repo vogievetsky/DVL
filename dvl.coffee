@@ -1158,7 +1158,7 @@ dvl.ajax.cacheManager = ({max, timeout}) ->
   trim = ->
     tout = timeout.get()
     if tout > 0
-      cutoff = (new Date()).valueOf() - tout
+      cutoff = Date.now() - tout
       newCache = {}
       for q,d of cache
         newCache[q] = d if cutoff < d.time
@@ -1186,15 +1186,18 @@ dvl.ajax.cacheManager = ({max, timeout}) ->
     clear: (url, data) ->
       if url?
         q = make_key(url, data)
-        delete cache[q]
+        if cache[q]
+          delete cache[q]
+          count--
         trim()
       else
         cache = {}
+        count = 0
       return 
       
     store: (url, data, value) ->
       q = make_key(url, data)
-      cache[q] = { time:(new Date()).valueOf(), value }
+      cache[q] = { time:Date.now(), value }
       count++
       trim()
       return
@@ -1207,7 +1210,7 @@ dvl.ajax.cacheManager = ({max, timeout}) ->
     retrieve: (url, data) ->
       q = make_key(url, data)
       c = cache[q]
-      c.time = (new Date()).valueOf()
+      c.time = Date.now()
       return dvl.util.clone(c.value)
   }
 
