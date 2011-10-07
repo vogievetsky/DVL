@@ -61,12 +61,12 @@ body {
 	var valueSource = dvl.def('value1', 'measure')
 	var getV = dvl.acc(valueSource);
 	
-	var size = dvl.def({ width: 600, height: 600 }, "size");
 	var margin = dvl.def({ top: 30, bottom: 70, left: 70, right: 30 }, "margin");
   
   var panel = dvl.svg.canvas({
     selector:'body',
-    size:size,
+    width: 600,
+    height: 600, 
     margin:margin
   });
 	

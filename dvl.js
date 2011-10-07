@@ -35,7 +35,7 @@ if (!Array.prototype.filter) {
 };
 print = {};
 debug = function() {
-  var arg, code, len;
+  var arg, argCopy, code, len;
   if (!(typeof console !== "undefined" && console !== null ? console.log : void 0)) {
     return;
   }
@@ -48,7 +48,14 @@ debug = function() {
     code = "print[" + len + "] = function(" + arg + ") { console.log(" + arg + "); }";
     eval(code);
   }
-  print[len].apply(null, arguments);
+  argCopy = Array.prototype.slice.apply(arguments).map(function(x) {
+    if (dvl.typeOf(x) === 'date') {
+      return x.toString();
+    } else {
+      return x;
+    }
+  });
+  print[len].apply(null, argCopy);
   return arguments[0];
 };
 window.dvl = {
@@ -1312,7 +1319,7 @@ dvl.delay = function(_arg) {
             resVal = q.fn(resVal);
           }
           q.resVal = resVal;
-          if (this.url && q.cache) {
+          if (this.url && q.cache && status !== 'invalid') {
             q.cache.store(this.url, this.data, resVal);
           }
         } else {
@@ -1381,7 +1388,7 @@ dvl.delay = function(_arg) {
           }
         }
       } else {
-        return getData.call(ctx, null);
+        return getData.call(ctx, null, 'invalid');
       }
     };
     inputChange = function() {
@@ -1501,7 +1508,7 @@ dvl.ajax.cacheManager = function(_arg) {
     var cutoff, d, m, newCache, oldestQuery, oldestTime, q, tout, _results;
     tout = timeout.get();
     if (tout > 0) {
-      cutoff = (new Date()).valueOf() - tout;
+      cutoff = Date.now() - tout;
       newCache = {};
       for (q in cache) {
         d = cache[q];
@@ -1546,17 +1553,21 @@ dvl.ajax.cacheManager = function(_arg) {
       var q;
       if (url != null) {
         q = make_key(url, data);
-        delete cache[q];
+        if (cache[q]) {
+          delete cache[q];
+          count--;
+        }
         trim();
       } else {
         cache = {};
+        count = 0;
       }
     },
     store: function(url, data, value) {
       var q;
       q = make_key(url, data);
       cache[q] = {
-        time: (new Date()).valueOf(),
+        time: Date.now(),
         value: value
       };
       count++;
@@ -1572,70 +1583,40 @@ dvl.ajax.cacheManager = function(_arg) {
       var c, q;
       q = make_key(url, data);
       c = cache[q];
-      c.time = (new Date()).valueOf();
       return dvl.util.clone(c.value);
     }
   };
 };
-dvl.resizer = function(sizeRef, marginRef, options) {
-  var fh, fw, marginDefault, onResize;
-  if (!dvl.knows(sizeRef)) {
-    throw 'No size given';
-  }
-  marginDefault = {
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0
-  };
-  if (options) {
-    if (options.width) {
-      fw = dvl.typeOf(options.width) === 'function' ? options.width : dvl.identity;
-    }
-    if (options.height) {
-      fh = dvl.typeOf(options.height) === 'function' ? options.height : dvl.identity;
-    }
-  } else {
-    fw = dvl.ident;
-    fh = dvl.ident;
-  }
+dvl.resizer = function(_arg) {
+  var dimension, fn, onResize, out, selector;
+  selector = _arg.selector, out = _arg.out, dimension = _arg.dimension, fn = _arg.fn;
+  out = dvl.wrapVarIfNeeded(out);
+  dimension = dvl.wrapConstIfNeeded(dimension || 'width');
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
   onResize = function() {
-    var e, height, margin, width;
-    margin = marginRef ? marginRef.get() : marginDefault;
-    if (options.selector) {
-      e = jQuery(options.selector);
-      width = e.width();
-      height = e.height();
+    var e, val, _dimension, _fn;
+    _dimension = dimension.get();
+    _fn = fn.get();
+    if ((dim === 'width' || dim === 'height') && f) {
+      if (selector) {
+        e = jQuery(selector);
+        val = e[_dimension]();
+      } else {
+        val = document.body[_dimension === 'width' ? 'clientWidth' : 'clientHeight'];
+      }
+      return out.update(_fn(val));
     } else {
-      width = document.body.clientWidth;
-      height = document.body.clientHeight;
+      return out.update(null);
     }
-    if (fw) {
-      width = fw(width) - margin.right - margin.left;
-    }
-    if (fh) {
-      height = fh(height) - margin.top - margin.bottom;
-    }
-    if (options.minWidth) {
-      width = Math.max(width, options.minWidth);
-    }
-    if (options.maxWidth) {
-      width = Math.min(width, options.maxWidth);
-    }
-    if (options.minHeight) {
-      height = Math.max(height, options.minHeight);
-    }
-    if (options.maxHeight) {
-      height = Math.min(height, options.maxHeight);
-    }
-    sizeRef.set({
-      width: width,
-      height: height
-    });
-    return dvl.notify(sizeRef);
   };
   d3.select(window).on('resize', onResize);
-  onResize();
+  dvl.register({
+    name: 'resizer',
+    listen: [dimension, fn],
+    change: [out],
+    fn: onResize
+  });
+  return out;
 };
 dvl.format = function(string, subs) {
   var list, makeString, out, s, _i, _j, _len, _len2;
@@ -2492,68 +2473,62 @@ dvl.svg = {};
     }
     return anchor;
   };
-  dvl.svg.canvas = function(options) {
-    var bg, marginRef, onFn, pHeight, pWidth, resize, selector, sizeRef, svg, vis, what, _ref;
-    selector = options.selector;
+  dvl.svg.canvas = function(_arg) {
+    var bg, canvasHeight, canvasWidth, classStr, height, margin, onEvent, onFn, resize, selector, svg, vis, what, width;
+    selector = _arg.selector, classStr = _arg.classStr, width = _arg.width, height = _arg.height, margin = _arg.margin, onEvent = _arg.onEvent;
     if (!selector) {
       throw 'no selector';
     }
-    sizeRef = dvl.wrapConstIfNeeded(options.size || {
-      width: 600,
-      height: 400
-    });
-    marginRef = dvl.wrapConstIfNeeded(options.margin || {
+    width = dvl.wrapConstIfNeeded(width != null ? width : 600);
+    height = dvl.wrapConstIfNeeded(height != null ? height : 400);
+    margin = dvl.wrapConstIfNeeded(margin || {
       top: 0,
       bottom: 0,
       left: 0,
       right: 0
     });
-    pWidth = dvl.def(null, 'svg_panel_width');
-    pHeight = dvl.def(null, 'svg_panel_height');
+    canvasWidth = dvl.def(null, 'svg_panel_width');
+    canvasHeight = dvl.def(null, 'svg_panel_height');
     svg = d3.select(selector).append('svg:svg');
-    if (options.classStr) {
-      svg.attr('class', options.classStr);
+    if (classStr) {
+      svg.attr('class', classStr);
     }
     vis = svg.append('svg:g').attr('class', 'main');
     bg = vis.append('svg:rect').attr('class', 'background');
-    if (options.on) {
-      _ref = options.on;
-      for (what in _ref) {
-        onFn = _ref[what];
+    if (onEvent) {
+      for (what in onEvent) {
+        onFn = onEvent[what];
         bg.on(what, onFn);
       }
     }
     resize = function() {
-      var h, margin, size, w;
-      size = sizeRef.get();
-      margin = marginRef.get();
-      if (size && margin) {
-        w = size.width - margin.left - margin.right;
-        h = size.height - margin.top - margin.bottom;
-        if (pWidth.get() !== w) {
-          pWidth.set(w).notify();
-        }
-        if (pHeight !== h) {
-          pHeight.set(h).notify();
-        }
-        svg.attr('width', size.width).attr('height', size.height);
-        vis.attr('transform', "translate(" + margin.left + "," + margin.top + ")").attr('width', w).attr('height', h);
+      var h, w, _height, _margin, _width;
+      _width = width.get();
+      _height = height.get();
+      _margin = margin.get();
+      if (_width && _height && _margin) {
+        w = _width - _margin.left - _margin.right;
+        h = _height - _margin.top - _margin.bottom;
+        canvasWidth.update(w);
+        canvasHeight.update(h);
+        svg.attr('width', _width).attr('height', _height);
+        vis.attr('transform', "translate(" + _margin.left + "," + _margin.top + ")").attr('width', w).attr('height', h);
         bg.attr('width', w).attr('height', h);
       } else {
-        pWidth.set(null).notify();
-        pHeight.set(null).notify();
+        canvasWidth.update(null);
+        canvasHeight.update(null);
       }
     };
     dvl.register({
-      fn: resize,
-      listen: [sizeRef, marginRef],
-      change: [pWidth, pHeight],
-      name: 'canvas_resize'
+      name: 'canvas_resize',
+      listen: [width, height, margin],
+      change: [canvasWidth, canvasHeight],
+      fn: resize
     });
     return {
       g: vis,
-      width: pWidth,
-      height: pHeight
+      width: canvasWidth,
+      height: canvasHeight
     };
   };
   dvl.svg.mouse = function(_arg) {

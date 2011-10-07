@@ -44,12 +44,12 @@ body {
 	var getY = dvl.acc('f');
 	var getV = dvl.acc('count');
 	
-	var size = dvl.def({ width: 800, height: 800 }, "size");
 	var margin = dvl.def({ top: 30, bottom: 70, left: 70, right: 30 }, "margin");
   
   var panel = dvl.svg.canvas({
     selector:'#heatmap',
-    size:size,
+    width: 600,
+    height: 600,
     margin:margin
   });
 	

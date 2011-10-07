@@ -40,8 +40,11 @@ debug = ->
     arg = 'a' + d3.range(len).join(',a')
     code = "print[#{len}] = function(#{arg}) { console.log(#{arg}); }"
     eval(code)
-    
-  print[len].apply(null, arguments)
+  
+  argCopy = Array::slice
+    .apply(arguments)
+    .map((x) -> if dvl.typeOf(x) is 'date' then x.toString() else x) # bypass silly chrome beta date priniting
+  print[len].apply(null, argCopy)
   return arguments[0]
 
 window.dvl =
@@ -998,8 +1001,8 @@ dvl.delay = ({ data, time, name, init }) ->
           resVal = q.fn(resVal) if q.fn 
 
           q.resVal = resVal
-          q.cache.store(this.url, this.data, resVal) if this.url and q.cache
-
+          if this.url and q.cache and status isnt 'invalid'
+            q.cache.store(this.url, this.data, resVal)
         else
           q.resVal = q.cache.retrieve(this.url, this.data)
 
@@ -1058,7 +1061,7 @@ dvl.delay = ({ data, time, name, init }) ->
           if q.invalidOnLoad.get()
             q.res.update(null)
       else
-        getData.call(ctx, null)
+        getData.call(ctx, null, 'invalid')
 
     inputChange = ->
       bundle = []
@@ -1210,46 +1213,37 @@ dvl.ajax.cacheManager = ({max, timeout}) ->
     retrieve: (url, data) ->
       q = make_key(url, data)
       c = cache[q]
-      c.time = Date.now()
       return dvl.util.clone(c.value)
   }
 
 
-# ToDo: rewrite this:
-dvl.resizer = (sizeRef, marginRef, options) ->
-  throw 'No size given' unless dvl.knows(sizeRef)
-  marginDefault = {top: 0, bottom: 0, left: 0, right: 0}
-  
-  if options
-    if options.width
-      fw = if dvl.typeOf(options.width) is 'function' then options.width else dvl.identity
-    if options.height
-      fh = if dvl.typeOf(options.height) is 'function' then options.height else dvl.identity
-  else
-    fw = dvl.ident
-    fh = dvl.ident
+dvl.resizer = ({selector, out, dimension, fn}) ->
+  out = dvl.wrapVarIfNeeded(out)
+  dimension = dvl.wrapConstIfNeeded(dimension or 'width')
+  fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
     
   onResize = ->
-    margin = if marginRef then marginRef.get() else marginDefault
-    if options.selector
-      e = jQuery(options.selector)
-      width  = e.width()
-      height = e.height()
+    _dimension = dimension.get()
+    _fn = fn.get()
+    if dim in ['width', 'height'] and f
+      if selector
+        e = jQuery(selector)
+        val = e[_dimension]()
+      else
+        val = document.body[if _dimension is 'width' then 'clientWidth' else 'clientHeight']
+    
+      out.update(_fn(val))
     else
-      width  = document.body.clientWidth 
-      height = document.body.clientHeight
-    width  = fw(width ) - margin.right - margin.left   if fw
-    height = fh(height) - margin.top   - margin.bottom if fh
-    width  = Math.max(width,  options.minWidth)  if options.minWidth
-    width  = Math.min(width,  options.maxWidth)  if options.maxWidth
-    height = Math.max(height, options.minHeight) if options.minHeight
-    height = Math.min(height, options.maxHeight) if options.maxHeight
-    sizeRef.set({ width: width, height: height })
-    dvl.notify(sizeRef)
-  
+      out.update(null)
+    
   d3.select(window).on('resize', onResize)
-  onResize()
-  return
+  dvl.register {
+    name: 'resizer'
+    listen: [dimension, fn]
+    change: [out]
+    fn: onResize
+  }
+  return out
 
 
 
@@ -1940,41 +1934,40 @@ dvl.svg = {}
     return anchor
     
   
-  dvl.svg.canvas = (options) ->
-    selector = options.selector
+  dvl.svg.canvas = ({selector, classStr, width, height, margin, onEvent}) ->
     throw 'no selector' unless selector
-    sizeRef = dvl.wrapConstIfNeeded(options.size or { width: 600, height: 400 })
-    marginRef = dvl.wrapConstIfNeeded(options.margin or { top: 0, bottom: 0, left: 0, right: 0 })
+    width = dvl.wrapConstIfNeeded(width ? 600)
+    height = dvl.wrapConstIfNeeded(height ? 400)
+    margin = dvl.wrapConstIfNeeded(margin or { top: 0, bottom: 0, left: 0, right: 0 })
 
-    pWidth  = dvl.def(null, 'svg_panel_width')
-    pHeight = dvl.def(null, 'svg_panel_height')
+    canvasWidth  = dvl.def(null, 'svg_panel_width')
+    canvasHeight = dvl.def(null, 'svg_panel_height')
 
     svg = d3.select(selector).append('svg:svg')
-    svg.attr('class', options.classStr) if options.classStr
+    svg.attr('class', classStr) if classStr
     vis = svg.append('svg:g').attr('class', 'main')
     bg  = vis.append('svg:rect').attr('class', 'background')
       
-    if options.on
-      bg.on(what, onFn) for what, onFn of options.on 
+    if onEvent
+      bg.on(what, onFn) for what, onFn of onEvent
 
     resize = ->
-      size = sizeRef.get()
-      margin = marginRef.get()
-      if size and margin
-        w = size.width  - margin.left - margin.right
-        h = size.height - margin.top  - margin.bottom
+      _width  = width.get()
+      _height = height.get()
+      _margin = margin.get()
+      if _width and _height and _margin
+        w = _width  - _margin.left - _margin.right
+        h = _height - _margin.top  - _margin.bottom
 
-        if pWidth.get() != w
-          pWidth.set(w).notify()
-        if pHeight != h
-          pHeight.set(h).notify()
+        canvasWidth.update(w)
+        canvasHeight.update(h)
 
         svg
-          .attr('width',  size.width)
-          .attr('height', size.height)
+          .attr('width',  _width)
+          .attr('height', _height)
 
         vis
-          .attr('transform', "translate(#{margin.left},#{margin.top})")
+          .attr('transform', "translate(#{_margin.left},#{_margin.top})")
           .attr('width', w)
           .attr('height', h)
 
@@ -1982,17 +1975,22 @@ dvl.svg = {}
           .attr('width', w)
           .attr('height', h)
       else
-        pWidth.set(null).notify()
-        pHeight.set(null).notify()
+        canvasWidth.update(null)
+        canvasHeight.update(null)
         
       return
 
-    dvl.register({fn:resize, listen:[sizeRef, marginRef], change:[pWidth, pHeight], name:'canvas_resize'})
+    dvl.register {
+      name: 'canvas_resize'
+      listen: [width, height, margin]
+      change: [canvasWidth, canvasHeight]
+      fn: resize
+    }
   
     return {
       g: vis
-      width: pWidth
-      height: pHeight
+      width:  canvasWidth
+      height: canvasHeight
     }
 
 

@@ -78,7 +78,6 @@ text {
 	  name: 'color_updater'
 	});
 	
-	var size = dvl.def({ width: 900, height: 800 }, "size");
 	var margin = dvl.def({ top: 30, bottom: 170, left: 170, right: 150 }, "margin");
   
   var highlightX = dvl.def(null, 'hightlightX');
@@ -116,9 +115,10 @@ text {
   
   var panel = dvl.svg.canvas({
     selector:'body',
-    size:size,
+    width: 900,
+    height: 800,
     margin:margin,
-    on: {
+    onEvent: {
       mouseout: function() {
         highlightX.set(null);
         highlightY.set(null);

@@ -45,12 +45,12 @@ body {
 	var getX = dvl.acc('count');
 	var duration = 0;
 	
-	var size = dvl.def({ width: 800, height: 700 }, "size");
 	var margin = dvl.def({ top: 30, bottom: 30, left: 30, right: 10 }, "margin");
   
   var panel = dvl.svg.canvas({
     selector:'body',
-    size:size,
+    width: 800,
+    height: 700,
     margin:margin
   });
 	
