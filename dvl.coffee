@@ -3178,7 +3178,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
         
         if col.cellClassGen
           cg = col.cellClassGen.gen()
-          csel.attr('class', (i) -> colClass(col) + ' ' + cg(i))
+          csel.attr('class', (i) -> colClass(col) + if cg? then ' ' + cg(i))
           
         col.renderer(csel, gen, col.sorted)
       else

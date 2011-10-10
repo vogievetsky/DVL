@@ -3908,7 +3908,7 @@ dvl.html.table = function(_arg) {
         if (col.cellClassGen) {
           cg = col.cellClassGen.gen();
           csel.attr('class', function(i) {
-            return colClass(col) + ' ' + cg(i);
+            return colClass(col) + (cg != null ? ' ' + cg(i) : void 0);
           });
         }
         col.renderer(csel, gen, col.sorted);
