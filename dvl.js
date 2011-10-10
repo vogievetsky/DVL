@@ -1597,7 +1597,7 @@ dvl.resizer = function(_arg) {
     var e, val, _dimension, _fn;
     _dimension = dimension.get();
     _fn = fn.get();
-    if ((dim === 'width' || dim === 'height') && f) {
+    if ((_dimension === 'width' || _dimension === 'height') && _fn) {
       if (selector) {
         e = jQuery(selector);
         val = e[_dimension]();
@@ -1609,7 +1609,7 @@ dvl.resizer = function(_arg) {
       return out.update(null);
     }
   };
-  d3.select(window).on('resize', onResize);
+  $(window).resize(onResize);
   dvl.register({
     name: 'resizer',
     listen: [dimension, fn],
