@@ -989,22 +989,22 @@ dvl.delay = ({ data, time, name, init }) ->
       if this.url is q.url.get()
         if not this.url
           q.resVal = null
-        else if status isnt 'cache'
-          if q.map
-            m = q.map
-            mappedData = []
-            for d, i in resVal
-              md = m(d)
-              mappedData.push md if md isnt undefined
-            resVal = mappedData
+        else
+          if status isnt 'cache'
+            if q.map
+              m = q.map
+              mappedData = []
+              for d, i in resVal
+                md = m(d)
+                mappedData.push md if md isnt undefined
+              resVal = mappedData
 
-          resVal = q.fn(resVal) if q.fn 
+            resVal = q.fn(resVal) if q.fn
+            
+            if this.url and q.cache and status isnt 'invalid'
+              q.cache.update(this.url, this.data, resVal)
 
           q.resVal = resVal
-          if this.url and q.cache and status isnt 'invalid'
-            q.cache.store(this.url, this.data, resVal)
-        else
-          q.resVal = q.cache.retrieve(this.url, this.data)
 
       q.status = 'ready'
       q.curAjax = null
@@ -1037,10 +1037,7 @@ dvl.delay = ({ data, time, name, init }) ->
       dataType = q.type.get()
       ctx = { q, request, url, data }
       if url? and not (method isnt 'GET' and not data?) and dataType
-        if q.cache?.has(url, data)
-          # load from cache
-          getData.call(ctx, null, 'cache')
-        else
+        if not q.cache?.want(url, data, (d) -> getData.call(ctx, d, 'cache'))
           # load from server
           q.curAjax.abort() if q.curAjax
           q.curAjax = jQuery.ajax {
@@ -1198,11 +1195,13 @@ dvl.ajax.cacheManager = ({max, timeout}) ->
         count = 0
       return 
       
-    store: (url, data, value) ->
+    update: (url, data, value) ->
       q = make_key(url, data)
-      cache[q] = { time:Date.now(), value }
-      count++
-      trim()
+      c = cache[q]
+      c.value = value
+      c.state = 'got'
+      copyVal = dvl.util.clone(value)
+      a(copyVal) for a in c.alert 
       return
 
     has: (url, data) ->
@@ -1210,10 +1209,24 @@ dvl.ajax.cacheManager = ({max, timeout}) ->
       trim()
       return not not cache[q]
 
-    retrieve: (url, data) ->
+    want: (url, data, cb) ->
       q = make_key(url, data)
       c = cache[q]
-      return dvl.util.clone(c.value)
+      if not c
+        c = cache[q] = {}
+        c.time = Date.now()
+        c.state = 'want'
+        c.alert = []
+        return false
+        
+      if c.state is 'got'
+        cb(dvl.util.clone(c.value))
+        return true 
+      else
+        c.alert.push cb
+        count++
+        trim()
+        return false
   }
 
 
@@ -2958,7 +2971,8 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
 ##     ~cellClick:        The generator of click handlers
 ##     -gen:              The generator that drives the column data.
 ##     ~sortable:         Toggles wheather the column is sortable or not. [true]
-##     -sortGen:          The generator generator that will drive the sorting, if not provided then gen will be used instead. [gen]
+##     -sortGen:          The generator that will drive the sorting, if not provided then gen will be used instead. [gen]
+##     ~hoverGen:         The generator for the (hover) title.
 ##     ~showIndicator:    Toggle the display of the sorting indicator for this column. [true]
 ##     ~reverseIndicator: Reverses the asc / desc directions of the indicator for this column. [false]
 ##     ~visible:          Toggles the visibility of the column
@@ -3032,7 +3046,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
     c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'html']
     c.cellClassGen = if c.cellClassGen then dvl.wrapConstIfNeeded(c.cellClassGen) else null
-    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen
+    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen
     if c.renderer.depends
       listen.push d for d in c.renderer.depends
     c.uniquClass = 'column_' + i 
@@ -3175,6 +3189,9 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
         csel
           .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id))
           .style('display', null)
+          
+        if col.hoverGen
+          csel.attr('title', col.hoverGen.gen())
         
         if col.cellClassGen
           cg = col.cellClassGen.gen()
@@ -3201,32 +3218,28 @@ dvl.html.table.renderer =
   html: (col, dataFn) ->
     col.html(dataFn)
     return
-  aLink: ({linkGen, titleGen, html}) ->
+  aLink: ({linkGen, html}) ->
     what = if html then 'html' else 'text'
     linkGen = dvl.wrapConstIfNeeded(linkGen)
-    titleGen = dvl.wrapConstIfNeeded(titleGen)
     f = (col, dataFn) ->
       sel = col.selectAll('a').data((d) -> [d])
       config = (d) ->
         d.attr('href', linkGen.gen())[what](dataFn)
-        d.attr('title', titleGen.gen()) if titleGen 
       config(sel.enter().append('a'))
       config(sel)
       return
-    f.depends = [linkGen, titleGen]
+    f.depends = [linkGen]
     return f
-  spanLink: ({click, titleGen}) -> 
+  spanLink: ({click}) -> 
     titleGen = dvl.wrapConstIfNeeded(titleGen)
     f = (col, dataFn) -> 
       sel = col.selectAll('span').data((d) -> [d])
       config = (d) ->
         d.html(dataFn)
         d.on('click', click)
-        d.attr('title', titleGen.gen()) if titleGen
       config(sel.enter().append('span').attr('class', 'span_link'))
       config(sel)
       return
-    f.depends = [titleGen]
     return f
   barDiv: (col, dataFn) ->
     sel = col.selectAll('div').data((d) -> [d])

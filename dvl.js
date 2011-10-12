@@ -1302,28 +1302,28 @@ dvl.delay = function(_arg) {
       if (this.url === q.url.get()) {
         if (!this.url) {
           q.resVal = null;
-        } else if (status !== 'cache') {
-          if (q.map) {
-            m = q.map;
-            mappedData = [];
-            for (i = 0, _len = resVal.length; i < _len; i++) {
-              d = resVal[i];
-              md = m(d);
-              if (md !== void 0) {
-                mappedData.push(md);
+        } else {
+          if (status !== 'cache') {
+            if (q.map) {
+              m = q.map;
+              mappedData = [];
+              for (i = 0, _len = resVal.length; i < _len; i++) {
+                d = resVal[i];
+                md = m(d);
+                if (md !== void 0) {
+                  mappedData.push(md);
+                }
               }
+              resVal = mappedData;
             }
-            resVal = mappedData;
-          }
-          if (q.fn) {
-            resVal = q.fn(resVal);
+            if (q.fn) {
+              resVal = q.fn(resVal);
+            }
+            if (this.url && q.cache && status !== 'invalid') {
+              q.cache.update(this.url, this.data, resVal);
+            }
           }
           q.resVal = resVal;
-          if (this.url && q.cache && status !== 'invalid') {
-            q.cache.store(this.url, this.data, resVal);
-          }
-        } else {
-          q.resVal = q.cache.retrieve(this.url, this.data);
         }
       }
       q.status = 'ready';
@@ -1364,9 +1364,9 @@ dvl.delay = function(_arg) {
         data: data
       };
       if ((url != null) && !(method !== 'GET' && !(data != null)) && dataType) {
-        if ((_ref = q.cache) != null ? _ref.has(url, data) : void 0) {
-          return getData.call(ctx, null, 'cache');
-        } else {
+        if (!((_ref = q.cache) != null ? _ref.want(url, data, function(d) {
+          return getData.call(ctx, d, 'cache');
+        }) : void 0)) {
           if (q.curAjax) {
             q.curAjax.abort();
           }
@@ -1563,15 +1563,18 @@ dvl.ajax.cacheManager = function(_arg) {
         count = 0;
       }
     },
-    store: function(url, data, value) {
-      var q;
+    update: function(url, data, value) {
+      var a, c, copyVal, q, _i, _len, _ref;
       q = make_key(url, data);
-      cache[q] = {
-        time: Date.now(),
-        value: value
-      };
-      count++;
-      trim();
+      c = cache[q];
+      c.value = value;
+      c.state = 'got';
+      copyVal = dvl.util.clone(value);
+      _ref = c.alert;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        a = _ref[_i];
+        a(copyVal);
+      }
     },
     has: function(url, data) {
       var q;
@@ -1579,11 +1582,26 @@ dvl.ajax.cacheManager = function(_arg) {
       trim();
       return !!cache[q];
     },
-    retrieve: function(url, data) {
+    want: function(url, data, cb) {
       var c, q;
       q = make_key(url, data);
       c = cache[q];
-      return dvl.util.clone(c.value);
+      if (!c) {
+        c = cache[q] = {};
+        c.time = Date.now();
+        c.state = 'want';
+        c.alert = [];
+        return false;
+      }
+      if (c.state === 'got') {
+        cb(dvl.util.clone(c.value));
+        return true;
+      } else {
+        c.alert.push(cb);
+        count++;
+        trim();
+        return false;
+      }
     }
   };
 };
@@ -3728,7 +3746,7 @@ dvl.html.table = function(_arg) {
     c.visible = dvl.wrapConstIfNeeded((_ref5 = c.visible) != null ? _ref5 : true);
     c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'html'];
     c.cellClassGen = c.cellClassGen ? dvl.wrapConstIfNeeded(c.cellClassGen) : null;
-    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen);
+    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen);
     if (c.renderer.depends) {
       _ref6 = c.renderer.depends;
       for (_k = 0, _len3 = _ref6.length; _k < _len3; _k++) {
@@ -3905,6 +3923,9 @@ dvl.html.table = function(_arg) {
         csel.on('click', function(i) {
           return goOrCall(col.cellClick.gen()(i), col.id);
         }).style('display', null);
+        if (col.hoverGen) {
+          csel.attr('title', col.hoverGen.gen());
+        }
         if (col.cellClassGen) {
           cg = col.cellClassGen.gen();
           csel.attr('class', function(i) {
@@ -3936,31 +3957,27 @@ dvl.html.table.renderer = {
     col.html(dataFn);
   },
   aLink: function(_arg) {
-    var f, html, linkGen, titleGen, what;
-    linkGen = _arg.linkGen, titleGen = _arg.titleGen, html = _arg.html;
+    var f, html, linkGen, what;
+    linkGen = _arg.linkGen, html = _arg.html;
     what = html ? 'html' : 'text';
     linkGen = dvl.wrapConstIfNeeded(linkGen);
-    titleGen = dvl.wrapConstIfNeeded(titleGen);
     f = function(col, dataFn) {
       var config, sel;
       sel = col.selectAll('a').data(function(d) {
         return [d];
       });
       config = function(d) {
-        d.attr('href', linkGen.gen())[what](dataFn);
-        if (titleGen) {
-          return d.attr('title', titleGen.gen());
-        }
+        return d.attr('href', linkGen.gen())[what](dataFn);
       };
       config(sel.enter().append('a'));
       config(sel);
     };
-    f.depends = [linkGen, titleGen];
+    f.depends = [linkGen];
     return f;
   },
   spanLink: function(_arg) {
     var click, f, titleGen;
-    click = _arg.click, titleGen = _arg.titleGen;
+    click = _arg.click;
     titleGen = dvl.wrapConstIfNeeded(titleGen);
     f = function(col, dataFn) {
       var config, sel;
@@ -3969,15 +3986,11 @@ dvl.html.table.renderer = {
       });
       config = function(d) {
         d.html(dataFn);
-        d.on('click', click);
-        if (titleGen) {
-          return d.attr('title', titleGen.gen());
-        }
+        return d.on('click', click);
       };
       config(sel.enter().append('span').attr('class', 'span_link'));
       config(sel);
     };
-    f.depends = [titleGen];
     return f;
   },
   barDiv: function(col, dataFn) {
