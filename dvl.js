@@ -1498,8 +1498,8 @@ dvl.delay = function(_arg) {
   };
 })();
 dvl.ajax.cacheManager = function(_arg) {
-  var cache, count, make_key, max, timeout, trim;
-  max = _arg.max, timeout = _arg.timeout;
+  var cache, count, make_key, max, timeout, trim, _ref;
+  _ref = _arg != null ? _arg : {}, max = _ref.max, timeout = _ref.timeout;
   max = dvl.wrapConstIfNeeded(max || 100);
   timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
   cache = {};
@@ -1564,15 +1564,15 @@ dvl.ajax.cacheManager = function(_arg) {
       }
     },
     update: function(url, data, value) {
-      var a, c, copyVal, q, _i, _len, _ref;
+      var a, c, copyVal, q, _i, _len, _ref2;
       q = make_key(url, data);
       c = cache[q];
       c.value = value;
       c.state = 'got';
       copyVal = dvl.util.clone(value);
-      _ref = c.alert;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        a = _ref[_i];
+      _ref2 = c.alert;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        a = _ref2[_i];
         a(copyVal);
       }
     },
@@ -1600,7 +1600,7 @@ dvl.ajax.cacheManager = function(_arg) {
         c.alert.push(cb);
         count++;
         trim();
-        return false;
+        return true;
       }
     }
   };
@@ -2697,17 +2697,17 @@ dvl.svg = {};
     if (prev || left.hasChanged()) {
       left_gen = left[gen]();
       m.attr('x1', left_gen);
-      m.attr('x2', (function(i) {
+      m.attr('x2', function(i) {
         return left_gen(i + 1);
-      }));
+      });
     }
     top = p.top;
     if (prev || top.hasChanged()) {
       top_gen = top[gen]();
       m.attr('y1', top_gen);
-      m.attr('y2', (function(i) {
+      m.attr('y2', function(i) {
         return top_gen(i + 1);
-      }));
+      });
     }
     stroke = p.stroke;
     if (stroke && (prev || stroke.hasChanged())) {

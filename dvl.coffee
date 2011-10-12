@@ -1149,7 +1149,7 @@ dvl.delay = ({ data, time, name, init }) ->
 )()
 
 
-dvl.ajax.cacheManager = ({max, timeout}) ->
+dvl.ajax.cacheManager = ({max, timeout} = {}) ->
   max = dvl.wrapConstIfNeeded(max or 100)
   timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
   cache = {}
@@ -1226,7 +1226,7 @@ dvl.ajax.cacheManager = ({max, timeout}) ->
         c.alert.push cb
         count++
         trim()
-        return false
+        return true
   }
 
 
@@ -2131,13 +2131,14 @@ dvl.svg = {}
     if (prev or left.hasChanged()) 
       left_gen = left[gen]()
       m.attr('x1', left_gen)
-      m.attr('x2', ((i) -> left_gen(i+1)))
+      m.attr('x2', (i) -> left_gen(i+1))
+      #m.style('display', ((i) -> left_gen(i+1)))
 
     top = p.top
     if (prev or top.hasChanged())
       top_gen = top[gen]()  
       m.attr('y1', top_gen)
-      m.attr('y2', ((i) -> top_gen(i+1)))
+      m.attr('y2', (i) -> top_gen(i+1))
 
     stroke = p.stroke
     m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
