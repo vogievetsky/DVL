@@ -22,13 +22,24 @@
   
   var groupId = dvl.ajax.getGroupId();
   var method = 'GET';
-  var cache = dvl.ajax.cacheManager();
+  var requester = dvl.ajax.requester.cache();
   
-  var ret1 = dvl.ajax({ url:url1, type:'json', groupId:groupId, method:method, cache: cache });
-  var ret2 = dvl.ajax({ url:url2, type:'json', groupId:groupId, method:method, cache: cache });
+  var ret1 = dvl.ajax({ url:url1, type:'json', groupId:groupId, method:method, requester: requester });
+  var ret2 = dvl.ajax({ url:url2, type:'json', groupId:groupId, method:method, requester: requester });
   
   dvl.debug("Return 1", ret1);
   dvl.debug("Return 2", ret2);
+  
+  // var ret1 = dvl.ajax({ url:url1, type:'json', method:method, requester: requester });
+  // dvl.debug("URL 1", url1);
+  // dvl.debug("Return 1", ret1);
+  // 
+  // setTimeout("v.update(105)", 900);
+  // setTimeout("v.update(100)", 3000);
+  
+  
+  // setTimeout("v.update(200)", 10000);
+  // setTimeout("v.update(100)", 14000);
   
   </script>
 </html>

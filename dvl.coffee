@@ -984,86 +984,54 @@ dvl.delay = ({ data, time, name, init }) ->
 
       dvl.notify.apply(null, notify)
 
-    getData = (resVal, status) ->
+    getData = (err, resVal) ->
       q = this.q
       if this.url is q.url.get()
-        if not this.url
+        if err
           q.resVal = null
+          q.onError(err) if q.onError
         else
-          if status isnt 'cache'
-            if q.map
-              m = q.map
-              mappedData = []
-              for d, i in resVal
-                md = m(d)
-                mappedData.push md if md isnt undefined
-              resVal = mappedData
-
-            resVal = q.fn(resVal) if q.fn
-            
-            if this.url and q.cache and status isnt 'invalid'
-              q.cache.update(this.url, this.data, resVal)
-
-          q.resVal = resVal
-
+          q.resVal = if this.url then resVal else null
+        
       q.status = 'ready'
       q.curAjax = null
 
       maybeDone(this.request)
-
-    getError = (xhr, textStatus) ->
-      return if textStatus is "abort"
-      q = this.q
-      url = this.url
-
-      if url is q.url.get()
-        q.resVal = null
-        q.onError(textStatus) if q.onError
-
-      q.status = 'ready'
-      q.curAjax = null
-
-      maybeDone(this.request)
-
-    onComplete = ->
-      outstanding.set(outstanding.get() - 1).notify()
-      return
 
     makeRequest = (q, request) ->
       q.status = 'requesting'
-      url = q.url.get()
-      data = q.data.get()
-      method = q.method.get()
-      dataType = q.type.get()
-      ctx = { q, request, url, data }
-      if url? and not (method isnt 'GET' and not data?) and dataType
-        if not q.cache?.want(url, data, (d) -> getData.call(ctx, d, 'cache'))
-          # load from server
-          q.curAjax.abort() if q.curAjax
-          q.curAjax = jQuery.ajax {
-            url:         url
-            data:        data
-            type:        method
-            dataType:    dataType
-            contentType: q.contentType.get()
-            processData: q.processData.get()
-            success:     getData
-            error:       getError
-            complete:    onComplete
-            context:     ctx
-          }
-
-          outstanding.set(outstanding.get() + 1).notify()
-
-          if q.invalidOnLoad.get()
-            q.res.update(null)
+      _url = q.url.get()
+      _data = q.data.get()
+      _dataFn = q.dataFn.get()
+      _method = q.method.get()
+      _dataType = q.type.get()
+      ctx = { q, request, url: _url, data: _data }
+      q.curAjax.abort() if q.curAjax
+      if _url? and (_method is 'GET' or (_data? and _dataFn?)) and _dataType
+        if q.invalidOnLoad.get()
+          q.res.update(null)
+        
+        q.curAjax = q.requester.request {
+          url: _url
+          data: _data
+          dataFn: _dataFn
+          method: _method
+          dataType: _dataType
+          contentType: q.contentType.get()
+          processData: q.processData.get()
+          fn: q.fn
+          outstanding
+          complete: getData
+          context:  ctx
+        }
+          
       else
-        getData.call(ctx, null, 'invalid')
+        getData.call(ctx, null, null)
 
     inputChange = ->
       bundle = []
       for id, q of queries
-        continue unless q.url.hasChanged() or q.data.hasChanged()
+        continue unless q.url.hasChanged() or q.data.hasChanged() or q.dataFn.hasChanged()
         
         if q.status is 'virgin'
           if q.url.get()
@@ -1080,9 +1048,9 @@ dvl.delay = ({ data, time, name, init }) ->
       return
 
     fo = null
-    addHoock = (url, data, ret) ->
+    addHoock = (url, data, dataFn, ret) ->
       if fo
-        fo.addListen(url, data)
+        fo.addListen(url, data, dataFn)
         fo.addChange(ret)
       else
         fo = dvl.register {
@@ -1096,36 +1064,36 @@ dvl.delay = ({ data, time, name, init }) ->
       return
 
 
-    return (url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name) ->
+    return (url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name) ->
       nextQueryId++
       res = dvl.def(null, name)
       q = {
         id: nextQueryId
         url
         data
+        dataFn
         method
         contentType
         processData
         res
         status: 'virgin'
         type
-        cache
+        requester
         onError
         invalidOnLoad
       }
-      q.map = map if map
       q.fn = fn if fn
       queries[q.id] = q
-      addHoock(url, data, res)
+      addHoock(url, data, dataFn, res)
       return res
 
 
-  dvl.ajax = ({url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, groupId, cache, name}) ->
+  dvl.ajax = ({url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, groupId, requester, name}) ->
     throw 'it does not make sense to not have a url' unless url
-    throw 'the map function must be non DVL variable' if map and dvl.knows(map)
     throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
     url  = dvl.wrapConstIfNeeded(url)
     data = dvl.wrapConstIfNeeded(data)
+    dataFn = dvl.wrapConstIfNeeded(dataFn or dvl.indentity)
     method = dvl.wrapConstIfNeeded(method or 'GET')
     type = dvl.wrapConstIfNeeded(type or 'json')
     contentType = dvl.wrapConstIfNeeded(contentType or 'application/x-www-form-urlencoded')
@@ -1135,7 +1103,8 @@ dvl.delay = ({ data, time, name, init }) ->
     
     groupId = dvl.ajax.getGroupId() unless groupId?
     ajaxManagers[groupId] or= makeManager()
-    return ajaxManagers[groupId](url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name)
+    requester or= dvl.ajax.requester.normal()
+    return ajaxManagers[groupId](url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name)
 
   dvl.json = dvl.ajax
   dvl.ajax.outstanding = outstanding
@@ -1148,86 +1117,163 @@ dvl.delay = ({ data, time, name, init }) ->
 
 )()
 
+dvl.ajax.requester = {
+  normal: () ->      
+    return {
+      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete, context}) ->
+        dataVal = if method isnt 'GET' then dataFn(data) else null
+      
+        getData = (resVal) ->
+          if fn
+            ctx = { url, data }
+            resVal = fn.call(ctx, resVal) 
 
-dvl.ajax.cacheManager = ({max, timeout} = {}) ->
-  max = dvl.wrapConstIfNeeded(max or 100)
-  timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
-  cache = {}
-  count = 0
+          ajax = null
+          complete.call(context, null, resVal)
 
-  trim = ->
-    tout = timeout.get()
-    if tout > 0
-      cutoff = Date.now() - tout
-      newCache = {}
-      for q,d of cache
-        newCache[q] = d if cutoff < d.time
-      cache = newCache
+        getError = (xhr, textStatus) ->
+          return if textStatus is "abort"
+          ajax = null
+          complete.call(context, textStatus, null)
+      
+        ajax = jQuery.ajax {
+          url
+          data:        dataVal
+          type:        method
+          dataType
+          contentType
+          processData
+          success:     getData
+          error:       getError
+          complete:    outstanding.set(outstanding.get() - 1).notify()
+          context:     { url }
+        }
+      
+        outstanding.set(outstanding.get() + 1).notify()
+      
+        return {
+          abort: ->
+            if ajax
+              ajax.abort()
+              ajax = null
+            
+            return
+        }
+    }
+        
+        
+  cache: ({max, timeout} = {}) ->
+    max = dvl.wrapConstIfNeeded(max or 100)
+    timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
+    cache = {}
+    count = 0
 
-    m = max.get()
-    while m < count
-      oldestQuery = null
-      oldestTime = Infinity
-      for q,d of cache
-        if d.time < oldestTime
-          oldestTime = d.time
-          oldestQuery = q
-      delete cache[oldestQuery]
-      count--
+    trim = ->
+      tout = timeout.get()
+      if tout > 0
+        cutoff = Date.now() - tout
+        newCache = {}
+        for q,d of cache
+          newCache[q] = d if cutoff < d.time
+        cache = newCache
 
-  dvl.register {fn:trim, listen:[max, timeout], name:'cache_trim'}
+      m = max.get()
+      while m < count
+        oldestQuery = null
+        oldestTime = Infinity
+        for q,d of cache
+          if d.time < oldestTime
+            oldestTime = d.time
+            oldestQuery = q
+        delete cache[oldestQuery]
+        count--
 
-  make_key = (url, data) ->
-    q = url
-    q += '@@' + dvl.util.strObj(data) if data?
-    return q
+    dvl.register {fn:trim, listen:[max, timeout], name:'cache_trim'}
 
-  return {
-    clear: (url, data) ->
-      if url?
-        q = make_key(url, data)
-        if cache[q]
-          delete cache[q]
-          count--
-        trim()
-      else
+
+    return {
+      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete, context}) ->
+        dataVal = if method isnt 'GET' then dataFn(data) else null
+        key = [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@')
+        cb = {context, complete}
+
+        c = cache[key]
+        added = false
+        if not c
+          # first time we see this query, create stub
+          cache[key] = c = {
+            time: Date.now()
+            waiting: [cb]
+          }
+          added = true
+          count++
+          trim()
+
+          # make the request
+          getData = (resVal) ->
+            if fn
+              ctx = { url, data }
+              resVal = fn.call(ctx, resVal) 
+
+            c.ajax = null
+            c.resVal = resVal
+            w.complete.call(w.context, null, resVal) for w in c.waiting
+            delete c.waiting
+            return
+
+          getError = (xhr, textStatus) ->
+            return if textStatus is "abort"
+            c.ajax = null
+            delete cache[key]
+            count--
+            w.complete.call(w.context, textStatus, null) for w in c.waiting
+            delete c.waiting
+            return
+
+          c.ajax = jQuery.ajax {
+            url
+            data:        if method isnt 'GET' then dataFn(data) else null
+            type:        method
+            dataType
+            contentType
+            processData
+            success:     getData
+            error:       getError
+            complete:    outstanding.set(outstanding.get() - 1).notify()
+            context:     { url }
+          }
+
+          outstanding.set(outstanding.get() + 1).notify()
+          
+        if c.resVal
+          complete.call(context, null, c.resVal)
+          
+          return {
+            abort: ->
+              return
+          }
+        else
+          c.waiting.push(cb) unless added 
+        
+          return {
+            abort: ->
+              c.waiting = c.waiting.filter((l) -> l isnt cb)
+
+              if c.waiting.length is 0 and c.ajax
+                c.ajax.abort()
+                c.ajax = null
+                delete cache[key]
+                count--
+
+              return
+          }
+        
+      clear: ->
         cache = {}
         count = 0
-      return 
-      
-    update: (url, data, value) ->
-      q = make_key(url, data)
-      c = cache[q]
-      c.value = value
-      c.state = 'got'
-      copyVal = dvl.util.clone(value)
-      a(copyVal) for a in c.alert 
-      return
-
-    has: (url, data) ->
-      q = make_key(url, data)
-      trim()
-      return not not cache[q]
-
-    want: (url, data, cb) ->
-      q = make_key(url, data)
-      c = cache[q]
-      if not c
-        c = cache[q] = {}
-        c.time = Date.now()
-        c.state = 'want'
-        c.alert = []
-        return false
-        
-      if c.state is 'got'
-        cb(dvl.util.clone(c.value))
-        return true 
-      else
-        c.alert.push cb
-        count++
-        trim()
-        return true
-  }
+        return
+    }
+}
 
 
 dvl.resizer = ({selector, out, dimension, fn}) ->
@@ -3016,6 +3062,8 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
   listen.push sortIndicator
   
+  numRows = dvl.def(null, 'num_rows')
+  
   goOrCall = (arg, id) ->
     t = typeof(arg)
     if t is 'function'
@@ -3166,6 +3214,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     
     limit = rowLimit.get()
     r = r.splice(0, Math.max(0, limit)) if limit?
+    numRows.update(r.length)
 
     sel = b.selectAll('tr').data(r)
     ent = sel.enter().append('tr')
@@ -3204,11 +3253,17 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
     return
   
-  dvl.register({fn:makeTable, listen:listen, name:'table_maker'})
+  dvl.register {
+    name: 'table_maker'
+    fn: makeTable
+    listen: listen
+    change: [numRows]  
+  }
   
   return {
     sortOn
     sortOrder
+    numRows
     node: t.node()
   }
 

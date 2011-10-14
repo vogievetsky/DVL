@@ -1272,7 +1272,7 @@ dvl.delay = function(_arg) {
   outstanding = dvl.def(0, 'json_outstanding');
   ajaxManagers = [];
   makeManager = function() {
-    var addHoock, fo, getData, getError, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, onComplete, queries;
+    var addHoock, fo, getData, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries;
     nextQueryId = 0;
     initQueue = [];
     queries = {};
@@ -1296,99 +1296,59 @@ dvl.delay = function(_arg) {
       }
       return dvl.notify.apply(null, notify);
     };
-    getData = function(resVal, status) {
-      var d, i, m, mappedData, md, q, _len;
+    getData = function(err, resVal) {
+      var q;
       q = this.q;
       if (this.url === q.url.get()) {
-        if (!this.url) {
+        if (err) {
           q.resVal = null;
-        } else {
-          if (status !== 'cache') {
-            if (q.map) {
-              m = q.map;
-              mappedData = [];
-              for (i = 0, _len = resVal.length; i < _len; i++) {
-                d = resVal[i];
-                md = m(d);
-                if (md !== void 0) {
-                  mappedData.push(md);
-                }
-              }
-              resVal = mappedData;
-            }
-            if (q.fn) {
-              resVal = q.fn(resVal);
-            }
-            if (this.url && q.cache && status !== 'invalid') {
-              q.cache.update(this.url, this.data, resVal);
-            }
+          if (q.onError) {
+            q.onError(err);
           }
-          q.resVal = resVal;
+        } else {
+          q.resVal = this.url ? resVal : null;
         }
       }
       q.status = 'ready';
       q.curAjax = null;
       return maybeDone(this.request);
-    };
-    getError = function(xhr, textStatus) {
-      var q, url;
-      if (textStatus === "abort") {
-        return;
-      }
-      q = this.q;
-      url = this.url;
-      if (url === q.url.get()) {
-        q.resVal = null;
-        if (q.onError) {
-          q.onError(textStatus);
-        }
-      }
-      q.status = 'ready';
-      q.curAjax = null;
-      return maybeDone(this.request);
-    };
-    onComplete = function() {
-      outstanding.set(outstanding.get() - 1).notify();
     };
     makeRequest = function(q, request) {
-      var ctx, data, dataType, method, url, _ref;
+      var ctx, _data, _dataFn, _dataType, _method, _url;
       q.status = 'requesting';
-      url = q.url.get();
-      data = q.data.get();
-      method = q.method.get();
-      dataType = q.type.get();
+      _url = q.url.get();
+      _data = q.data.get();
+      _dataFn = q.dataFn.get();
+      _method = q.method.get();
+      _dataType = q.type.get();
       ctx = {
         q: q,
         request: request,
-        url: url,
-        data: data
+        url: _url,
+        data: _data
       };
-      if ((url != null) && !(method !== 'GET' && !(data != null)) && dataType) {
-        if (!((_ref = q.cache) != null ? _ref.want(url, data, function(d) {
-          return getData.call(ctx, d, 'cache');
-        }) : void 0)) {
-          if (q.curAjax) {
-            q.curAjax.abort();
-          }
-          q.curAjax = jQuery.ajax({
-            url: url,
-            data: data,
-            type: method,
-            dataType: dataType,
-            contentType: q.contentType.get(),
-            processData: q.processData.get(),
-            success: getData,
-            error: getError,
-            complete: onComplete,
-            context: ctx
-          });
-          outstanding.set(outstanding.get() + 1).notify();
-          if (q.invalidOnLoad.get()) {
-            return q.res.update(null);
-          }
+      if (q.curAjax) {
+        q.curAjax.abort();
+      }
+      if ((_url != null) && (_method === 'GET' || ((_data != null) && (_dataFn != null))) && _dataType) {
+        if (q.invalidOnLoad.get()) {
+          q.res.update(null);
         }
+        return q.curAjax = q.requester.request({
+          url: _url,
+          data: _data,
+          dataFn: _dataFn,
+          method: _method,
+          dataType: _dataType,
+          contentType: q.contentType.get(),
+          processData: q.processData.get(),
+          fn: q.fn,
+          outstanding: outstanding,
+          complete: getData,
+          context: ctx
+        });
       } else {
-        return getData.call(ctx, null, 'invalid');
+        return getData.call(ctx, null, null);
       }
     };
     inputChange = function() {
@@ -1396,7 +1356,7 @@ dvl.delay = function(_arg) {
       bundle = [];
       for (id in queries) {
         q = queries[id];
-        if (!(q.url.hasChanged() || q.data.hasChanged())) {
+        if (!(q.url.hasChanged() || q.data.hasChanged() || q.dataFn.hasChanged())) {
           continue;
         }
         if (q.status === 'virgin') {
@@ -1418,9 +1378,9 @@ dvl.delay = function(_arg) {
       }
     };
     fo = null;
-    addHoock = function(url, data, ret) {
+    addHoock = function(url, data, dataFn, ret) {
       if (fo) {
-        fo.addListen(url, data);
+        fo.addListen(url, data, dataFn);
         fo.addChange(ret);
       } else {
         fo = dvl.register({
@@ -1432,7 +1392,7 @@ dvl.delay = function(_arg) {
         });
       }
     };
-    return function(url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name) {
+    return function(url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name) {
       var q, res;
       nextQueryId++;
       res = dvl.def(null, name);
@@ -1440,41 +1400,37 @@ dvl.delay = function(_arg) {
         id: nextQueryId,
         url: url,
         data: data,
+        dataFn: dataFn,
         method: method,
         contentType: contentType,
         processData: processData,
         res: res,
         status: 'virgin',
         type: type,
-        cache: cache,
+        requester: requester,
         onError: onError,
         invalidOnLoad: invalidOnLoad
       };
-      if (map) {
-        q.map = map;
-      }
       if (fn) {
         q.fn = fn;
       }
       queries[q.id] = q;
-      addHoock(url, data, res);
+      addHoock(url, data, dataFn, res);
       return res;
     };
   };
   dvl.ajax = function(_arg) {
-    var cache, contentType, data, fn, groupId, invalidOnLoad, map, method, name, onError, processData, type, url;
-    url = _arg.url, data = _arg.data, method = _arg.method, type = _arg.type, contentType = _arg.contentType, processData = _arg.processData, map = _arg.map, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, cache = _arg.cache, name = _arg.name;
+    var contentType, data, dataFn, fn, groupId, invalidOnLoad, method, name, onError, processData, requester, type, url;
+    url = _arg.url, data = _arg.data, dataFn = _arg.dataFn, method = _arg.method, type = _arg.type, contentType = _arg.contentType, processData = _arg.processData, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, requester = _arg.requester, name = _arg.name;
     if (!url) {
       throw 'it does not make sense to not have a url';
-    }
-    if (map && dvl.knows(map)) {
-      throw 'the map function must be non DVL variable';
     }
     if (fn && dvl.knows(fn)) {
       throw 'the fn function must be non DVL variable';
     }
     url = dvl.wrapConstIfNeeded(url);
     data = dvl.wrapConstIfNeeded(data);
+    dataFn = dvl.wrapConstIfNeeded(dataFn || dvl.indentity);
     method = dvl.wrapConstIfNeeded(method || 'GET');
     type = dvl.wrapConstIfNeeded(type || 'json');
     contentType = dvl.wrapConstIfNeeded(contentType || 'application/x-www-form-urlencoded');
@@ -1485,7 +1441,8 @@ dvl.delay = function(_arg) {
       groupId = dvl.ajax.getGroupId();
     }
     ajaxManagers[groupId] || (ajaxManagers[groupId] = makeManager());
-    return ajaxManagers[groupId](url, data, method, type, contentType, processData, map, fn, invalidOnLoad, onError, cache, name);
+    requester || (requester = dvl.ajax.requester.normal());
+    return ajaxManagers[groupId](url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name);
   };
   dvl.json = dvl.ajax;
   dvl.ajax.outstanding = outstanding;
@@ -1497,113 +1454,201 @@ dvl.delay = function(_arg) {
     return id;
   };
 })();
-dvl.ajax.cacheManager = function(_arg) {
-  var cache, count, make_key, max, timeout, trim, _ref;
-  _ref = _arg != null ? _arg : {}, max = _ref.max, timeout = _ref.timeout;
-  max = dvl.wrapConstIfNeeded(max || 100);
-  timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
-  cache = {};
-  count = 0;
-  trim = function() {
-    var cutoff, d, m, newCache, oldestQuery, oldestTime, q, tout, _results;
-    tout = timeout.get();
-    if (tout > 0) {
-      cutoff = Date.now() - tout;
-      newCache = {};
-      for (q in cache) {
-        d = cache[q];
-        if (cutoff < d.time) {
-          newCache[q] = d;
-        }
+dvl.ajax.requester = {
+  normal: function() {
+    return {
+      request: function(_arg) {
+        var ajax, complete, contentType, context, data, dataFn, dataType, dataVal, fn, getData, getError, method, outstanding, processData, url;
+        url = _arg.url, data = _arg.data, dataFn = _arg.dataFn, method = _arg.method, dataType = _arg.dataType, contentType = _arg.contentType, processData = _arg.processData, fn = _arg.fn, outstanding = _arg.outstanding, complete = _arg.complete, context = _arg.context;
+        dataVal = method !== 'GET' ? dataFn(data) : null;
+        getData = function(resVal) {
+          var ajax, ctx;
+          if (fn) {
+            ctx = {
+              url: url,
+              data: data
+            };
+            resVal = fn.call(ctx, resVal);
+          }
+          ajax = null;
+          return complete.call(context, null, resVal);
+        };
+        getError = function(xhr, textStatus) {
+          var ajax;
+          if (textStatus === "abort") {
+            return;
+          }
+          ajax = null;
+          return complete.call(context, textStatus, null);
+        };
+        ajax = jQuery.ajax({
+          url: url,
+          data: dataVal,
+          type: method,
+          dataType: dataType,
+          contentType: contentType,
+          processData: processData,
+          success: getData,
+          error: getError,
+          complete: outstanding.set(outstanding.get() - 1).notify(),
+          context: {
+            url: url
+          }
+        });
+        outstanding.set(outstanding.get() + 1).notify();
+        return {
+          abort: function() {
+            if (ajax) {
+              ajax.abort();
+              ajax = null;
+            }
+          }
+        };
       }
-      cache = newCache;
-    }
-    m = max.get();
-    _results = [];
-    while (m < count) {
-      oldestQuery = null;
-      oldestTime = Infinity;
-      for (q in cache) {
-        d = cache[q];
-        if (d.time < oldestTime) {
-          oldestTime = d.time;
-          oldestQuery = q;
+    };
+  },
+  cache: function(_arg) {
+    var cache, count, max, timeout, trim, _ref;
+    _ref = _arg != null ? _arg : {}, max = _ref.max, timeout = _ref.timeout;
+    max = dvl.wrapConstIfNeeded(max || 100);
+    timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
+    cache = {};
+    count = 0;
+    trim = function() {
+      var cutoff, d, m, newCache, oldestQuery, oldestTime, q, tout, _results;
+      tout = timeout.get();
+      if (tout > 0) {
+        cutoff = Date.now() - tout;
+        newCache = {};
+        for (q in cache) {
+          d = cache[q];
+          if (cutoff < d.time) {
+            newCache[q] = d;
+          }
         }
+        cache = newCache;
       }
-      delete cache[oldestQuery];
-      _results.push(count--);
-    }
-    return _results;
-  };
-  dvl.register({
-    fn: trim,
-    listen: [max, timeout],
-    name: 'cache_trim'
-  });
-  make_key = function(url, data) {
-    var q;
-    q = url;
-    if (data != null) {
-      q += '@@' + dvl.util.strObj(data);
-    }
-    return q;
-  };
-  return {
-    clear: function(url, data) {
-      var q;
-      if (url != null) {
-        q = make_key(url, data);
-        if (cache[q]) {
-          delete cache[q];
-          count--;
+      m = max.get();
+      _results = [];
+      while (m < count) {
+        oldestQuery = null;
+        oldestTime = Infinity;
+        for (q in cache) {
+          d = cache[q];
+          if (d.time < oldestTime) {
+            oldestTime = d.time;
+            oldestQuery = q;
+          }
         }
-        trim();
-      } else {
+        delete cache[oldestQuery];
+        _results.push(count--);
+      }
+      return _results;
+    };
+    dvl.register({
+      fn: trim,
+      listen: [max, timeout],
+      name: 'cache_trim'
+    });
+    return {
+      request: function(_arg2) {
+        var added, c, cb, complete, contentType, context, data, dataFn, dataType, dataVal, fn, getData, getError, key, method, outstanding, processData, url;
+        url = _arg2.url, data = _arg2.data, dataFn = _arg2.dataFn, method = _arg2.method, dataType = _arg2.dataType, contentType = _arg2.contentType, processData = _arg2.processData, fn = _arg2.fn, outstanding = _arg2.outstanding, complete = _arg2.complete, context = _arg2.context;
+        dataVal = method !== 'GET' ? dataFn(data) : null;
+        key = [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@');
+        cb = {
+          context: context,
+          complete: complete
+        };
+        c = cache[key];
+        added = false;
+        if (!c) {
+          cache[key] = c = {
+            time: Date.now(),
+            waiting: [cb]
+          };
+          added = true;
+          count++;
+          trim();
+          getData = function(resVal) {
+            var ctx, w, _i, _len, _ref2;
+            if (fn) {
+              ctx = {
+                url: url,
+                data: data
+              };
+              resVal = fn.call(ctx, resVal);
+            }
+            c.ajax = null;
+            c.resVal = resVal;
+            _ref2 = c.waiting;
+            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+              w = _ref2[_i];
+              w.complete.call(w.context, null, resVal);
+            }
+            delete c.waiting;
+          };
+          getError = function(xhr, textStatus) {
+            var w, _i, _len, _ref2;
+            if (textStatus === "abort") {
+              return;
+            }
+            c.ajax = null;
+            delete cache[key];
+            count--;
+            _ref2 = c.waiting;
+            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+              w = _ref2[_i];
+              w.complete.call(w.context, textStatus, null);
+            }
+            delete c.waiting;
+          };
+          c.ajax = jQuery.ajax({
+            url: url,
+            data: method !== 'GET' ? dataFn(data) : null,
+            type: method,
+            dataType: dataType,
+            contentType: contentType,
+            processData: processData,
+            success: getData,
+            error: getError,
+            complete: outstanding.set(outstanding.get() - 1).notify(),
+            context: {
+              url: url
+            }
+          });
+          outstanding.set(outstanding.get() + 1).notify();
+        }
+        if (c.resVal) {
+          complete.call(context, null, c.resVal);
+          return {
+            abort: function() {}
+          };
+        } else {
+          if (!added) {
+            c.waiting.push(cb);
+          }
+          return {
+            abort: function() {
+              c.waiting = c.waiting.filter(function(l) {
+                return l !== cb;
+              });
+              if (c.waiting.length === 0 && c.ajax) {
+                c.ajax.abort();
+                c.ajax = null;
+                delete cache[key];
+                count--;
+              }
+            }
+          };
+        }
+      },
+      clear: function() {
         cache = {};
         count = 0;
       }
-    },
-    update: function(url, data, value) {
-      var a, c, copyVal, q, _i, _len, _ref2;
-      q = make_key(url, data);
-      c = cache[q];
-      c.value = value;
-      c.state = 'got';
-      copyVal = dvl.util.clone(value);
-      _ref2 = c.alert;
-      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-        a = _ref2[_i];
-        a(copyVal);
-      }
-    },
-    has: function(url, data) {
-      var q;
-      q = make_key(url, data);
-      trim();
-      return !!cache[q];
-    },
-    want: function(url, data, cb) {
-      var c, q;
-      q = make_key(url, data);
-      c = cache[q];
-      if (!c) {
-        c = cache[q] = {};
-        c.time = Date.now();
-        c.state = 'want';
-        c.alert = [];
-        return false;
-      }
-      if (c.state === 'got') {
-        cb(dvl.util.clone(c.value));
-        return true;
-      } else {
-        c.alert.push(cb);
-        count++;
-        trim();
-        return true;
-      }
-    }
-  };
+    };
+  }
 };
 dvl.resizer = function(_arg) {
   var dimension, fn, onResize, out, selector;
@@ -3679,7 +3724,7 @@ dvl.html.select = function(_arg) {
   return selection;
 };
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, i, listen, makeTable, modes, newColumns, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
+  var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, i, listen, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
   selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
@@ -3704,6 +3749,7 @@ dvl.html.table = function(_arg) {
   listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortModes, sortOrder];
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
   listen.push(sortIndicator);
+  numRows = dvl.def(null, 'num_rows');
   goOrCall = function(arg, id) {
     var t;
     t = typeof arg;
@@ -3899,6 +3945,7 @@ dvl.html.table = function(_arg) {
     if (limit != null) {
       r = r.splice(0, Math.max(0, limit));
     }
+    numRows.update(r.length);
     sel = b.selectAll('tr').data(r);
     ent = sel.enter().append('tr');
     if (rowClassGen) {
@@ -3939,13 +3986,15 @@ dvl.html.table = function(_arg) {
     }
   };
   dvl.register({
+    name: 'table_maker',
     fn: makeTable,
     listen: listen,
-    name: 'table_maker'
+    change: [numRows]
   });
   return {
     sortOn: sortOn,
     sortOrder: sortOrder,
+    numRows: numRows,
     node: t.node()
   };
 };
