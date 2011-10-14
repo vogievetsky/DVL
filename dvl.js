@@ -1268,9 +1268,10 @@ dvl.delay = function(_arg) {
   return out;
 };
 (function() {
-  var ajaxManagers, makeManager, nextGroupId, outstanding;
+  var ajaxManagers, makeManager, nextGroupId, normalRequester, outstanding;
   outstanding = dvl.def(0, 'json_outstanding');
   ajaxManagers = [];
+  normalRequester = null;
   makeManager = function() {
     var addHoock, fo, getData, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries;
     nextQueryId = 0;
@@ -1441,7 +1442,10 @@ dvl.delay = function(_arg) {
       groupId = dvl.ajax.getGroupId();
     }
     ajaxManagers[groupId] || (ajaxManagers[groupId] = makeManager());
-    requester || (requester = dvl.ajax.requester.normal());
+    if (!requester) {
+      normalRequester || (normalRequester = dvl.ajax.requester.normal());
+      requester = normalRequester;
+    }
     return ajaxManagers[groupId](url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name);
   };
   dvl.json = dvl.ajax;
@@ -1490,7 +1494,9 @@ dvl.ajax.requester = {
           processData: processData,
           success: getData,
           error: getError,
-          complete: outstanding.set(outstanding.get() - 1).notify(),
+          complete: function() {
+            return outstanding.set(outstanding.get() - 1).notify();
+          },
           context: {
             url: url
           }
@@ -1612,7 +1618,9 @@ dvl.ajax.requester = {
             processData: processData,
             success: getData,
             error: getError,
-            complete: outstanding.set(outstanding.get() - 1).notify(),
+            complete: function() {
+              return outstanding.set(outstanding.get() - 1).notify();
+            },
             context: {
               url: url
             }

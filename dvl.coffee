@@ -964,6 +964,7 @@ dvl.delay = ({ data, time, name, init }) ->
 (->
   outstanding = dvl.def(0, 'json_outstanding')
   ajaxManagers = []
+  normalRequester = null
 
   makeManager = ->
     nextQueryId = 0
@@ -1103,7 +1104,11 @@ dvl.delay = ({ data, time, name, init }) ->
     
     groupId = dvl.ajax.getGroupId() unless groupId?
     ajaxManagers[groupId] or= makeManager()
-    requester or= dvl.ajax.requester.normal()
+    
+    if not requester
+      normalRequester or= dvl.ajax.requester.normal()
+      requester = normalRequester
+      
     return ajaxManagers[groupId](url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name)
 
   dvl.json = dvl.ajax
@@ -1145,7 +1150,7 @@ dvl.ajax.requester = {
           processData
           success:     getData
           error:       getError
-          complete:    outstanding.set(outstanding.get() - 1).notify()
+          complete:    -> outstanding.set(outstanding.get() - 1).notify()
           context:     { url }
         }
       
@@ -1239,7 +1244,7 @@ dvl.ajax.requester = {
             processData
             success:     getData
             error:       getError
-            complete:    outstanding.set(outstanding.get() - 1).notify()
+            complete:    -> outstanding.set(outstanding.get() - 1).notify()
             context:     { url }
           }
 
