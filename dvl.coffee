@@ -48,7 +48,7 @@ debug = ->
   return arguments[0]
 
 window.dvl =
-  version: '0.90'
+  version: '0.94'
   
 (->
   array_ctor = (new Array).constructor
@@ -977,8 +977,8 @@ dvl.delay = ({ data, time, name, init }) ->
 
       notify = []
       for q in request
-        if q.resVal isnt undefined
-          q.res.set(q.resVal)
+        if q.hasOwnProperty('resVal')
+          q.res.set(q.resVal ? null)
           notify.push(q.res)
           q.status = ''
           delete q.resVal
@@ -987,12 +987,12 @@ dvl.delay = ({ data, time, name, init }) ->
 
     getData = (err, resVal) ->
       q = this.q
-      if this.url is q.url.get()
+      if @url is q.url.get() and (@method is 'GET' or (@data is q.data.get() and @dataFn is q.dataFn.get()))
         if err
           q.resVal = null
           q.onError(err) if q.onError
         else
-          q.resVal = if this.url then resVal else null
+          q.resVal = if @url then resVal else null
         
       q.status = 'ready'
       q.curAjax = null
@@ -1000,13 +1000,19 @@ dvl.delay = ({ data, time, name, init }) ->
       maybeDone(this.request)
 
     makeRequest = (q, request) ->
-      q.status = 'requesting'
       _url = q.url.get()
       _data = q.data.get()
       _dataFn = q.dataFn.get()
       _method = q.method.get()
       _dataType = q.type.get()
-      ctx = { q, request, url: _url, data: _data }
+      ctx = {
+        q
+        request
+        url:    _url
+        data:   _data
+        dataFn: _dataFn
+        method: _method
+      }
       q.curAjax.abort() if q.curAjax
       if _url? and (_method is 'GET' or (_data? and _dataFn?)) and _dataType
         if q.invalidOnLoad.get()
@@ -1037,6 +1043,7 @@ dvl.delay = ({ data, time, name, init }) ->
         if q.status is 'virgin'
           if q.url.get()
             initQueue.push q
+            q.status = 'requesting'
             makeRequest(q, initQueue)
           else
             q.status = ''
@@ -1044,7 +1051,8 @@ dvl.delay = ({ data, time, name, init }) ->
           bundle.push(q)
 
       if bundle.length > 0
-        makeRequest(q, bundle) for q in bundle
+        q.status = 'requesting' for q in bundle
+        makeRequest(q, bundle)  for q in bundle
 
       return
 
@@ -2052,6 +2060,7 @@ dvl.svg = {}
     }
   
     return {
+      svg
       g: vis
       width:  canvasWidth
       height: canvasHeight
@@ -2430,10 +2439,10 @@ dvl.svg = {}
     m.attr('height', height[gen]()) if height and (prev or height.hasChanged())
     
     fill = p.fill
-    m.style('fill', fill[gen]()) if fill and (prev or fill.hasChanged())
+    m.attr('fill', fill[gen]()) if fill and (prev or fill.hasChanged())
     
     stroke = p.stroke
-    m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
+    m.attr('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
     return
 
   dvl.svg.bars = (options) ->     
@@ -3041,7 +3050,7 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
 ## ~headerTooltip:     The default herder tooltip (title element text).
 ## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
 ##
-dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit}) ->
+dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit, htmlTitles}) ->
   throw 'selector has to be a plain string.' if dvl.knows(selector)
   throw 'columns has to be a plain array.' if dvl.knows(columns)
   throw 'sort has to be a plain object.' if dvl.knows(sort)
@@ -3212,10 +3221,9 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     
     h.selectAll('th').data(columns)
       .attr('class', colClass)
-      .style('display', (c) -> if c.visible.get() then null else "none")
+      .style('display', (c) -> if c.visible.get() and not c.hideHeader then null else "none")
       .attr('title', (c) -> c.headerTooltip.get())
-        .select('span')
-          .text((c) -> c.title.get())
+        .select('span')[if htmlTitles then 'html' else 'text']((c) -> c.title.get())
     
     limit = rowLimit.get()
     r = r.splice(0, Math.max(0, limit)) if limit?

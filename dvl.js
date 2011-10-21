@@ -59,7 +59,7 @@ debug = function() {
   return arguments[0];
 };
 window.dvl = {
-  version: '0.90'
+  version: '0.94'
 };
 (function() {
   var array_ctor, date_ctor, regex_ctor;
@@ -1278,7 +1278,7 @@ dvl.delay = function(_arg) {
     initQueue = [];
     queries = {};
     maybeDone = function(request) {
-      var notify, q, _i, _j, _len, _len2;
+      var notify, q, _i, _j, _len, _len2, _ref;
       for (_i = 0, _len = request.length; _i < _len; _i++) {
         q = request[_i];
         if (q.status !== 'ready') {
@@ -1288,8 +1288,8 @@ dvl.delay = function(_arg) {
       notify = [];
       for (_j = 0, _len2 = request.length; _j < _len2; _j++) {
         q = request[_j];
-        if (q.resVal !== void 0) {
-          q.res.set(q.resVal);
+        if (q.hasOwnProperty('resVal')) {
+          q.res.set((_ref = q.resVal) != null ? _ref : null);
           notify.push(q.res);
           q.status = '';
           delete q.resVal;
@@ -1300,7 +1300,7 @@ dvl.delay = function(_arg) {
     getData = function(err, resVal) {
       var q;
       q = this.q;
-      if (this.url === q.url.get()) {
+      if (this.url === q.url.get() && (this.method === 'GET' || (this.data === q.data.get() && this.dataFn === q.dataFn.get()))) {
         if (err) {
           q.resVal = null;
           if (q.onError) {
@@ -1316,7 +1316,6 @@ dvl.delay = function(_arg) {
     };
     makeRequest = function(q, request) {
       var ctx, _data, _dataFn, _dataType, _method, _url;
-      q.status = 'requesting';
       _url = q.url.get();
       _data = q.data.get();
       _dataFn = q.dataFn.get();
@@ -1326,7 +1325,9 @@ dvl.delay = function(_arg) {
         q: q,
         request: request,
         url: _url,
-        data: _data
+        data: _data,
+        dataFn: _dataFn,
+        method: _method
       };
       if (q.curAjax) {
         q.curAjax.abort();
@@ -1353,7 +1354,7 @@ dvl.delay = function(_arg) {
       }
     };
     inputChange = function() {
-      var bundle, id, q, _i, _len;
+      var bundle, id, q, _i, _j, _len, _len2;
       bundle = [];
       for (id in queries) {
         q = queries[id];
@@ -1363,6 +1364,7 @@ dvl.delay = function(_arg) {
         if (q.status === 'virgin') {
           if (q.url.get()) {
             initQueue.push(q);
+            q.status = 'requesting';
             makeRequest(q, initQueue);
           } else {
             q.status = '';
@@ -1374,6 +1376,10 @@ dvl.delay = function(_arg) {
       if (bundle.length > 0) {
         for (_i = 0, _len = bundle.length; _i < _len; _i++) {
           q = bundle[_i];
+          q.status = 'requesting';
+        }
+        for (_j = 0, _len2 = bundle.length; _j < _len2; _j++) {
+          q = bundle[_j];
           makeRequest(q, bundle);
         }
       }
@@ -2597,6 +2603,7 @@ dvl.svg = {};
       fn: resize
     });
     return {
+      svg: svg,
       g: vis,
       width: canvasWidth,
       height: canvasHeight
@@ -3059,11 +3066,11 @@ dvl.svg = {};
     }
     fill = p.fill;
     if (fill && (prev || fill.hasChanged())) {
-      m.style('fill', fill[gen]());
+      m.attr('fill', fill[gen]());
     }
     stroke = p.stroke;
     if (stroke && (prev || stroke.hasChanged())) {
-      m.style('stroke', stroke[gen]());
+      m.attr('stroke', stroke[gen]());
     }
   };
   dvl.svg.bars = function(options) {
@@ -3732,8 +3739,8 @@ dvl.html.select = function(_arg) {
   return selection;
 };
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, i, listen, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
-  selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit;
+  var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
+  selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit, htmlTitles = _arg.htmlTitles;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
   }
@@ -3939,14 +3946,14 @@ dvl.html.table = function(_arg) {
       }
     }
     h.selectAll('th').data(columns).attr('class', colClass).style('display', function(c) {
-      if (c.visible.get()) {
+      if (c.visible.get() && !c.hideHeader) {
         return null;
       } else {
         return "none";
       }
     }).attr('title', function(c) {
       return c.headerTooltip.get();
-    }).select('span').text(function(c) {
+    }).select('span')[htmlTitles ? 'html' : 'text'](function(c) {
       return c.title.get();
     });
     limit = rowLimit.get();
