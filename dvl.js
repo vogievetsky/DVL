@@ -1,4 +1,4 @@
-var debug, generator_maker_maker, print;
+var debug, generator_maker_maker;
 var __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
@@ -33,20 +33,10 @@ if (!Array.prototype.filter) {
     return res;
   };
 };
-print = {};
 debug = function() {
-  var arg, argCopy, code, len;
+  var argCopy;
   if (!(typeof console !== "undefined" && console !== null ? console.log : void 0)) {
     return;
-  }
-  len = arguments.length;
-  if (len === 0) {
-    return;
-  }
-  if (!print[len]) {
-    arg = 'a' + d3.range(len).join(',a');
-    code = "print[" + len + "] = function(" + arg + ") { console.log(" + arg + "); }";
-    eval(code);
   }
   argCopy = Array.prototype.slice.apply(arguments).map(function(x) {
     if (dvl.typeOf(x) === 'date') {
@@ -55,11 +45,11 @@ debug = function() {
       return x;
     }
   });
-  print[len].apply(null, argCopy);
-  return arguments[0];
+  console.log.apply(console, argCopy);
+  return argCopy[0];
 };
 window.dvl = {
-  version: '0.94'
+  version: '0.95'
 };
 (function() {
   var array_ctor, date_ctor, regex_ctor;

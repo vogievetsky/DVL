@@ -28,27 +28,16 @@ throw 'jQuery is needed for now.' unless jQuery
   };
 }`
 
-print = {}
 debug = ->
-  return unless console?.log
-  # console.log.apply does not work in chrome -> go figure
-  # lets make a redneck apply
-  len = arguments.length
-  return if len is 0
-  
-  if not print[len]
-    arg = 'a' + d3.range(len).join(',a')
-    code = "print[#{len}] = function(#{arg}) { console.log(#{arg}); }"
-    eval(code)
-  
+  return unless console?.log  
   argCopy = Array::slice
     .apply(arguments)
     .map((x) -> if dvl.typeOf(x) is 'date' then x.toString() else x) # bypass silly chrome beta date priniting
-  print[len].apply(null, argCopy)
-  return arguments[0]
+  console.log.apply(console, argCopy)
+  return argCopy[0]
 
 window.dvl =
-  version: '0.94'
+  version: '0.95'
   
 (->
   array_ctor = (new Array).constructor
