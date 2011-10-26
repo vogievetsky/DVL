@@ -1947,8 +1947,16 @@ dvl.svg = {}
         .append('svg:rect')
         .attr('x', 0)
         .attr('y', 0)
-        .attr('width', panel.width.gen())
-        .attr('height', panel.height.gen())
+        
+      dvl.register {
+        name: 'clip_rect'
+        listen: [panel.width, panel.height]
+        fn: ->
+          cp
+            .attr('width', panel.width.get())
+            .attr('height', panel.height.get())
+          return
+      }
     
       g.attr('clip-path', 'url(#' + cpid + ')')
       return cp
@@ -2146,7 +2154,6 @@ dvl.svg = {}
 
         dimChange = panel.width.hasChanged() or panel.height.hasChanged()
         if dimChange
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
           dur = 0
         else
           dur = o.duration.get()
@@ -2236,7 +2243,6 @@ dvl.svg = {}
         update_attr[o.myClass](m, p, true)
 
         if panel.width.hasChanged() or panel.height.hasChanged()
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
           dur = 0
         else
           dur = o.duration.get()
@@ -2290,7 +2296,6 @@ dvl.svg = {}
 
       if len > 0 and x and y and o.visible.get()
         dimChange = panel.width.hasChanged() or panel.height.hasChanged()
-        clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
         dur = if dimChange then 0 else o.duration.get()
 
         af = d3.svg.area()
@@ -2401,7 +2406,6 @@ dvl.svg = {}
         update_attr[o.myClass](m, p, true)
 
         if panel.width.hasChanged() or panel.height.hasChanged()
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
           dur = 0
         else
           dur = o.duration.get()
@@ -2480,7 +2484,6 @@ dvl.svg = {}
 
         dimChange = panel.width.hasChanged() or panel.height.hasChanged()
         if dimChange
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
           dur = 0
         else
           dur = o.duration.get()
@@ -2552,7 +2555,6 @@ dvl.svg = {}
         m.text(text) 
 
         if panel.width.hasChanged() or panel.height.hasChanged()
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
           dur = 0
         else
           dur = o.duration.get()
@@ -2670,7 +2672,6 @@ dvl.svg = {}
         update_attr[o.myClass](m, p, true)
 
         if panel.width.hasChanged() or panel.height.hasChanged()
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get()) if clip
           dur = 0
         else
           dur = o.duration.get()

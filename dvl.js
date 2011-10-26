@@ -2466,7 +2466,14 @@ dvl.svg = {};
     var cp, cpid;
     if (options.clip) {
       cpid = getNextClipPathId();
-      cp = g.append('svg:clipPath').attr('id', cpid).append('svg:rect').attr('x', 0).attr('y', 0).attr('width', panel.width.gen()).attr('height', panel.height.gen());
+      cp = g.append('svg:clipPath').attr('id', cpid).append('svg:rect').attr('x', 0).attr('y', 0);
+      dvl.register({
+        name: 'clip_rect',
+        listen: [panel.width, panel.height],
+        fn: function() {
+          cp.attr('width', panel.width.get()).attr('height', panel.height.get());
+        }
+      });
       g.attr('clip-path', 'url(#' + cpid + ')');
       return cp;
     } else {
@@ -2706,9 +2713,6 @@ dvl.svg = {};
         update_attr[o.myClass](m, p, true);
         dimChange = panel.width.hasChanged() || panel.height.hasChanged();
         if (dimChange) {
-          if (clip) {
-            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
-          }
           dur = 0;
         } else {
           dur = o.duration.get();
@@ -2814,9 +2818,6 @@ dvl.svg = {};
         m = selectEnterExit(g, o, p, len);
         update_attr[o.myClass](m, p, true);
         if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          if (clip) {
-            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
-          }
           dur = 0;
         } else {
           dur = o.duration.get();
@@ -2882,9 +2883,6 @@ dvl.svg = {};
       y = p.y.gen();
       if (len > 0 && x && y && o.visible.get()) {
         dimChange = panel.width.hasChanged() || panel.height.hasChanged();
-        if (clip) {
-          clip.attr('width', panel.width.get()).attr('height', panel.height.get());
-        }
         dur = dimChange ? 0 : o.duration.get();
         af = d3.svg.area().x(x).y1(y).y0(panel.height.gen());
         a.attr('d', af(d3.range(len)));
@@ -3016,9 +3014,6 @@ dvl.svg = {};
         m = selectEnterExit(g, o, p, len);
         update_attr[o.myClass](m, p, true);
         if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          if (clip) {
-            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
-          }
           dur = 0;
         } else {
           dur = o.duration.get();
@@ -3116,9 +3111,6 @@ dvl.svg = {};
         update_attr[o.myClass](m, p, true);
         dimChange = panel.width.hasChanged() || panel.height.hasChanged();
         if (dimChange) {
-          if (clip) {
-            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
-          }
           dur = 0;
         } else {
           dur = o.duration.get();
@@ -3210,9 +3202,6 @@ dvl.svg = {};
         update_attr[o.myClass](m, p, true);
         m.text(text);
         if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          if (clip) {
-            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
-          }
           dur = 0;
         } else {
           dur = o.duration.get();
@@ -3369,9 +3358,6 @@ dvl.svg = {};
         m = selectEnterExit(g, o, p, len);
         update_attr[o.myClass](m, p, true);
         if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          if (clip) {
-            clip.attr('width', panel.width.get()).attr('height', panel.height.get());
-          }
           dur = 0;
         } else {
           dur = o.duration.get();
