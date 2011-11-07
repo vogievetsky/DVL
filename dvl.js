@@ -265,10 +265,11 @@ dvl.util = {
   }
 };
 (function() {
-  var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, collect_notify, constants, curCollectListener, curNotifyListener, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
+  var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, collect_notify, constants, curCollectListener, curNotifyListener, curRecording, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
   nextObjId = 1;
   constants = {};
   variables = {};
+  curRecording = null;
   DVLConst = (function() {
     function DVLConst(value, name) {
       this.value = value;
@@ -360,6 +361,9 @@ dvl.util = {
       this.changers = [];
       variables[this.id] = this;
       nextObjId++;
+      if (curRecording) {
+        curRecording.vars.push(this);
+      }
       return this;
     }
     DVLDef.prototype.resolveLazy = function() {
@@ -490,7 +494,7 @@ dvl.util = {
       if (this.changers.length > 0) {
         throw "Cannot remove variable " + this.id + " because it has changers.";
       }
-      delete variables[id];
+      delete variables[this.id];
       return null;
     };
     return DVLDef;
@@ -544,31 +548,39 @@ dvl.util = {
     }
     return res;
   };
-  bfsUpdate = function(queue) {
-    var initIds, skip, v, w, _i, _j, _len, _len2, _ref;
-    initIds = {};
-    for (_i = 0, _len = queue.length; _i < _len; _i++) {
-      v = queue[_i];
-      initIds[v.id] = 1;
-    }
-    skip = queue.length;
-    while (queue.length > 0) {
-      v = queue.shift();
-      if (skip > 0) {
-        --skip;
-      } else {
-        if (initIds[v.id]) {
-          throw "circular dependancy detected";
+  checkForCycle = function(fo) {
+    var stack, v, visited, w, _i, _len, _ref;
+    stack = fo.updates.slice();
+    visited = {};
+    while (stack.length > 0) {
+      v = stack.pop();
+      visited[v.id] = true;
+      _ref = v.updates;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        w = _ref[_i];
+        if (w === fo) {
+          throw "circular dependancy detected around " + w.id;
+        }
+        if (!visited[w.id]) {
+          stack.push(w);
         }
       }
+    }
+  };
+  bfsUpdate = function(stack) {
+    var nextLevel, v, w, _i, _len, _ref;
+    while (stack.length > 0) {
+      v = stack.pop();
+      nextLevel = v.level + 1;
       _ref = v.updates;
-      for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
-        w = _ref[_j];
-        w.level = Math.max(w.level, v.level + 1);
-        queue.push(w);
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        w = _ref[_i];
+        if (w.level < nextLevel) {
+          w.level = nextLevel;
+          stack.push(w);
+        }
       }
     }
-    return null;
   };
   bfsZero = function(queue) {
     var v, w, _i, _len, _ref;
@@ -581,7 +593,6 @@ dvl.util = {
         queue.push(w);
       }
     }
-    return null;
   };
   DVLFunctionObject = (function() {
     function DVLFunctionObject(id, ctx, fn, listen, change) {
@@ -592,6 +603,9 @@ dvl.util = {
       this.change = change;
       this.updates = [];
       this.level = 0;
+      if (curRecording) {
+        curRecording.fns.push(this);
+      }
       return this;
     }
     DVLFunctionObject.prototype.addChange = function() {
@@ -608,6 +622,7 @@ dvl.util = {
             this.updates.push(l);
           }
         }
+        checkForCycle(this);
         bfsUpdate([this]);
       }
       return this;
@@ -627,6 +642,7 @@ dvl.util = {
             this.level = Math.max(this.level, c.level + 1);
           }
         }
+        checkForCycle(this);
         bfsUpdate([this]);
       }
       uv = uniqById(arguments, true);
@@ -657,7 +673,7 @@ dvl.util = {
         for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
           cf = _ref2[_j];
           queue.push(cf);
-          cf.updates.splice(cf.updates.indexOf(cf), 1);
+          cf.updates.splice(cf.updates.indexOf(this), 1);
         }
       }
       _ref3 = this.change;
@@ -670,8 +686,8 @@ dvl.util = {
         v = _ref4[_l];
         v.listeners.splice(v.listeners.indexOf(this), 1);
       }
-      bfsUpdate(queue);
-      return null;
+      bfsUpdate(this.updates);
+      this.change = this.listen = this.updates = null;
     };
     return DVLFunctionObject;
   })();
@@ -731,6 +747,7 @@ dvl.util = {
         }
       }
       registerers[id] = fo;
+      checkForCycle(fo);
       bfsUpdate([fo]);
     }
     if (!noRun) {
@@ -898,6 +915,37 @@ dvl.util = {
     }
   };
   dvl.notify = init_notify;
+  dvl.startRecording = function() {
+    if (curRecording) {
+      throw "already recording";
+    }
+    return curRecording = {
+      fns: [],
+      vars: []
+    };
+  };
+  dvl.stopRecording = function() {
+    var rec;
+    if (!curRecording) {
+      throw "not recording";
+    }
+    rec = curRecording;
+    curRecording = null;
+    rec.remove = function() {
+      var f, v, _i, _j, _len, _len2, _ref, _ref2;
+      _ref = rec.fns;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        f = _ref[_i];
+        f.remove();
+      }
+      _ref2 = rec.vars;
+      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+        v = _ref2[_j];
+        v.remove();
+      }
+    };
+    return rec;
+  };
   dvl.debugFind = function(name) {
     var id, ret, v;
     name += '_';
@@ -1844,7 +1892,7 @@ dvl.hasher = function(obj) {
 dvl.scale = {};
 (function() {
   dvl.scale.linear = function(options) {
-    var change, dom, domainFrom, domainTo, formatRef, invertRef, listenData, makeScaleFn, makeScaleFnEmpty, makeScaleFnSingle, name, numTicks, optDomain, padding, rangeFrom, rangeTo, scaleRef, ticksRef, updateData, _i, _len;
+    var change, dom, domainFrom, domainTo, formatRef, invertRef, listenData, makeScale, makeScaleFn, makeScaleFnEmpty, makeScaleFnSingle, name, numTicks, optDomain, padding, rangeFrom, rangeTo, scaleRef, ticksRef, updateData, _i, _len;
     if (!options) {
       throw 'no options in scale';
     }
@@ -1878,6 +1926,15 @@ dvl.scale = {};
     invertRef = dvl.def(null, name + '_invert');
     ticksRef = dvl.def(null, name + '_ticks');
     formatRef = dvl.def(null, name + '_format');
+    makeScale = function() {
+      if (domainFrom < domainTo) {
+        return makeScaleFn();
+      } else if (domainFrom === domainTo) {
+        return makeScaleFnSingle();
+      } else {
+        return makeScaleFnEmpty();
+      }
+    };
     makeScaleFn = function() {
       var isColor, rf, rt, s;
       isColor = typeof (rangeFrom.get()) === 'string';
@@ -2012,19 +2069,16 @@ dvl.scale = {};
       if (options.scaleMax !== void 0) {
         max *= options.scaleMax;
       }
-      if (min < max) {
+      if (min <= max) {
         if (domainFrom !== min || domainTo !== max) {
           domainFrom = min;
           domainTo = max;
-          makeScaleFn();
+          makeScale();
         }
-      } else if (min === max) {
-        domainFrom = domainTo = min;
-        makeScaleFnSingle();
       } else {
         domainFrom = NaN;
         domainTo = NaN;
-        makeScaleFnEmpty();
+        makeScale();
       }
     };
     listenData = [];
@@ -2038,7 +2092,7 @@ dvl.scale = {};
     }
     change = [scaleRef, invertRef, ticksRef, formatRef];
     dvl.register({
-      fn: makeScaleFn,
+      fn: makeScale,
       listen: [rangeFrom, rangeTo, numTicks],
       change: change,
       name: name + '_range_change',
@@ -3448,7 +3502,7 @@ dvl.html.list = function(_arg) {
   ul = d3.select(selector).append('ul').attr('class', classStr);
   if (links) {
     updateList = function() {
-      var cs, len, lg, ng, sel, updateLi, vg;
+      var a, cs, len, lg, ng, onClick, sel, vg;
       len = Math.min(names.len(), links.len(), listClassStr.len());
       if (len === Infinity) {
         len = 1;
@@ -3457,43 +3511,32 @@ dvl.html.list = function(_arg) {
       vg = values.gen();
       lg = links.gen();
       cs = listClassStr.gen();
-      updateLi = function(li, enter) {
-        var a, span;
-        li.attr('class', cs).on('click', function(i) {
-          var link, val;
-          val = vg(i);
-          if (typeof onSelect === "function") {
-            onSelect(val, i);
-          }
-          link = lg(i);
-          if (link) {
-            return window.location.href = link;
-          }
-        });
-        if (enter) {
-          a = li.append('a');
-          if (iconDiv === 'prepend') {
-            a.append('div').attr('class', 'icon');
-          }
-          span = a.append('span');
-          if (iconDiv === 'append') {
-            a.append('div').attr('class', 'icon');
-          }
-        } else {
-          a = li.select('a');
-          span = a.select('span');
+      onClick = function(i) {
+        var link, val;
+        val = vg(i);
+        if (typeof onSelect === "function") {
+          onSelect(val, i);
         }
-        a.attr('href', lg);
-        span.text(ng).attr('class', cs);
+        link = lg(i);
+        if (link) {
+          window.location.href = link;
+        }
       };
       sel = ul.selectAll('li').data(d3.range(len));
-      updateLi(sel.enter().append('li'), true);
-      updateLi(sel);
+      a = sel.enter().append('li').append('a');
+      if (iconDiv === 'prepend') {
+        a.append('div').attr('class', 'icon');
+      }
+      a.append('span');
+      if (iconDiv === 'append') {
+        a.append('div').attr('class', 'icon');
+      }
+      sel.attr('class', cs).on('click', onClick).select('a').attr('href', lg).select('span').attr('class', cs).text(ng);
       sel.exit().remove();
     };
   } else {
     updateList = function() {
-      var cs, len, ng, sel, updateLi, vg;
+      var cs, len, li, ng, onClick, sel, vg;
       len = Math.min(values.len(), names.len(), listClassStr.len());
       if (len === Infinity) {
         len = 1;
@@ -3501,43 +3544,35 @@ dvl.html.list = function(_arg) {
       ng = names.gen();
       vg = values.gen();
       cs = listClassStr.gen();
-      updateLi = function(li, enter) {
-        var span;
-        li.on('click', function(i) {
-          var sl, val;
-          val = vg(i);
-          if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
-            if (multi) {
-              sl = (selection.get() || []).slice();
-              i = sl.indexOf(val);
-              if (i === -1) {
-                sl.push(val);
-              } else {
-                sl.splice(i, 1);
-              }
-              selection.set(sl);
+      onClick = function(i) {
+        var sl, val;
+        val = vg(i);
+        if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
+          if (multi) {
+            sl = (selection.get() || []).slice();
+            i = sl.indexOf(val);
+            if (i === -1) {
+              sl.push(val);
             } else {
-              selection.set(val);
+              sl.splice(i, 1);
             }
-            return dvl.notify(selection);
+            selection.set(sl);
+          } else {
+            selection.set(val);
           }
-        });
-        if (enter) {
-          if (iconDiv === 'prepend') {
-            li.append('div').attr('class', 'icon');
-          }
-          span = li.append('span');
-          if (iconDiv === 'append') {
-            li.append('div').attr('class', 'icon');
-          }
-        } else {
-          span = li.select('span');
+          dvl.notify(selection);
         }
-        span.text(ng).attr('class', cs);
       };
       sel = ul.selectAll('li').data(d3.range(len));
-      updateLi(sel.enter().append('li'), true);
-      updateLi(sel);
+      li = sel.enter().append('li');
+      if (iconDiv === 'prepend') {
+        li.append('div').attr('class', 'icon');
+      }
+      li.append('span');
+      if (iconDiv === 'append') {
+        li.append('div').attr('class', 'icon');
+      }
+      sel.on('click', onClick).select('span').attr('class', cs).text(ng);
       sel.exit().remove();
     };
   }
@@ -3858,7 +3893,7 @@ dvl.html.table = function(_arg) {
     return length;
   };
   makeTable = function() {
-    var c, cg, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, updateTd, _l, _len4, _len5, _m;
+    var c, cg, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, _l, _len4, _len5, _m;
     length = tableLength();
     r = pv.range(length);
     if (visible.hasChanged()) {
@@ -3945,13 +3980,10 @@ dvl.html.table = function(_arg) {
       sel.attr('class', gen);
     }
     sel.exit().remove();
-    updateTd = function(td) {
-      return td.attr('class', colClass);
-    };
     sel = b.selectAll('tr');
     row = sel.selectAll('td').data(columns);
-    updateTd(row.enter().append('td'));
-    updateTd(row);
+    row.enter().append('td');
+    row.attr('class', colClass);
     row.exit().remove();
     for (_m = 0, _len5 = columns.length; _m < _len5; _m++) {
       col = columns[_m];
@@ -4002,15 +4034,12 @@ dvl.html.table.renderer = {
     what = html ? 'html' : 'text';
     linkGen = dvl.wrapConstIfNeeded(linkGen);
     f = function(col, dataFn) {
-      var config, sel;
+      var sel;
       sel = col.selectAll('a').data(function(d) {
         return [d];
       });
-      config = function(d) {
-        return d.attr('href', linkGen.gen())[what](dataFn);
-      };
-      config(sel.enter().append('a'));
-      config(sel);
+      sel.enter().append('a');
+      sel.attr('href', linkGen.gen())[what](dataFn);
     };
     f.depends = [linkGen];
     return f;
@@ -4020,16 +4049,12 @@ dvl.html.table.renderer = {
     click = _arg.click;
     titleGen = dvl.wrapConstIfNeeded(titleGen);
     f = function(col, dataFn) {
-      var config, sel;
+      var sel;
       sel = col.selectAll('span').data(function(d) {
         return [d];
       });
-      config = function(d) {
-        d.html(dataFn);
-        return d.on('click', click);
-      };
-      config(sel.enter().append('span').attr('class', 'span_link'));
-      config(sel);
+      sel.enter().append('span').attr('class', 'span_link');
+      sel.html(dataFn).on('click', click);
     };
     return f;
   },
@@ -4065,7 +4090,7 @@ dvl.html.table.renderer = {
     var classStr, f, height, padding, width, x, y;
     classStr = _arg.classStr, width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
     f = function(col, dataFn) {
-      var line, make_sparks, svg;
+      var line, points, sel, svg;
       svg = col.selectAll('svg').data(function(i) {
         return [dataFn(i)];
       });
@@ -4085,40 +4110,32 @@ dvl.html.table.renderer = {
           return sy(dp[y]);
         })(d);
       };
-      make_sparks = function(svg) {
-        var points, sel;
-        sel = svg.selectAll('path').data(function(d) {
-          return [d];
-        });
-        sel.enter().append("svg:path").attr("class", "line").attr("d", line);
-        sel.attr("d", line);
-        points = svg.selectAll('circle').data(function(d) {
-          var mmx, mmy, sx, sy;
-          mmx = dvl.util.getMinMax(d, (function(d) {
-            return d[x];
-          }));
-          mmy = dvl.util.getMinMax(d, (function(d) {
-            return d[y];
-          }));
-          sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
-          sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
-          return [['top', sx(d[mmy.maxIdx][x]), sy(mmy.max)], ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)], ['right', sx(mmx.max), sy(d[mmx.maxIdx][y])], ['left', sx(mmx.min), sy(d[mmx.minIdx][y])]];
-        });
-        points.enter().append("svg:circle").attr("r", 2).attr("class", function(d) {
-          return d[0];
-        }).attr("cx", function(d) {
-          return d[1];
-        }).attr("cy", function(d) {
-          return d[2];
-        });
-        return points.attr("cx", function(d) {
-          return d[1];
-        }).attr("cy", function(d) {
-          return d[2];
-        });
-      };
-      make_sparks(svg);
-      make_sparks(svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height));
+      svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height);
+      sel = svg.selectAll('path').data(function(d) {
+        return [d];
+      });
+      sel.enter().append("svg:path").attr("class", "line");
+      sel.attr("d", line);
+      points = svg.selectAll('circle').data(function(d) {
+        var mmx, mmy, sx, sy;
+        mmx = dvl.util.getMinMax(d, (function(d) {
+          return d[x];
+        }));
+        mmy = dvl.util.getMinMax(d, (function(d) {
+          return d[y];
+        }));
+        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
+        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
+        return [['top', sx(d[mmy.maxIdx][x]), sy(mmy.max)], ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)], ['right', sx(mmx.max), sy(d[mmx.maxIdx][y])], ['left', sx(mmx.min), sy(d[mmx.minIdx][y])]];
+      });
+      points.enter().append("svg:circle").attr("r", 2).attr("class", function(d) {
+        return d[0];
+      });
+      points.attr("cx", function(d) {
+        return d[1];
+      }).attr("cy", function(d) {
+        return d[2];
+      });
     };
     f.depends = [];
     return f;

@@ -194,6 +194,7 @@ dvl.util = {
   nextObjId = 1
   constants = {}
   variables = {}
+  curRecording = null
   
   class DVLConst
     constructor: (@value, @name) ->
@@ -245,6 +246,8 @@ dvl.util = {
       @changers = []
       variables[@id] = this
       nextObjId++
+      if curRecording
+        curRecording.vars.push this
       return this
       
     resolveLazy: ->
@@ -326,7 +329,7 @@ dvl.util = {
         throw "Cannot remove variable #{@id} because it has listeners."
       if @changers.length > 0
         throw "Cannot remove variable #{@id} because it has changers."
-      delete variables[id]
+      delete variables[@id]
       return null
 
   dvl.def = (value, name) -> new DVLDef(value, name)
@@ -360,27 +363,34 @@ dvl.util = {
           seen[v.id] = true
           res.push v
     return res
-  
-    
-  bfsUpdate = (queue) ->
-    # Check for circular dependancy by making sure we never come accross any of the ids with which we started
-    initIds = {}
-    initIds[v.id] = 1 for v in queue
-    skip = queue.length
-    
-    while queue.length > 0
-      v = queue.shift()
-      
-      if skip > 0
-        --skip
-      else
-        throw "circular dependancy detected" if initIds[v.id]
-      
-      for w in v.updates
-        w.level = Math.max(w.level, v.level+1)
-        queue.push w
 
-    return null  
+
+  checkForCycle = (fo) ->
+    stack = fo.updates.slice()
+    visited = {}
+
+    while stack.length > 0
+      v = stack.pop()
+      visited[v.id] = true
+
+      for w in v.updates
+        throw "circular dependancy detected around #{w.id}" if w is fo
+        stack.push w if not visited[w.id]
+ 
+    return  
+
+
+  bfsUpdate = (stack) ->
+    while stack.length > 0
+      v = stack.pop()
+      nextLevel = v.level+1
+
+      for w in v.updates
+        if w.level < nextLevel
+          w.level = nextLevel
+          stack.push w
+
+    return  
 
 
   bfsZero = (queue) ->
@@ -390,13 +400,15 @@ dvl.util = {
         w.level = 0
         queue.push w
 
-    return null
+    return
   
   
   class DVLFunctionObject
     constructor: (@id, @ctx, @fn, @listen, @change) ->
       @updates = []
       @level = 0
+      if curRecording
+        curRecording.fns.push this
       return this
       
     addChange: ->
@@ -408,8 +420,9 @@ dvl.util = {
           v.changers.push(this)
           @updates.push(l) for l in v.listeners
 
+        checkForCycle(this)
         bfsUpdate([this])
-      
+        
       return this
 
     addListen: ->
@@ -422,7 +435,8 @@ dvl.util = {
           for c in v.changers
             c.updates.push(this)
             @level = Math.max(@level, c.level+1)
-
+        
+        checkForCycle(this)
         bfsUpdate([this])
       
       uv = uniqById(arguments, true)
@@ -447,7 +461,7 @@ dvl.util = {
       for lv in @listen
         for cf in lv.changers
           queue.push cf
-          cf.updates.splice(cf.updates.indexOf(cf), 1)
+          cf.updates.splice(cf.updates.indexOf(this), 1)
 
       for v in @change
         v.changers.splice(v.changers.indexOf(this), 1)
@@ -455,8 +469,9 @@ dvl.util = {
       for v in @listen
         v.listeners.splice(v.listeners.indexOf(this), 1)
 
-      bfsUpdate(queue)
-      return null
+      bfsUpdate(@updates) # do not care if @update gets trashed
+      @change = @listen = @updates = null # cause an error if we hit these
+      return
 
   
   dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
@@ -500,6 +515,7 @@ dvl.util = {
           fo.level = Math.max(fo.level, cf.level+1)
 
       registerers[id] = fo
+      checkForCycle(fo)
       bfsUpdate([fo])
     
     if not noRun
@@ -638,6 +654,20 @@ dvl.util = {
   
   dvl.notify = init_notify
   
+  dvl.startRecording = ->
+    throw "already recording" if curRecording
+    curRecording = { fns: [], vars: [] }
+
+  dvl.stopRecording = ->
+    throw "not recording" unless curRecording
+    rec = curRecording
+    curRecording = null
+    rec.remove = ->
+      f.remove() for f in rec.fns
+      v.remove() for v in rec.vars
+      return
+    
+    return rec
   
   dvl.debugFind = (name) ->
     name += '_'
@@ -1456,6 +1486,14 @@ dvl.scale = {}
     ticksRef  = dvl.def(null, name + '_ticks')
     formatRef = dvl.def(null, name + '_format')
 
+    makeScale = () ->
+      if domainFrom < domainTo
+        makeScaleFn()
+      else if domainFrom is domainTo
+        makeScaleFnSingle()
+      else 
+        makeScaleFnEmpty()
+
     makeScaleFn = () ->
       isColor = typeof(rangeFrom.get()) == 'string'
       rf = rangeFrom.get()
@@ -1553,18 +1591,16 @@ dvl.scale = {}
       if options.scaleMax != undefined
         max *= options.scaleMax
 
-      if min < max
+
+      if min <= max
         if domainFrom != min or domainTo != max
           domainFrom = min
           domainTo = max
-          makeScaleFn()
-      else if min is max
-        domainFrom = domainTo = min
-        makeScaleFnSingle()
-      else 
+          makeScale()
+      else
         domainFrom = NaN
         domainTo = NaN
-        makeScaleFnEmpty()
+        makeScale()
 
       return
 
@@ -1576,7 +1612,7 @@ dvl.scale = {}
         listenData.push(dom.from, dom.to)
     
     change = [scaleRef, invertRef, ticksRef, formatRef]
-    dvl.register({fn:makeScaleFn, listen:[rangeFrom, rangeTo, numTicks], change:change, name:name + '_range_change', noRun:true})
+    dvl.register({fn:makeScale, listen:[rangeFrom, rangeTo, numTicks], change:change, name:name + '_range_change', noRun:true})
     dvl.register({fn:updateData, listen:listenData, change:change, name:name + '_data_change'})
 
     # return
@@ -2755,28 +2791,28 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
       lg = links.gen()
       cs = listClassStr.gen()
 
-      updateLi = (li, enter) ->
-        li.attr('class', cs).on('click', (i) ->
-          val = vg(i)
-          onSelect?(val, i)
-          link = lg(i)
-          window.location.href = link if link
-        )
-        if enter
-          a = li.append('a')
-          a.append('div').attr('class', 'icon') if iconDiv is 'prepend'
-          span = a.append('span')
-          a.append('div').attr('class', 'icon') if iconDiv is 'append'
-        else
-          a = li.select('a')
-          span = a.select('span')
-        a.attr('href', lg)
-        span.text(ng).attr('class', cs)
+      onClick = (i) ->
+        val = vg(i)
+        onSelect?(val, i)
+        link = lg(i)
+        window.location.href = link if link
         return
 
       sel = ul.selectAll('li').data(d3.range(len))
-      updateLi sel.enter().append('li'), true
-      updateLi sel
+      a = sel.enter().append('li').append('a')
+      a.append('div').attr('class', 'icon') if iconDiv is 'prepend'
+      a.append('span')
+      a.append('div').attr('class', 'icon') if iconDiv is 'append'
+
+      sel
+        .attr('class', cs)
+        .on('click', onClick)
+        .select('a')
+          .attr('href', lg)
+            .select('span')
+              .attr('class', cs)
+              .text(ng)
+
       sel.exit().remove()
       return
   else
@@ -2787,36 +2823,36 @@ dvl.html.list = ({selector, names, values, links, selection, onSelect, classStr,
       ng = names.gen()
       vg = values.gen()
       cs = listClassStr.gen()
-    
-      updateLi = (li, enter) ->
-        li.on('click', (i) ->
-          val = vg(i)
-          if onSelect?(val, i) isnt false
-            if multi
-              sl = (selection.get() or []).slice()
-              i = sl.indexOf(val)
-              if i is -1
-                sl.push(val)
-              else
-                sl.splice(i,1)
-              selection.set(sl)
+
+      onClick = (i) ->
+        val = vg(i)
+        if onSelect?(val, i) isnt false
+          if multi
+            sl = (selection.get() or []).slice()
+            i = sl.indexOf(val)
+            if i is -1
+              sl.push(val)
             else
-              selection.set(val)
-            
-            dvl.notify(selection)
-        )
-        if enter
-          li.append('div').attr('class', 'icon') if iconDiv is 'prepend'
-          span = li.append('span')
-          li.append('div').attr('class', 'icon') if iconDiv is 'append'
-        else
-          span = li.select('span')
-        span.text(ng).attr('class', cs)
+              sl.splice(i,1)
+            selection.set(sl)
+          else
+            selection.set(val)
+          
+          dvl.notify(selection)
         return
-    
+        
       sel = ul.selectAll('li').data(d3.range(len))
-      updateLi sel.enter().append('li'), true
-      updateLi sel
+      li = sel.enter().append('li')
+      li.append('div').attr('class', 'icon') if iconDiv is 'prepend'
+      li.append('span')
+      li.append('div').attr('class', 'icon') if iconDiv is 'append'
+
+      sel
+        .on('click', onClick)
+        .select('span')
+          .attr('class', cs)
+          .text(ng)
+
       sel.exit().remove()
       return
   
@@ -3226,13 +3262,11 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       ent.attr('class', gen)
       sel.attr('class', gen)
     sel.exit().remove()
-    
-    updateTd = (td) -> td.attr('class', colClass)
 
     sel = b.selectAll('tr')
     row = sel.selectAll('td').data(columns)
-    updateTd row.enter().append('td')
-    updateTd row
+    row.enter().append('td')
+    row.attr('class', colClass)
     row.exit().remove()
 
     for col in columns
@@ -3282,10 +3316,8 @@ dvl.html.table.renderer =
     linkGen = dvl.wrapConstIfNeeded(linkGen)
     f = (col, dataFn) ->
       sel = col.selectAll('a').data((d) -> [d])
-      config = (d) ->
-        d.attr('href', linkGen.gen())[what](dataFn)
-      config(sel.enter().append('a'))
-      config(sel)
+      sel.enter().append('a')
+      sel.attr('href', linkGen.gen())[what](dataFn)
       return
     f.depends = [linkGen]
     return f
@@ -3293,11 +3325,8 @@ dvl.html.table.renderer =
     titleGen = dvl.wrapConstIfNeeded(titleGen)
     f = (col, dataFn) -> 
       sel = col.selectAll('span').data((d) -> [d])
-      config = (d) ->
-        d.html(dataFn)
-        d.on('click', click)
-      config(sel.enter().append('span').attr('class', 'span_link'))
-      config(sel)
+      sel.enter().append('span').attr('class', 'span_link')
+      sel.html(dataFn).on('click', click)
       return
     return f
   barDiv: (col, dataFn) ->
@@ -3325,44 +3354,39 @@ dvl.html.table.renderer =
         sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
         sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
         return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
+
     
-      make_sparks = (svg) ->
-        sel = svg.selectAll('path')
-          .data((d) -> [d])
+      svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height)
+
+      sel = svg.selectAll('path').data((d) -> [d])
+  
+      sel.enter().append("svg:path").attr("class", "line")
     
-        sel.enter().append("svg:path")
-          .attr("class", "line")
-          .attr("d", line)
-      
-        sel.attr("d", line)
-      
-        points = svg.selectAll('circle')
-          .data((d) -> 
-            mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
-            mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
-            sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
-            sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
-            return [
-              ['top',    sx(d[mmy.maxIdx][x]), sy(mmy.max)]
-              ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)]
-              ['right',  sx(mmx.max), sy(d[mmx.maxIdx][y])]
-              ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
-            ]
-          )
-      
-        points.enter().append("svg:circle")
-          .attr("r", 2)
-          .attr("class", (d) -> d[0])
-          .attr("cx", (d) -> d[1])
-          .attr("cy", (d) -> d[2])
-        
-        points
-          .attr("cx", (d) -> d[1])
-          .attr("cy", (d) -> d[2])
+      sel.attr("d", line)
     
-      make_sparks(svg)
-      make_sparks(svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height))
+      points = svg.selectAll('circle')
+        .data((d) -> 
+          mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
+          mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
+          sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
+          sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
+          return [
+            ['top',    sx(d[mmy.maxIdx][x]), sy(mmy.max)]
+            ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)]
+            ['right',  sx(mmx.max), sy(d[mmx.maxIdx][y])]
+            ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
+          ]
+        )
+    
+      points.enter().append("svg:circle")
+        .attr("r", 2)
+        .attr("class", (d) -> d[0])
+      
+      points
+        .attr("cx", (d) -> d[1])
+        .attr("cy", (d) -> d[2])
       return
+
     f.depends = []
     return f
     
