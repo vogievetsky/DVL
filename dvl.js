@@ -1,4 +1,4 @@
-var debug, generator_maker_maker;
+"use strict";var debug, generator_maker_maker;
 var __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
@@ -3591,8 +3591,8 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, iconDiv, links, list, listClassStr, listDiv, menuAnchor, menuOffset, menuOpen, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selections, selector, title, updateSelection, valueSpan, values;
-  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, iconDiv = _arg.iconDiv;
+  var classStr, close, divCont, getClass, iconDiv, keepOnClick, links, list, listClassStr, listDiv, menuAnchor, menuOffset, menuOpen, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selections, selector, title, updateSelection, valueSpan, values;
+  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, iconDiv = _arg.iconDiv, keepOnClick = _arg.keepOnClick;
   if (!selector) {
     throw 'must have selector';
   }
@@ -3639,7 +3639,7 @@ dvl.html.dropdownList = function(_arg) {
     divCont.attr('class', getClass());
   };
   myOnSelect = function(text, i) {
-    if (!multi) {
+    if (!keepOnClick) {
       close();
     }
     return typeof onSelect === "function" ? onSelect(text, i) : void 0;

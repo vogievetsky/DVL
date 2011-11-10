@@ -1,9 +1,11 @@
+"use strict"
 # DVL by Vadim Ogievetsky
 #
 # DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
 
 # Check that we have everything we need.
+
 throw 'd3 is needed for now.' unless d3
 throw 'protovis is needed for now.' unless pv
 throw 'jQuery is needed for now.' unless jQuery
@@ -2874,7 +2876,7 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
   }
 
 
-dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, selections, onSelect, classStr, listClassStr, menuAnchor, menuOffset, title, iconDiv}) ->
+dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, selections, onSelect, classStr, listClassStr, menuAnchor, menuOffset, title, iconDiv, keepOnClick}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   selections = dvl.wrapVarIfNeeded(selections, 'selections')
@@ -2928,8 +2930,8 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   
   myOnSelect = (text, i) ->
     # hide the menu after selection
-    close() unless multi
-    onSelect?(text, i)
+    close() unless keepOnClick
+    return onSelect?(text, i)
 
   list = dvl.html.list {
     selector: divCont.node()
