@@ -15,8 +15,25 @@ body {
   font: 12px sans-serif;
 }
 
-li.selected {
+a {
+  text-decoration: none;
+}
+
+li.selection {
   color: red;
+}
+
+div.left,
+div.right {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 5px;
+  background-color: green;
+}
+
+li.selections {
+  text-decoration: underline;
 }
 
 #cont1 {
@@ -31,11 +48,15 @@ li.selected {
   background-color: #f0f0f0;
 }
 
-#cont3 span {
+#cont4 {
+  background-color: #f0f0f0;
+}
+
+#cont4 span {
   width: 100px;
 }
 
-#cont3 ul {
+#cont4 ul {
   background-color: #e0e0f0;
   margin: 0px;
 }
@@ -49,8 +70,13 @@ li.selected {
     </div>
     <div id="cont3">
     </div>
+    <div id="cont4">
+    </div>
     <div>
       Selection: <span id="out1"></span>
+    </div>
+    <div>
+      Selections: <span id="out2"></span>
     </div>
   </body>
   <script type="text/javascript">
@@ -58,7 +84,7 @@ li.selected {
     var values = dvl.def("h3llo,how,are,you".split(','), 'values');
     var links = dvl.def("http://google.com", 'link');
     var selection = dvl.def(null, 'selection');
-    var multi = false; //true
+    var selections = dvl.def(null, 'selections');
   
     dvl.html.list({
       selector: '#cont1',
@@ -66,7 +92,8 @@ li.selected {
       values: values,
       links: links,
       selection: selection,
-      multi: multi
+      selections: selections,
+      iconDiv: 'right'
     });
   
     dvl.html.list({
@@ -74,16 +101,40 @@ li.selected {
       names: names,
       values: values,
       selection: selection,
-      multi: multi
+      selections: selections,
+      iconDiv: 'left',
     });
-    
-    dvl.html.dropdownList({
+
+    dvl.html.list({
       selector: '#cont3',
       names: names,
       values: values,
       selection: selection,
-      multi: multi,
-      title: 'Multi'
+      selections: selections,
+      iconDiv: 'both',
+      onSelect: function(val) {
+        var sl = (selections.get() || []).slice();
+        var i = sl.indexOf(val);
+        if(i === -1) {
+          sl.push(val);
+        } else {
+          sl.splice(i,1);
+        }
+        selections.update(sl);
+        return false;
+      },
+      onSelectRight: function(val) {
+        selection.update(val);
+        return false
+      }
+    });
+    
+    dvl.html.dropdownList({
+      selector: '#cont4',
+      names: names,
+      values: values,
+      selection: selection,
+      selections: selections
     });
     
     dvl.html.out({
@@ -92,6 +143,13 @@ li.selected {
       invalid: '<invalid>',
       text: true
     });
-    
+
+    dvl.html.out({
+      selector: '#out2',
+      data: selections,
+      invalid: '<invalid>',
+      text: true
+    });
+
   </script>
 </html>
