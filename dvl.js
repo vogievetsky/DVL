@@ -49,7 +49,7 @@ debug = function() {
   return argCopy[0];
 };
 window.dvl = {
-  version: '0.95'
+  version: '0.96'
 };
 (function() {
   var array_ctor, date_ctor, regex_ctor;
@@ -3591,8 +3591,8 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, iconDiv, keepOnClick, links, list, listClassStr, listDiv, menuAnchor, menuOffset, menuOpen, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selections, selector, title, updateSelection, valueSpan, values;
-  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, iconDiv = _arg.iconDiv, keepOnClick = _arg.keepOnClick;
+  var classStr, close, divCont, getClass, iconDiv, keepOnClick, links, list, listClassStr, listDiv, menuAnchor, menuOffset, menuOpen, myOnSelect, myOnSelectLeft, myOnSelectRight, names, onSelect, onSelectLeft, onSelectRight, open, selectedDiv, selection, selectionNames, selections, selector, title, updateSelection, valueSpan, values;
+  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onSelectLeft = _arg.onSelectLeft, onSelectRight = _arg.onSelectRight, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, iconDiv = _arg.iconDiv, keepOnClick = _arg.keepOnClick;
   if (!selector) {
     throw 'must have selector';
   }
@@ -3644,6 +3644,18 @@ dvl.html.dropdownList = function(_arg) {
     }
     return typeof onSelect === "function" ? onSelect(text, i) : void 0;
   };
+  myOnSelectRight = function(text, i) {
+    if (!keepOnClick) {
+      close();
+    }
+    return typeof onSelectRight === "function" ? onSelectRight(text, i) : void 0;
+  };
+  myOnSelectLeft = function(text, i) {
+    if (!keepOnClick) {
+      close();
+    }
+    return typeof onSelectLeft === "function" ? onSelectLeft(text, i) : void 0;
+  };
   list = dvl.html.list({
     selector: divCont.node(),
     names: names,
@@ -3652,6 +3664,8 @@ dvl.html.dropdownList = function(_arg) {
     selection: selection,
     selections: selections,
     onSelect: myOnSelect,
+    onSelectRight: myOnSelectRight,
+    onSelectLeft: myOnSelectLeft,
     classStr: 'list',
     listClassStr: listClassStr,
     iconDiv: iconDiv
