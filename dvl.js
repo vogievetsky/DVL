@@ -3489,7 +3489,7 @@ dvl.html.out = function(_arg) {
   });
 };
 dvl.html.list = function(_arg) {
-  var classFn, classStr, iconDiv, links, listClassStr, names, onSelect, onSelectLeft, onSelectRight, selection, selections, selector, ul, updateAll, values;
+  var classFn, classStr, iconDiv, links, listClassStr, names, onSelect, onSelectLeft, onSelectRight, selection, selections, selector, ul, values;
   selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onSelectLeft = _arg.onSelectLeft, onSelectRight = _arg.onSelectRight, classStr = _arg.classStr, listClassStr = _arg.listClassStr, iconDiv = _arg.iconDiv;
   if (!selector) {
     throw 'must have selector';
@@ -3513,19 +3513,6 @@ dvl.html.list = function(_arg) {
     listClassStr = dvl.gen.fromArray(values, null, classFn);
   }
   ul = d3.select(selector).append('ul').attr('class', classStr);
-  updateAll = function(val, notify) {
-    var i, sl;
-    selection.set(val);
-    sl = (selections.get() || []).slice();
-    i = sl.indexOf(val);
-    if (i === -1) {
-      sl.push(val);
-    } else {
-      sl.splice(i, 1);
-    }
-    selections.set(sl);
-    dvl.notify(selection, selections);
-  };
   dvl.register({
     name: 'update_html_list',
     listen: [names, values, links],
@@ -3540,11 +3527,20 @@ dvl.html.list = function(_arg) {
       lg = links.gen();
       cs = listClassStr.gen();
       onClick = function(i) {
-        var link, val;
+        var link, sl, val;
         val = vg(i);
         if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
           link = lg(i);
-          updateAll(val);
+          selection.set(val);
+          sl = (selections.get() || []).slice();
+          i = sl.indexOf(val);
+          if (i === -1) {
+            sl.push(val);
+          } else {
+            sl.splice(i, 1);
+          }
+          selections.set(sl);
+          dvl.notify(selection, selections);
           if (link) {
             window.location.href = link;
           }

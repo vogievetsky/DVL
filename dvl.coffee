@@ -2795,20 +2795,6 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
 
   ul = d3.select(selector).append('ul').attr('class', classStr)
 
-  updateAll = (val, notify) ->
-    selection.set(val)
-
-    sl = (selections.get() or []).slice()
-    i = sl.indexOf(val)
-    if i is -1
-      sl.push(val)
-    else
-      sl.splice(i,1)
-    selections.set(sl)
-
-    dvl.notify(selection, selections)
-    return
-
   dvl.register {
     name: 'update_html_list'
     listen: [names, values, links]
@@ -2829,7 +2815,17 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
         val = vg(i)
         if onSelect?(val, i) isnt false
           link = lg(i)
-          updateAll(val)
+          selection.set(val)
+
+          sl = (selections.get() or []).slice()
+          i = sl.indexOf(val)
+          if i is -1
+            sl.push(val)
+          else
+            sl.splice(i,1)
+          selections.set(sl)
+
+          dvl.notify(selection, selections)
           window.location.href = link if link
         return
 
