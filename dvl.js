@@ -3489,7 +3489,7 @@ dvl.html.out = function(_arg) {
   });
 };
 dvl.html.list = function(_arg) {
-  var classStr, iconDiv, links, listClassStr, names, onSelect, onSelectLeft, onSelectRight, selection, selections, selector, ul, updateAll, updateList, updateSelection, values;
+  var classFn, classStr, iconDiv, links, listClassStr, names, onSelect, onSelectLeft, onSelectRight, selection, selections, selector, ul, updateAll, values;
   selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onSelectLeft = _arg.onSelectLeft, onSelectRight = _arg.onSelectRight, classStr = _arg.classStr, listClassStr = _arg.listClassStr, iconDiv = _arg.iconDiv;
   if (!selector) {
     throw 'must have selector';
@@ -3499,7 +3499,19 @@ dvl.html.list = function(_arg) {
   values = dvl.wrapConstIfNeeded(values);
   names = dvl.wrapConstIfNeeded(names || values);
   links = dvl.wrapConstIfNeeded(links);
-  listClassStr = dvl.wrapConstIfNeeded(listClassStr);
+  if (listClassStr != null) {
+    listClassStr = dvl.wrapConstIfNeeded(listClassStr);
+  } else {
+    classFn = dvl.apply({
+      args: [selection, selections],
+      fn: function(sel, sels) {
+        return function(value) {
+          return (value === sel ? 'selection' : 'not_selection') + ' ' + (__indexOf.call(sels, value) >= 0 ? 'selections' : 'not_selections');
+        };
+      }
+    });
+    listClassStr = dvl.gen.fromArray(values, null, classFn);
+  }
   ul = d3.select(selector).append('ul').attr('class', classStr);
   updateAll = function(val, notify) {
     var i, sl;
@@ -3514,75 +3526,64 @@ dvl.html.list = function(_arg) {
     selections.set(sl);
     dvl.notify(selection, selections);
   };
-  updateList = function() {
-    var a, cont, cs, len, lg, ng, onClick, sel, vg;
-    len = Math.min(values.len(), names.len(), links.len() || Infinity, listClassStr.len());
-    if (len === Infinity) {
-      len = 1;
-    }
-    ng = names.gen();
-    vg = values.gen();
-    lg = links.gen();
-    cs = listClassStr.gen();
-    onClick = function(i) {
-      var link, val;
-      val = vg(i);
-      if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
-        link = lg(i);
-        updateAll(val);
-        if (link) {
-          window.location.href = link;
+  dvl.register({
+    name: 'update_html_list',
+    listen: [names, values, links],
+    fn: function() {
+      var a, cont, cs, len, lg, ng, onClick, sel, vg;
+      len = Math.min(values.len(), names.len(), links.len() || Infinity);
+      if (len === Infinity) {
+        len = 1;
+      }
+      ng = names.gen();
+      vg = values.gen();
+      lg = links.gen();
+      cs = listClassStr.gen();
+      onClick = function(i) {
+        var link, val;
+        val = vg(i);
+        if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
+          link = lg(i);
+          updateAll(val);
+          if (link) {
+            window.location.href = link;
+          }
         }
+      };
+      sel = ul.selectAll('li').data(d3.range(len));
+      a = sel.enter().append('li').append('a');
+      if (iconDiv === 'left' || iconDiv === 'both') {
+        a.append('div').attr('class', 'icon_cont left').append('div').attr('class', 'icon');
       }
-    };
-    sel = ul.selectAll('li').data(d3.range(len));
-    a = sel.enter().append('li').append('a');
-    if (iconDiv === 'left' || iconDiv === 'both') {
-      a.append('div').attr('class', 'icon left');
+      a.append('span');
+      if (iconDiv === 'right' || iconDiv === 'both') {
+        a.append('div').attr('class', 'icon_cont right').append('div').attr('class', 'icon');
+      }
+      cont = sel.attr('class', cs).on('click', onClick).select('a').attr('href', lg);
+      cont.select('span').text(ng);
+      cont.select('div.left').on('click', function(i) {
+        var val;
+        val = vg(i);
+        if ((typeof onSelectLeft === "function" ? onSelectLeft(val, i) : void 0) === false) {
+          return d3.event.stopImmediatePropagation();
+        }
+      });
+      cont.select('div.right').on('click', function(i) {
+        var val;
+        val = vg(i);
+        if ((typeof onSelectRight === "function" ? onSelectRight(val, i) : void 0) === false) {
+          return d3.event.stopImmediatePropagation();
+        }
+      });
+      sel.exit().remove();
     }
-    a.append('span');
-    if (iconDiv === 'right' || iconDiv === 'both') {
-      a.append('div').attr('class', 'icon right');
-    }
-    cont = sel.attr('class', cs).on('click', onClick).select('a').attr('href', lg);
-    cont.select('span').attr('class', cs).text(ng);
-    cont.select('div.left').on('click', function(i) {
-      var val;
-      val = vg(i);
-      if ((typeof onSelectLeft === "function" ? onSelectLeft(val, i) : void 0) === false) {
-        return d3.event.stopImmediatePropagation();
-      }
-    });
-    cont.select('div.right').on('click', function(i) {
-      var val;
-      val = vg(i);
-      if ((typeof onSelectRight === "function" ? onSelectRight(val, i) : void 0) === false) {
-        return d3.event.stopImmediatePropagation();
-      }
-    });
-    sel.exit().remove();
-  };
-  dvl.register({
-    fn: updateList,
-    listen: [names, values, links, listClassStr],
-    name: 'html_list'
   });
-  updateSelection = function() {
-    var sel, sels, vg;
-    sel = selection.get();
-    sels = selections.get();
-    vg = values.gen();
-    ul.selectAll('li').classed('selection', function(i) {
-      return vg(i) === sel;
-    }).classed('selections', function(i) {
-      var _ref;
-      return sels && (_ref = vg(i), __indexOf.call(sels, _ref) >= 0);
-    });
-  };
   dvl.register({
-    fn: updateSelection,
-    listen: [selection, selections, values],
-    name: 'html_list_selection'
+    name: 'update_class_list',
+    listen: [listClassStr],
+    fn: function() {
+      return ul.selectAll('li').attr('class', listClassStr.gen());
+    }
   });
   return {
     selection: selection,
@@ -3615,7 +3616,7 @@ dvl.html.dropdownList = function(_arg) {
     return (classStr != null ? classStr : '') + ' ' + (menuOpen ? 'open' : 'closed');
   };
   divCont = d3.select(selector).append('div').attr('class', getClass()).style('position', 'relative');
-  selectedDiv = divCont.append('div').attr('class', 'selection');
+  selectedDiv = divCont.append('div').attr('class', 'selected');
   valueSpan = selectedDiv.append('span');
   open = function() {
     var anchor, height, offset, pos, sp;
@@ -3716,31 +3717,6 @@ dvl.html.dropdownList = function(_arg) {
     node: divCont.node(),
     selection: selection
   };
-};
-dvl.html.select = function(_arg) {
-  var classStr, names, selChange, selectEl, selection, selector, values;
-  selector = _arg.selector, values = _arg.values, names = _arg.names, selection = _arg.selection, classStr = _arg.classStr;
-  if (!selector) {
-    throw 'must have selector';
-  }
-  selection = dvl.wrapVarIfNeeded(selection, 'selection');
-  values = dvl.wrapConstIfNeeded(values);
-  names = dvl.wrapConstIfNeeded(names);
-  selChange = function() {
-    return selection.update(selectEl.node().value);
-  };
-  selectEl = d3.select(selector).append('select').attr('class', classStr || null).on('change', selChange);
-  selectEl.selectAll('option').data(d3.range(values.len())).enter().append('option').attr('value', values.gen()).text(names.gen());
-  dvl.register({
-    listen: [selection],
-    fn: function() {
-      if (selectEl.node().value !== selection.get()) {
-        selectEl.node().value = selection.get();
-      }
-    }
-  });
-  selChange();
-  return selection;
 };
 dvl.html.table = function(_arg) {
   var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;

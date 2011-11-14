@@ -31,7 +31,7 @@ throw 'jQuery is needed for now.' unless jQuery
 }`
 
 debug = ->
-  return unless console?.log  
+  return unless console?.log
   argCopy = Array::slice
     .apply(arguments)
     .map((x) -> if dvl.typeOf(x) is 'date' then x.toString() else x) # bypass silly chrome beta date priniting
@@ -40,7 +40,7 @@ debug = ->
 
 window.dvl =
   version: '0.96'
-  
+
 (->
   array_ctor = (new Array).constructor
   date_ctor  = (new Date).constructor
@@ -48,14 +48,14 @@ window.dvl =
   dvl.typeOf = (v) ->
     if typeof(v) is 'object'
       return 'null'  if v == null
-      return 'array' if v.constructor == array_ctor 
-      return 'date'  if v.constructor == date_ctor 
+      return 'array' if v.constructor == array_ctor
+      return 'date'  if v.constructor == date_ctor
       return 'object'
     else
-      return 'regex' if v?.constructor == regex_ctor 
+      return 'regex' if v?.constructor == regex_ctor
       return typeof(v)
 )()
-  
+
 dvl.util = {
   strObj: (obj) ->
     type = dvl.typeOf(obj)
@@ -66,30 +66,30 @@ dvl.util = {
       keys.sort()
       str.push k, dvl.util.strObj(obj[k]) for k in keys
       return str.join('|')
-    
+
     if type is 'function'
       return '&'
-    
+
     return String(obj)
-    
-    
+
+
   uniq: (array) ->
     seen = {}
     uniq = []
     for a in array
       uniq.push a unless seen[a]
       seen[a] = 1
-  
-    return uniq  
-  
-  
+
+    return uniq
+
+
   flip: (array) ->
     map = {};
     i = 0;
     while i < array.length
       map[array[i]] = i
       i++
-  
+
     return map
 
 
@@ -103,15 +103,15 @@ dvl.util = {
     for d,i in input
       v = acc(d)
       if v < min
-        min = v 
-        minIdx = i 
+        min = v
+        minIdx = i
       if max < v
-        max = v 
+        max = v
         maxIdx = i
 
     return { min, max, minIdx, maxIdx }
-    
-    
+
+
   getRow: (data, i) ->
     if dvl.typeOf(data) is 'array'
       return data[i]
@@ -120,14 +120,14 @@ dvl.util = {
       for k,vs of data
         row[k] = vs[i]
       return row
-      
+
   crossDomainPost: (url, params) ->
     frame = d3.select('body').append('iframe').style('display', 'none')
-    
+
     clean = (d) -> d.replace(/'/g, "\\'")
     inputs = []
     inputs.push "<input name='#{k}' value='#{clean(v)}'/>" for k,v of params
-    
+
     post_process = frame.node().contentWindow.document
     post_process.open()
     post_process.write "<form method='POST' action='#{url}'>#{inputs.join('')}</form>"
@@ -138,11 +138,11 @@ dvl.util = {
 
   isEqual: (a, b, cmp) ->
     # Check object identity.
-    return true if a is b 
+    return true if a is b
     # Different types?
     atype = dvl.typeOf(a)
     btype = dvl.typeOf(b)
-    return false if atype isnt btype 
+    return false if atype isnt btype
     # One is falsy and the other truthy.
     return false if (not a and b) or (a and not b)
     # Check dates' integer values.
@@ -171,7 +171,7 @@ dvl.util = {
     cmp.push {a,b}
     for k of a
       return false unless b[k]? and dvl.util.isEqual(a[k], b[k], cmp)
-    
+
     return true
 
   clone: (obj) ->
@@ -187,8 +187,8 @@ dvl.util = {
         return new Date(obj.getTime())
       else
         return obj
-        
-  escapeHTML: (str) -> 
+
+  escapeHTML: (str) ->
     return str.replace(/&/g,'&amp;').replace(/>/g,'&gt;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
 }
 
@@ -197,7 +197,7 @@ dvl.util = {
   constants = {}
   variables = {}
   curRecording = null
-  
+
   class DVLConst
     constructor: (@value, @name) ->
       @name or= 'obj'
@@ -206,7 +206,7 @@ dvl.util = {
       constants[@id] = this
       nextObjId += 1
       return this
-    
+
     toString: -> "|#{@id}:#{@value}|"
     set: -> this
     setLazy: -> this
@@ -219,7 +219,7 @@ dvl.util = {
     remove: -> null
     push: (value) -> this
     shift: -> undefined
-    gen: -> 
+    gen: ->
       that = this
       if dvl.typeOf(@value) == 'array'
         (i) -> that.value[i]
@@ -233,7 +233,7 @@ dvl.util = {
         Infinity
 
   dvl.const = (value, name) -> new DVLConst(value, name)
-  
+
   class DVLDef
     constructor: (@value, @name) ->
       @name or= 'obj'
@@ -251,14 +251,14 @@ dvl.util = {
       if curRecording
         curRecording.vars.push this
       return this
-      
+
     resolveLazy: ->
       if @lazy
         val = @lazy()
         @prev = val
         @value = val
       return
-    
+
     toString: -> "|#{@id}:#{@value}|"
     hasChanged: -> @changed
     resetChanged: ->
@@ -279,7 +279,7 @@ dvl.util = {
       if g is null
         l = 0
       else
-        l = Infinity if l is undefined 
+        l = Infinity if l is undefined
       @vgenPrev = @vgen unless @changed
       @vgen = g
       @vlen = l
@@ -312,7 +312,7 @@ dvl.util = {
         that = this
         if dvl.typeOf(@value) == 'array'
           return ((i) -> that.value[i])
-        else  
+        else
           return (-> that.value)
     genPrev: ->
       if @vgenPrev and @changed then @vgenPrev else @gen()
@@ -335,10 +335,10 @@ dvl.util = {
       return null
 
   dvl.def = (value, name) -> new DVLDef(value, name)
-  
+
   dvl.knows = (v) ->
     return v and v.id and (variables[v.id] or constants[v.id])
-    
+
   dvl.wrapConstIfNeeded = (v, name) ->
     v = null if v is undefined
     if dvl.knows(v) then v else dvl.const(v, name)
@@ -346,7 +346,7 @@ dvl.util = {
   dvl.wrapVarIfNeeded = (v, name) ->
     v = null if v is undefined
     if dvl.knows(v) then v else dvl.def(v, name)
-    
+
   dvl.valueOf = (v) ->
     if dvl.knows(v)
       return v.get()
@@ -354,7 +354,7 @@ dvl.util = {
       return v ? null
 
   registerers = {}
-  
+
   # filter out undefineds and nulls and constants also make unique
   uniqById = (vs, allowConst) ->
     res = []
@@ -378,8 +378,8 @@ dvl.util = {
       for w in v.updates
         throw "circular dependancy detected around #{w.id}" if w is fo
         stack.push w if not visited[w.id]
- 
-    return  
+
+    return
 
 
   bfsUpdate = (stack) ->
@@ -392,7 +392,7 @@ dvl.util = {
           w.level = nextLevel
           stack.push w
 
-    return  
+    return
 
 
   bfsZero = (queue) ->
@@ -403,8 +403,8 @@ dvl.util = {
         queue.push w
 
     return
-  
-  
+
+
   class DVLFunctionObject
     constructor: (@id, @ctx, @fn, @listen, @change) ->
       @updates = []
@@ -412,10 +412,10 @@ dvl.util = {
       if curRecording
         curRecording.fns.push this
       return this
-      
+
     addChange: ->
       uv = uniqById(arguments)
-      
+
       if uv.length
         for v in uv
           @change.push(v)
@@ -424,7 +424,7 @@ dvl.util = {
 
         checkForCycle(this)
         bfsUpdate([this])
-        
+
       return this
 
     addListen: ->
@@ -437,15 +437,15 @@ dvl.util = {
           for c in v.changers
             c.updates.push(this)
             @level = Math.max(@level, c.level+1)
-        
+
         checkForCycle(this)
         bfsUpdate([this])
-      
+
       uv = uniqById(arguments, true)
-      start_notify_collect(this) 
+      start_notify_collect(this)
       changedSave = []
       for v in uv
-        changedSave.push(v.changed) 
+        changedSave.push(v.changed)
         v.changed = true
       @fn.apply(@ctx)
       for v,i in uv
@@ -456,7 +456,7 @@ dvl.util = {
     remove: ->
       # Find the register object
       delete registerers[@id]
-      
+
       bfsZero([this])
 
       queue = []
@@ -475,22 +475,22 @@ dvl.util = {
       @change = @listen = @updates = null # cause an error if we hit these
       return
 
-  
+
   dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
     throw 'cannot call register from within a notify' if curNotifyListener
     throw 'fn must be a function' if typeof(fn) != 'function'
 
     # Check to see if (ctx, fu) already exists, raise error for now
     # for k, l of registerers
-    #   throw 'called twice' if l.ctx is ctx and l.fn is fn      
-     
+    #   throw 'called twice' if l.ctx is ctx and l.fn is fn
+
     listenConst = []
     if listen
       for v in listen
         listenConst.push v if v?.id and constants[v.id]
     listen = uniqById(listen)
     change = uniqById(change)
-    
+
     if listen.length isnt 0 or change.length isnt 0 or force
       # Make function/context holder object; set level to 0
       nextObjId += 1
@@ -504,13 +504,13 @@ dvl.util = {
 
       for v in change
         throw "No such DVL variable #{id} in changers" unless v
-        v.changers.push fo  
+        v.changers.push fo
 
       # Update dependancy graph
-      for cv in change      
+      for cv in change
         for lf in cv.listeners
           fo.updates.push lf
-          
+
       for lv in listen
         for cf in lv.changers
           cf.updates.push fo
@@ -519,7 +519,7 @@ dvl.util = {
       registerers[id] = fo
       checkForCycle(fo)
       bfsUpdate([fo])
-    
+
     if not noRun
       # Save changes and run the function with everythign as changed.
       changedSave = []
@@ -528,27 +528,27 @@ dvl.util = {
         l.changed = true
       for l in listenConst
         l.changed = true
-      
+
       start_notify_collect(fo)
       fn.apply ctx
       end_notify_collect()
-    
+
       for c,i in changedSave
         listen[i].changed = c
       for l in listenConst
         l.changed = false
-    
-    return fo 
 
-  
+    return fo
+
+
   dvl.clearAll = ->
     # disolve the graph to make the garbage collection job as easy as possibe
     for k, l of registerers
       l.listen = l.change = l.updates = null
-    
+
     for k, v of variables
       v.listeners = v.changers = null
-    
+
     # reset everything
     nextObjId = 1
     constants = {}
@@ -556,7 +556,7 @@ dvl.util = {
     registerers = {}
     return
 
-  
+
   levelPriorityQueue = (->
     queue = []
     minLevel = Infinity
@@ -572,7 +572,7 @@ dvl.util = {
         minLevel += 1
       return queue[minLevel].pop()
     length: -> len
-  )() 
+  )()
 
   curNotifyListener = null
   curCollectListener = null
@@ -580,37 +580,37 @@ dvl.util = {
   lastNotifyRun = null
   toNotify = null
 
-  
+
   start_notify_collect = (listener) ->
     toNotify = []
     curCollectListener = listener
     dvl.notify = collect_notify
     return
-    
-    
+
+
   end_notify_collect = ->
     curCollectListener = null
     dvl.notify = init_notify # ToDo: possible nested notify?
-    
+
     dvl.notify.apply(null, toNotify)
     toNotify = null
     return
-    
-  
+
+
   collect_notify = ->
     throw 'bad stuff happened collect' unless curCollectListener
-  
+
     for v in arguments
       continue unless variables[v.id]
       throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
       toNotify.push v
-      
+
     return
-    
-  
+
+
   within_notify = ->
     throw 'bad stuff happened within' unless curNotifyListener
-    
+
     for v in arguments
       continue unless variables[v.id]
       throw "changed unregisterd object #{v.id}" if v not in curNotifyListener.change
@@ -619,43 +619,43 @@ dvl.util = {
       for l in v.listeners
         if not l.visited
           levelPriorityQueue.push l
-    
+
     return
-    
-  
+
+
   init_notify = ->
     throw 'bad stuff happened init' if curNotifyListener
 
     lastNotifyRun = []
     visitedListener = []
     changedInNotify = []
-    
+
     for v in arguments
       continue unless variables[v.id]
       changedInNotify.push v
       lastNotifyRun.push v.id
       levelPriorityQueue.push l for l in v.listeners
-    
+
     dvl.notify = within_notify
-        
+
     # Handle events in a BFS way
     while levelPriorityQueue.length() > 0
       curNotifyListener = levelPriorityQueue.shift()
       continue if curNotifyListener.visited
       curNotifyListener.visited = true
       visitedListener.push(curNotifyListener)
-      lastNotifyRun.push(curNotifyListener.id)      
+      lastNotifyRun.push(curNotifyListener.id)
       curNotifyListener.fn.apply(curNotifyListener.ctx)
-    
+
     curNotifyListener = null
     dvl.notify = init_notify
     v.resetChanged() for v in changedInNotify
-    l.visited = false for l in visitedListener # reset visited    
+    l.visited = false for l in visitedListener # reset visited
     return
-  
-  
+
+
   dvl.notify = init_notify
-  
+
   dvl.startRecording = ->
     throw "already recording" if curRecording
     curRecording = { fns: [], vars: [] }
@@ -668,9 +668,9 @@ dvl.util = {
       f.remove() for f in rec.fns
       v.remove() for v in rec.vars
       return
-    
+
     return rec
-  
+
   dvl.debugFind = (name) ->
     name += '_'
     ret = []
@@ -678,9 +678,9 @@ dvl.util = {
       if id.indexOf(name) is 0 and not isNaN(id.substr(name.length))
         ret.push v
     return ret
-  
+
   ######################################################
-  ## 
+  ##
   ##  Renders the variable graph into dot
   ##
   dvl.graphToDot = (lastTrace, showId) ->
@@ -688,9 +688,9 @@ dvl.util = {
     if lastTrace and lastNotifyRun
       for pos, id of lastNotifyRun
         execOrder[id] = pos
-    
+
     nameMap = {}
-    
+
     for k, l of registerers
       fnName = l.id.replace(/\n/g, '')
       #fnName = fnName.replace(/_\d+/, '') unless showId
@@ -698,48 +698,48 @@ dvl.util = {
       # fnName += ' [[' + execOrder[l.id] + ']]' if execOrder[l.id]
       fnName = '"' + fnName + '"'
       nameMap[l.id] = fnName
-    
+
     for id,v of variables
       varName = id.replace(/\n/g, '')
       #varName = varName.replace(/_\d+/, '') unless showId
       # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]
       varName = '"' + varName + '"'
       nameMap[id] = varName
-    
+
     dot = []
     dot.push 'digraph G {'
     dot.push '  rankdir=LR;'
-    
+
     levels = []
     for id,v of variables
       color = if execOrder[id] then 'red' else 'black'
       dot.push "  #{nameMap[id]} [color=#{color}];"
-      
+
     for k, l of registerers
       levels[l.level] or= []
       levels[l.level].push nameMap[l.id]
       color = if execOrder[l.id] then 'red' else 'black'
-        
+
       dot.push "  #{nameMap[l.id]} [shape=box,color=#{color}];"
       for v in l.listen
         color = if execOrder[v.id] and execOrder[l.id] then 'red' else 'black'
-        dot.push "  #{nameMap[v.id]} -> #{nameMap[l.id]} [color=#{color}];" 
+        dot.push "  #{nameMap[v.id]} -> #{nameMap[l.id]} [color=#{color}];"
       for w in l.change
         color = if execOrder[l.id] and execOrder[w.id] then 'red' else 'black'
-        dot.push "  #{nameMap[l.id]} -> #{nameMap[w.id]} [color=#{color}];" 
-    
+        dot.push "  #{nameMap[l.id]} -> #{nameMap[w.id]} [color=#{color}];"
+
     for level in levels
       dot.push('{ rank = same; ' + level.join('; ') + '; }')
-    
+
     dot.push '}'
     return dot.join('\n')
-    
+
   dvl.postGraph = (file, showId) ->
     file or= 'dvl_graph'
     g = dvl.graphToDot(false, showId)
     dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
     return
-    
+
   dvl.postLatest = (file, showId) ->
     file or= 'dvl_graph_latest'
     g = dvl.graphToDot(true, showId)
@@ -764,16 +764,16 @@ dvl.identity = dvl.const(dvl.ident, 'identity')
 dvl.acc = (c) ->
   column = dvl.wrapConstIfNeeded(c);
   acc = dvl.def(null, "acc_#{column.get()}")
-  
+
   makeAcc = ->
     col = column.get();
     if col?
       acc.set((d) -> d[col])
     else
       acc.set(null)
-      
+
     dvl.notify(acc)
-  
+
   dvl.register({fn:makeAcc, listen:[column], change:[acc], name:'make_acc'})
   return acc
 
@@ -781,7 +781,7 @@ dvl.acc = (c) ->
 # Workers # -----------------------------------------
 
 ######################################################
-## 
+##
 ##  A DVL object debugger
 ##
 ##  Displays the object value with a message whenever the object changes.
@@ -798,7 +798,7 @@ dvl.debug = () ->
 
   dbgPrint = ->
     debug note, obj.get(), genStr(obj)
-  
+
   dvl.register({fn:dbgPrint, listen:[obj], name:'debug'})
   return obj
 
@@ -806,7 +806,7 @@ dvl.debug = () ->
 dvl.debug.find = dvl.debugFind
 
 ######################################################
-## 
+##
 ##  A DVL object invarient maintainer
 ##
 ##  Runs the supplied function on the data periodicaly on chage and throws the msg unless the function returns true.
@@ -815,7 +815,7 @@ dvl.debug.find = dvl.debugFind
 dvl.assert = ({data, fn, msg, allowNull}) ->
   msg or= "#{obj.id} failed its assert test"
   allowNull ?= true
-  
+
   verifyAssert ->
     d = data.get()
     if (d isnt null or allowNull) and not fn(d)
@@ -823,20 +823,20 @@ dvl.assert = ({data, fn, msg, allowNull}) ->
 
   dvl.register({fn:verifyAssert, listen:[obj], name:'assert_fn'})
   return
-  
+
 ######################################################
-## 
+##
 ##  Sets up a pipline stage that automaticaly applies the given fucntion.
-##  
+##
 dvl.apply = ({fn, args, out, name, invalid, allowNull, update}) ->
   fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
   throw 'dvl.apply only makes sense with at least one argument' unless args?
   args = [args] unless dvl.typeOf(args) is 'array'
   args = args.map(dvl.wrapConstIfNeeded)
   invalid = dvl.wrapConstIfNeeded(invalid ? null)
-  
+
   ret = dvl.wrapVarIfNeeded((out ? invalid.get()), name or 'apply_out')
-  
+
   apply = ->
     f = fn.get()
     return unless f?
@@ -846,19 +846,19 @@ dvl.apply = ({fn, args, out, name, invalid, allowNull, update}) ->
       v = a.get()
       nulls = true if v == null
       send.push v
-    
+
     if not nulls or allowNull
       r = f.apply(null, send)
       return if r is undefined
     else
       r = invalid.get()
-    
+
     if dvl.valueOf(update)
       ret.update(r)
     else
       ret.set(r)
       dvl.notify(ret)
-    
+
   dvl.register({fn:apply, listen:args.concat([fn, invalid]), change:[ret], name:(name or 'apply')+'_fn'})
   return ret
 
@@ -904,7 +904,7 @@ dvl.arrayTick = (data, options) ->
     len = d.length
     if len > 0
       v = d[point % len]
-      point = (point + move) % len  
+      point = (point + move) % len
       out.set(v)
       dvl.notify(out)
 
@@ -915,11 +915,11 @@ dvl.arrayTick = (data, options) ->
 
 dvl.recorder = (options) ->
   array = dvl.wrapVarIfNeeded(options.array or [], options.name or 'recorder_array')
-  
+
   data = options.data
   fn = dvl.wrapConstIfNeeded(options.fn or dvl.identity)
   throw 'it does not make sense not to have data' unless dvl.knows(data)
-  
+
   max = dvl.wrapConstIfNeeded(options.max or +Infinity)
   i = 0
 
@@ -934,7 +934,7 @@ dvl.recorder = (options) ->
       d[options.index] = i if options.index
       d[options.timestamp] = new Date() if options.timestamp
       array.push(d)
-      
+
       array.shift() while m < array.get().length
       dvl.notify(array)
       i += 1
@@ -950,11 +950,11 @@ dvl.delay = ({ data, time, name, init }) ->
   time = dvl.wrapConstIfNeeded(time)
   timer = null
   out = dvl.def(init or null, name or 'delay')
-  
+
   timeoutFn = ->
     out.set(data.get()).notify()
     timer = null
-    
+
   dvl.register {
     listen: [data, time]
     name: name or 'timeout'
@@ -966,7 +966,7 @@ dvl.delay = ({ data, time, name, init }) ->
         timer = setTimeout(timeoutFn, t)
   }
   return out
-  
+
 
 ##-------------------------------------------------------
 ##
@@ -974,7 +974,7 @@ dvl.delay = ({ data, time, name, init }) ->
 ##
 ##  Fetches ajax data form the server at the given url.
 ##  This function addes the given url to the global json getter,
-##  the getter then automaticly groups requests that come from the same event cycle. 
+##  the getter then automaticly groups requests that come from the same event cycle.
 ##
 ## ~url:  the url to fetch.
 ## ~data: data to send
@@ -1014,7 +1014,7 @@ dvl.delay = ({ data, time, name, init }) ->
           q.onError(err) if q.onError
         else
           q.resVal = if @url then resVal else null
-        
+
       q.status = 'ready'
       q.curAjax = null
 
@@ -1038,7 +1038,7 @@ dvl.delay = ({ data, time, name, init }) ->
       if _url? and (_method is 'GET' or (_data? and _dataFn?)) and _dataType
         if q.invalidOnLoad.get()
           q.res.update(null)
-        
+
         q.curAjax = q.requester.request {
           url: _url
           data: _data
@@ -1052,7 +1052,7 @@ dvl.delay = ({ data, time, name, init }) ->
           complete: getData
           context:  ctx
         }
-          
+
       else
         getData.call(ctx, null, null)
 
@@ -1060,7 +1060,7 @@ dvl.delay = ({ data, time, name, init }) ->
       bundle = []
       for id, q of queries
         continue unless q.url.hasChanged() or q.data.hasChanged() or q.dataFn.hasChanged()
-        
+
         if q.status is 'virgin'
           if q.url.get()
             initQueue.push q
@@ -1130,14 +1130,14 @@ dvl.delay = ({ data, time, name, init }) ->
     processData = dvl.wrapConstIfNeeded(processData ? true)
     invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad or false)
     name or= 'ajax_data'
-    
+
     groupId = dvl.ajax.getGroupId() unless groupId?
     ajaxManagers[groupId] or= makeManager()
-    
+
     if not requester
       normalRequester or= dvl.ajax.requester.normal()
       requester = normalRequester
-      
+
     return ajaxManagers[groupId](url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name)
 
   dvl.json = dvl.ajax
@@ -1152,15 +1152,15 @@ dvl.delay = ({ data, time, name, init }) ->
 )()
 
 dvl.ajax.requester = {
-  normal: () ->      
+  normal: () ->
     return {
       request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete, context}) ->
         dataVal = if method isnt 'GET' then dataFn(data) else null
-      
+
         getData = (resVal) ->
           if fn
             ctx = { url, data }
-            resVal = fn.call(ctx, resVal) 
+            resVal = fn.call(ctx, resVal)
 
           ajax = null
           complete.call(context, null, resVal)
@@ -1169,7 +1169,7 @@ dvl.ajax.requester = {
           return if textStatus is "abort"
           ajax = null
           complete.call(context, textStatus, null)
-      
+
         ajax = jQuery.ajax {
           url
           data:        dataVal
@@ -1182,20 +1182,20 @@ dvl.ajax.requester = {
           complete:    -> outstanding.set(outstanding.get() - 1).notify()
           context:     { url }
         }
-      
+
         outstanding.set(outstanding.get() + 1).notify()
-      
+
         return {
           abort: ->
             if ajax
               ajax.abort()
               ajax = null
-            
+
             return
         }
     }
-        
-        
+
+
   cache: ({max, timeout} = {}) ->
     max = dvl.wrapConstIfNeeded(max or 100)
     timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
@@ -1247,7 +1247,7 @@ dvl.ajax.requester = {
           getData = (resVal) ->
             if fn
               ctx = { url, data }
-              resVal = fn.call(ctx, resVal) 
+              resVal = fn.call(ctx, resVal)
 
             c.ajax = null
             c.resVal = resVal
@@ -1278,17 +1278,17 @@ dvl.ajax.requester = {
           }
 
           outstanding.set(outstanding.get() + 1).notify()
-          
+
         if c.resVal
           complete.call(context, null, c.resVal)
-          
+
           return {
             abort: ->
               return
           }
         else
-          c.waiting.push(cb) unless added 
-        
+          c.waiting.push(cb) unless added
+
           return {
             abort: ->
               c.waiting = c.waiting.filter((l) -> l isnt cb)
@@ -1301,7 +1301,7 @@ dvl.ajax.requester = {
 
               return
           }
-        
+
       clear: ->
         cache = {}
         count = 0
@@ -1314,7 +1314,7 @@ dvl.resizer = ({selector, out, dimension, fn}) ->
   out = dvl.wrapVarIfNeeded(out)
   dimension = dvl.wrapConstIfNeeded(dimension or 'width')
   fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
-    
+
   onResize = ->
     _dimension = dimension.get()
     _fn = fn.get()
@@ -1324,11 +1324,11 @@ dvl.resizer = ({selector, out, dimension, fn}) ->
         val = e[_dimension]()
       else
         val = document.body[if _dimension is 'width' then 'clientWidth' else 'clientHeight']
-    
+
       out.update(_fn(val))
     else
       out.update(null)
-    
+
   $(window).resize onResize
   dvl.register {
     name: 'resizer'
@@ -1347,7 +1347,7 @@ dvl.format = (string, subs) ->
     if not dvl.knows(s)
       s.fn = dvl.wrapConstIfNeeded(s.fn) if s.fn
       s.data = dvl.wrapConstIfNeeded(s.data)
-  
+
   makeString = ->
     args = [string]
     invalid = false
@@ -1365,17 +1365,17 @@ dvl.format = (string, subs) ->
           break
         v = s.fn.get()(v) if s.fn
         args.push v
-        
+
     out.set(if invalid then null else sprintf.apply(null, args))
     dvl.notify(out)
-    
+
   list = []
   for s in subs
     if dvl.knows(s)
       list.push s
     else
       list.push s.data
-  
+
   dvl.register({fn:makeString, listen:list, change:[out], name:'formater'})
   return out
 
@@ -1386,14 +1386,14 @@ dvl.snap = ({data, acc, value, trim, name}) ->
   value = dvl.wrapConstIfNeeded(value)
   trim = dvl.wrapConstIfNeeded(trim or false)
   name or= 'snaped_data'
-  
+
   out = dvl.def(null, name)
-  
+
   updateSnap = ->
     ds = data.get()
     a = acc.get()
     v = value.get()
-    
+
     if ds and a and v
       if dvl.typeOf(ds) isnt 'array'
         # ToDo: make this nicer
@@ -1401,7 +1401,7 @@ dvl.snap = ({data, acc, value, trim, name}) ->
         a = (x) -> x
       else
         dsc = ds
-      
+
       if trim.get() and dsc.length isnt 0 and (v < a(dsc[0]) or a(dsc[dsc.length-1]) < v)
         minIdx = -1
       else
@@ -1413,31 +1413,31 @@ dvl.snap = ({data, acc, value, trim, name}) ->
             if dist < minDist
               minDist = dist
               minIdx = i
-      
+
       minDatum = if minIdx < 0 then null else dvl.util.getRow(ds, minIdx)
       out.set(minDatum) unless out.get() is minDatum
     else
       out.set(null)
     dvl.notify(out)
-    
+
   dvl.register({fn:updateSnap, listen:[data, acc, value, trim], change:[out], name:name+'_maker'})
   return out
 
 
 dvl.orDefs = ({args, name}) ->
-  args = [args] if dvl.typeOf(args) isnt 'array' 
+  args = [args] if dvl.typeOf(args) isnt 'array'
   args = args.map(dvl.wrapConstIfNeeded)
   out = dvl.def(null, name or 'or_defs')
-  
+
   update = ->
     for a in args
       if a.get() isnt null or a.len() isnt 0
         out.set(a.get()).setGen(a.gen(), a.len()).notify()
         return
-    
+
     out.set(null).setGen(null).notify()
     return
-  
+
   dvl.register({fn:update, listen:args, change:[out]})
   return out
 
@@ -1446,10 +1446,10 @@ dvl.hasher = (obj) ->
   updateHash = ->
     h = obj.get()
     window.location.hash = h unless window.location.hash == h
-    
+
   dvl.register({fn:updateHash, listen:[obj], name:'hash_changer'})
   return
-  
+
 # Scales # ------------------------------------------------
 
 dvl.scale = {}
@@ -1464,9 +1464,9 @@ dvl.scale = {}
 
     rangeTo = options.rangeTo || 0
     rangeTo = dvl.wrapConstIfNeeded(rangeTo)
-    
+
     padding = options.padding || 0
-    
+
     numTicks = options.numTicks || 10
     numTicks = dvl.wrapConstIfNeeded(numTicks)
 
@@ -1493,7 +1493,7 @@ dvl.scale = {}
         makeScaleFn()
       else if domainFrom is domainTo
         makeScaleFnSingle()
-      else 
+      else
         makeScaleFnEmpty()
 
     makeScaleFn = () ->
@@ -1513,7 +1513,7 @@ dvl.scale = {}
         scaleRef.set((x) -> s(x).color)
       else
         scaleRef.set(s)
-        
+
       invertRef.set(s.invert)
       ticksRef.setLazy(-> s.ticks(numTicks.get()))
       formatRef.set(s.tickFormat)
@@ -1528,7 +1528,7 @@ dvl.scale = {}
         if rt > rf
           rf += padding
           rt -= padding
-        else    
+        else
           rf -= padding
           rt += padding
       avg = (rf + rt) / 2
@@ -1557,16 +1557,16 @@ dvl.scale = {}
           if data != null
             acc = dom.acc || dvl.identity
             a = acc.get()
-            
+
             if dvl.typeOf(data) isnt 'array'
               # ToDo: make this nicer
               data = a(data)
               a = (x) -> x
-              
-            if data.length > 0            
+
+            if data.length > 0
               if dom.sorted
                 d0 = a(data[0], 0)
-                dn = a(data[data.length - 1], data.length - 1)      
+                dn = a(data[data.length - 1], data.length - 1)
                 min = d0 if d0 < min
                 min = dn if dn < min
                 max = d0 if max < d0
@@ -1575,7 +1575,7 @@ dvl.scale = {}
                 mm = dvl.util.getMinMax(data, a)
                 min = mm.min if mm.min < min
                 max = mm.max if max < mm.max
-                 
+
         else
           f = dom.from.get()
           t = dom.to.get()
@@ -1586,10 +1586,10 @@ dvl.scale = {}
       if options.anchor
         min = 0 if 0 < min
         max = 0 if max < 0
-        
+
       if options.scaleMin != undefined
         min *= options.scaleMin
-        
+
       if options.scaleMax != undefined
         max *= options.scaleMax
 
@@ -1612,7 +1612,7 @@ dvl.scale = {}
         listenData.push(dom.data, dom.acc)
       else
         listenData.push(dom.from, dom.to)
-    
+
     change = [scaleRef, invertRef, ticksRef, formatRef]
     dvl.register({fn:makeScale, listen:[rangeFrom, rangeTo, numTicks], change:change, name:name + '_range_change', noRun:true})
     dvl.register({fn:updateData, listen:listenData, change:change, name:name + '_data_change'})
@@ -1651,7 +1651,7 @@ dvl.scale = {}
       if rt > rf
         rf += padding
         rt -= padding
-      else    
+      else
         rf -= padding
         rt += padding
       s = pv.Scale.ordinal().domain(domain).split(rf, rt)
@@ -1670,19 +1670,19 @@ dvl.scale = {}
       dvl.notify(scaleRef, ticksRef, formatRef, bandRef)
       return
 
-    updateData = () -> 
+    updateData = () ->
       domain = optDomain.data.get()
-      
+
       if not domain
         makeScaleFnEmpty()
         return
-    
+
       if optDomain.acc
         a = optDomain.acc.get()
         domain = domain.map(a);
 
       if optDomain.sort
-        # Sorting changes the data in place so copy the data if we have not done so already 
+        # Sorting changes the data in place so copy the data if we have not done so already
         domain = domain.slice() unless optDomain.acc or optDomain.uniq
         domain.sort()
 
@@ -1698,15 +1698,15 @@ dvl.scale = {}
 
     dvl.register({fn:makeScaleFn, listen:[rangeFrom, rangeTo], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_range_change', noRun:true})
     dvl.register({fn:updateData, listen:[optDomain.data, optDomain.acc], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_data_change'})
-    
-    # return 
+
+    # return
     scale: scaleRef
     ticks: ticksRef
     format: formatRef
     band: bandRef
 )()
 
-dvl.dataMapper 
+dvl.dataMapper
 
 # Gens # --------------------------------------------------
 
@@ -1731,7 +1731,7 @@ dvl.gen.fromValue = (value, acc, fn, name) ->
     if a? and f? and v?
       rv = f(a(v))
       g = -> rv
-        
+
       gen.setGen(g)
     else
       gen.setGen(null)
@@ -1747,7 +1747,7 @@ dvl.gen.fromArray = (data, acc, fn, name) ->
   fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
 
   gen = dvl.def(null, name or 'array_generator')
-  
+
   d = []
   makeGen = ->
     a = acc.get()
@@ -1757,11 +1757,11 @@ dvl.gen.fromArray = (data, acc, fn, name) ->
       g = (i) ->
         i = i % d.length
         f(a(d[i], i))
-      
+
       gen.setGen(g, data.get().length)
     else
       gen.setGen(null)
-      
+
     dvl.notify(gen)
 
   dvl.register({fn:makeGen, listen:[data, acc, fn], change:[gen], name:'array_make_gen'})
@@ -1774,7 +1774,7 @@ dvl.gen.fromColumnData = (data, acc, fn, name) ->
   fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
 
   gen = dvl.def(null, name or 'column_generator')
-  
+
   d = []
   makeGen = ->
     a = acc.get()
@@ -1784,11 +1784,11 @@ dvl.gen.fromColumnData = (data, acc, fn, name) ->
       g = (i) ->
         i = i % d.length
         f(d[i])
-      
+
       gen.setGen(g, d.length)
     else
       gen.setGen(null)
-      
+
     dvl.notify(gen)
 
   dvl.register({fn:makeGen, listen:[data, acc, fn], change:[gen], name:'array_make_gen'})
@@ -1800,9 +1800,9 @@ dvl.gen.equal = (genA, genB, retTrue, retFalse) ->
   retFalse = false if retFalse is undefined
   retTrue  = dvl.wrapConstIfNeeded(retTrue)
   retFalse = dvl.wrapConstIfNeeded(retFalse)
-  
+
   gen = dvl.def(null, 'equal_generator')
-  
+
   makeGen = ->
     a = genA.gen()
     b = genB.gen()
@@ -1820,12 +1820,12 @@ dvl.gen.equal = (genA, genB, retTrue, retFalse) ->
       gen.setGen(rtg, rtl)
     else
       gen.setGen(rfg, rfl)
-    
+
     dvl.notify(gen)
-  
+
   dvl.register({fn:makeGen, listen:[genA, genB, retTrue, retFalse], change:[gen], name:'equal_make_gen'})
   return gen
-    
+
 
 generator_maker_maker = (combiner, name) ->
   return () ->
@@ -1843,7 +1843,7 @@ generator_maker_maker = (combiner, name) ->
           break
         gens.push arg_gen
         lens.push arg.len()
-        
+
       if valid
         g = (i) ->
           gis = []
@@ -1860,7 +1860,7 @@ generator_maker_maker = (combiner, name) ->
     dvl.register({fn:makeGen, listen:args, change:[gen], name:name + '_make_gen'})
     return gen
 
-  
+
 dvl.gen.add = generator_maker_maker(((a,b,c) -> a+b+(c||0)), 'add')
 dvl.gen.sub = generator_maker_maker(((a,b,c) -> a-b-(c||0)), 'sub')
 
@@ -1871,10 +1871,10 @@ dvl.svg = {}
 (->
   processOptions = (options, mySvg, myClass) ->
     throw 'No panel defined.' unless options.panel
-    out = 
+    out =
       mySvg: mySvg
       myClass: myClass
-      
+
     if options
       out.duration = dvl.wrapConstIfNeeded(options.duration or dvl.zero)
       out.classStr = options.classStr
@@ -1883,8 +1883,8 @@ dvl.svg = {}
       out.visible = dvl.wrapConstIfNeeded(options.visible ? true)
 
     return out
-    
-  
+
+
   processProps = (props) ->
     throw 'No props defined.' unless props
     p = {}
@@ -1899,38 +1899,38 @@ dvl.svg = {}
   processDim2 = (props, panelWidth, left, right) ->
     if not props[left]
       if props[right]
-        props[left] = dvl.gen.sub(panelWidth, props[right]) 
+        props[left] = dvl.gen.sub(panelWidth, props[right])
       else
         props[left] = dvl.zero
     #else
     #  We have everything we need to know
-        
+
     return
-          
-    
+
+
   processDim3 = (props, panelWidth, left, width, right) ->
     if props[left]
       if not props[width]
         props[width] = dvl.gen.sub(panelWidth, props[left], props[right])
       #else
-      #  We have everything we need to know 
+      #  We have everything we need to know
     else
       if props[width]
-        props[left] = dvl.gen.sub(panelWidth, props[width], props[right]) 
+        props[left] = dvl.gen.sub(panelWidth, props[width], props[right])
       else
         props[left] = dvl.zero
         props[width] = panelWidth
-    
+
     return
-    
-    
+
+
   processDim4 = (props, panelWidth, left, width, right, center) ->
     if props[left]
       if not props[width]
         if props[center]
           props[width] = gen_subDouble(props[canter], props[left])
         else
-          props[width] = dvl.gen.sub(panelWidth, props[left], props[right])   
+          props[width] = dvl.gen.sub(panelWidth, props[left], props[right])
       #else
       #  We have everything we need to know
     else
@@ -1948,24 +1948,24 @@ dvl.svg = {}
           props[width] = panelWidth
 
     return
-  
-  
+
+
   removeUndefined = (obj) ->
     for k,p of obj
       delete obj[k] if p is undefined
     obj
-      
-    
+
+
   initGroup = (panel, options) ->
     g = panel.g.append('svg:g')
     g.attr('class', options.classStr) is options.classStr
     #g.attr('transform', 'translate(0,0)')
     #g.attr('width', panel.width.get())
     #g.attr('height', panel.height.get())
-    
+
     return g
-    
-    
+
+
   initClip = (panel, g, options) ->
     if options.clip
       cpid = getNextClipPathId()
@@ -1974,7 +1974,7 @@ dvl.svg = {}
         .append('svg:rect')
         .attr('x', 0)
         .attr('y', 0)
-        
+
       dvl.register {
         name: 'clip_rect'
         listen: [panel.width, panel.height]
@@ -1984,7 +1984,7 @@ dvl.svg = {}
             .attr('height', panel.height.get())
           return
       }
-    
+
       g.attr('clip-path', 'url(#' + cpid + ')')
       return cp
     else
@@ -1996,51 +1996,51 @@ dvl.svg = {}
       l = gen.len()
       length = l if l < length
     return if length == Infinity then 1 else length
-    
-  
+
+
   nextClipPathId = 0
   getNextClipPathId = ->
     nextClipPathId += 1
     return 'cp_' + nextClipPathId
-        
-  
+
+
   selectEnterExit = (g, options, props, numMarks) ->
     if props.key and props.key.gen()
       key_gen = props.key.gen()
       id_gen = (i) -> 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '')
       join = (i) -> if this.getAttribute then this.getAttribute('id') else key_gen(i)
-    
+
     sel = g.selectAll("#{options.mySvg}.#{options.myClass}").data(pv.range(0, numMarks), join)
-    
+
     sel.exit().remove()
 
     m = sel.enter().append("svg:#{options.mySvg}")
     m.attr('id', id_gen) if props.key and props.key.gen()
     m.attr('class', options.myClass)
-    
+
     if options.on
       m.on(what, onFn) for what, onFn of options.on
 
     return m
 
-    
+
   reselectUpdate = (g, options, duration) ->
     m = g.selectAll("#{options.mySvg}.#{options.myClass}")
     m = m.transition().duration(duration) if duration > 0
     return m
 
-  
+
   makeAnchors = (anchors, options) ->
     anchor = []
     for a, info of anchors
-      av = dvl.def(null, "#{options.myClass}_anchor_#{a}") 
+      av = dvl.def(null, "#{options.myClass}_anchor_#{a}")
       anchor[a] = av
       lazy = dvl.alwaysLazy(av, info.calc)
       dvl.register({fn:lazy, listen:info.dep, change:[av], name:"lazy_anchor_#{a}"})
-      
+
     return anchor
-    
-  
+
+
   dvl.svg.canvas = ({selector, classStr, width, height, margin, onEvent}) ->
     throw 'no selector' unless selector
     width = dvl.wrapConstIfNeeded(width ? 600)
@@ -2054,7 +2054,7 @@ dvl.svg = {}
     svg.attr('class', classStr) if classStr
     vis = svg.append('svg:g').attr('class', 'main')
     bg  = vis.append('svg:rect').attr('class', 'background')
-      
+
     if onEvent
       bg.on(what, onFn) for what, onFn of onEvent
 
@@ -2084,7 +2084,7 @@ dvl.svg = {}
       else
         canvasWidth.update(null)
         canvasHeight.update(null)
-        
+
       return
 
     dvl.register {
@@ -2093,7 +2093,7 @@ dvl.svg = {}
       change: [canvasWidth, canvasHeight]
       fn: resize
     }
-  
+
     return {
       svg
       g: vis
@@ -2109,7 +2109,7 @@ dvl.svg = {}
     fnY   = dvl.wrapConstIfNeeded(fnY or dvl.identity)
     flipX = dvl.wrapConstIfNeeded(flipX or false)
     flipY = dvl.wrapConstIfNeeded(flipY or false)
-    
+
     lastMouse = [-1, -1]
     recorder = ->
       m = lastMouse = if d3.event then d3.svg.mouse(panel.g.node()) else lastMouse
@@ -2127,17 +2127,17 @@ dvl.svg = {}
       else
         x.set(null)
         y.set(null)
-        
+
       dvl.notify(x, y)
-    
+
     panel.g.on('mousemove', recorder).on('mouseout', recorder)
     dvl.register({ fn:recorder, listen:[fnX, fnY, flipX, flipY], change:[x, y], name:'mouse_recorder' })
     return { x, y }
-  
-  
+
+
   listen_attr = {}
   update_attr = {}
-  
+
 
   listen_attr.panels = ['left', 'top', 'width', 'height']
   update_attr.panels = (m, p, prev) ->
@@ -2145,18 +2145,18 @@ dvl.svg = {}
 
     left = p.left
     top  = p.top
-    if prev or left.hasChanged() or top.hasChanged() 
+    if prev or left.hasChanged() or top.hasChanged()
       left_gen = left[gen]()
       top_gen  = top[gen]()
       m.attr('transform', ((i) -> "translate(#{left_gen(i)},#{top_gen(i)})"))
-    
+
     width = p.width
     m.attr('width',  width[gen]())  if width and (prev or width.hasChanged())
-    
+
     height = p.height
     m.attr('height', height[gen]()) if height and (prev or height.hasChanged())
     return
-      
+
   dvl.svg.panels = (options) ->
     o = processOptions(options, 'g', 'panels')
     o.clip = false unless o.clip?
@@ -2166,12 +2166,12 @@ dvl.svg = {}
     processDim3(p, panel.height, 'top', 'height', 'bottom')
     g = initGroup(panel, o)
     clip = initClip(panel, g, o)
-    
+
     content = options.content
-    
+
     widths = []
     heights = []
-    
+
     render = ->
       len = calcLength(p)
 
@@ -2184,10 +2184,10 @@ dvl.svg = {}
           dur = 0
         else
           dur = o.duration.get()
-    
+
         m = g.selectAll('g')
         update_attr[o.myClass](m, p)
-        
+
         ms = m[0]
         msLen = ms.length
         i = 0
@@ -2197,32 +2197,32 @@ dvl.svg = {}
           if not widths[i]
             widths[i]  = dvl.def(wg(i), 'width_'  + i)
             heights[i] = dvl.def(hg(i), 'height_' + i)
-            
+
           content(i, {
             g: d3.select(ms[i])
             width: widths[i]
             height: heights[i]
           })
           i++
-      
+
         g.style('display', null)
       else
         g.style('display', 'none')
-        
+
       return
-    
+
     listen = [panel.width, panel.height]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'panels_render'})
     return
-    
+
 
   listen_attr.line = ['left', 'top', 'stroke']
   update_attr.line = (m, p, prev) ->
     gen = if prev then 'genPrev' else 'gen'
 
-    left = p.left           
-    if (prev or left.hasChanged()) 
+    left = p.left
+    if (prev or left.hasChanged())
       left_gen = left[gen]()
       m.attr('x1', left_gen)
       m.attr('x2', (i) -> left_gen(i+1))
@@ -2230,7 +2230,7 @@ dvl.svg = {}
 
     top = p.top
     if (prev or top.hasChanged())
-      top_gen = top[gen]()  
+      top_gen = top[gen]()
       m.attr('y1', top_gen)
       m.attr('y2', (i) -> top_gen(i+1))
 
@@ -2257,14 +2257,14 @@ dvl.svg = {}
           y = p.top.gen()
           as = []
           i = 0
-          while i < length-1 
+          while i < length-1
             as.push { x:(x(i) + x(i+1)) / 2, y:(y(i) + y(i+1)) / 2 }
             i += 1
           return as
-        
+
     render = ->
       len = Math.max(0, calcLength(p) - 1)
-      
+
       if o.visible.get()
         m = selectEnterExit(g, o, p, len)
         update_attr[o.myClass](m, p, true)
@@ -2276,11 +2276,11 @@ dvl.svg = {}
 
         m = reselectUpdate(g, o, dur)
         update_attr[o.myClass](m, p)
-      
+
         g.style('display', null)
       else
         g.style('display', 'none')
-        
+
       return
 
     listen = [panel.width, panel.height, o.visible]
@@ -2308,7 +2308,7 @@ dvl.svg = {}
           y = p.y.gen()
           as = []
           i = 0
-          while i < length-1 
+          while i < length-1
             as.push { x:(x(i) + x(i+1)) / 2, y:(y(i) + y(i+1)) / 2 }
             i += 1
           return as
@@ -2329,8 +2329,8 @@ dvl.svg = {}
             .x(x)
             .y1(y)
             .y0(panel.height.gen())
-        
-        a.attr('d', af(d3.range(len))); 
+
+        a.attr('d', af(d3.range(len)));
 
         g.style('display', null)
       else
@@ -2341,28 +2341,28 @@ dvl.svg = {}
     dvl.register({fn:render, listen:[panel.width, panel.height, o.visible, p.x, p.y], name:'render_area'})
     makeAnchors(anchors, o)
 
-      
+
   listen_attr.lines = ['left1', 'left2', 'top1', 'top2', 'stroke']
   update_attr.lines = (m, p, prev) ->
     gen = if prev then 'genPrev' else 'gen'
-    
-    left1 = p.left1            
+
+    left1 = p.left1
     m.attr('x1', left1[gen]()) if (prev or left1.hasChanged())
-                               
-    left2 = p.left2            
+
+    left2 = p.left2
     m.attr('x2', left2[gen]()) if (prev or left2.hasChanged())
-                               
-    top1 = p.top1              
+
+    top1 = p.top1
     m.attr('y1', top1[gen]()) if (prev or top1.hasChanged())
-                               
-    top2 = p.top2              
+
+    top2 = p.top2
     m.attr('y2', top2[gen]()) if (prev or top2.hasChanged())
 
     stroke = p.stroke
     m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
     return
 
-  dvl.svg.lines = (options) ->  
+  dvl.svg.lines = (options) ->
     o = processOptions(options, 'line', 'lines')
     o.clip = true unless o.clip?
     p = processProps(options.props)
@@ -2375,14 +2375,14 @@ dvl.svg = {}
     p.top2 or= p.top
     p.bottom1 or= p.bottom
     p.bottom2 or= p.bottom
-    removeUndefined(p) 
+    removeUndefined(p)
     processDim2(p, panel.width, 'left1', 'right1')
     processDim2(p, panel.width, 'left2', 'right2')
     processDim2(p, panel.height, 'top1', 'bottom1')
     processDim2(p, panel.height, 'top2', 'bottom2')
     g = initGroup(panel, o)
     clip = initClip(panel, g, o)
-  
+
     anchors =
       midpoint1:
         dep: [p.left1, p.top1]
@@ -2392,11 +2392,11 @@ dvl.svg = {}
           y = p.top1.gen()
           as = []
           i = 0
-          while i < length-1 
+          while i < length-1
             as.push { x:(x(i) + x(i+1)) / 2, y:(y(i) + y(i+1)) / 2 }
             i += 1
           return as
-        
+
       midpoint2:
         dep: [p.left2, p.top2]
         calc: ->
@@ -2405,12 +2405,12 @@ dvl.svg = {}
           y = p.top2.gen()
           as = []
           i = 0
-          while i < length-1 
+          while i < length-1
             as.push { x:(x(i) + x(i+1)) / 2, y:(y(i) + y(i+1)) / 2 }
             i += 1
           return as
-        
-      center: 
+
+      center:
         dep: [p.left1, p.left2, p.top1, p.top2]
         calc: ->
           length = calcLength(p)
@@ -2420,14 +2420,14 @@ dvl.svg = {}
           y2 = p.top2.gen()
           as = []
           i = 0
-          while i < length 
+          while i < length
             as.push { x:(x1(i) + x2(i)) / 2, y:(y1(i) + y2(i)) / 2 }
             i += 1
           return as
 
     render = ->
       len = calcLength(p)
-      
+
       if o.visible.get()
         m = selectEnterExit(g, o, p, len)
         update_attr[o.myClass](m, p, true)
@@ -2436,14 +2436,14 @@ dvl.svg = {}
           dur = 0
         else
           dur = o.duration.get()
-      
+
         m = reselectUpdate(g, o, dur)
         update_attr[o.myClass](m, p)
-        
+
         g.style('display', null)
       else
         g.style('display', 'none')
-        
+
       return
 
     listen = [panel.width, panel.height, o.visible]
@@ -2458,7 +2458,7 @@ dvl.svg = {}
 
     left = p.left
     top  = p.top
-    if prev or left.hasChanged() or top.hasChanged() 
+    if prev or left.hasChanged() or top.hasChanged()
       left_gen = left[gen]()
       top_gen  = top[gen]()
       m.attr('transform', ((i) -> "translate(#{left_gen(i)},#{top_gen(i)})"))
@@ -2468,15 +2468,15 @@ dvl.svg = {}
 
     height = p.height
     m.attr('height', height[gen]()) if height and (prev or height.hasChanged())
-    
+
     fill = p.fill
     m.attr('fill', fill[gen]()) if fill and (prev or fill.hasChanged())
-    
+
     stroke = p.stroke
     m.attr('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
     return
 
-  dvl.svg.bars = (options) ->     
+  dvl.svg.bars = (options) ->
     o = processOptions(options, 'rect', 'bars')
     o.clip = true unless o.clip?
     p = processProps(options.props)
@@ -2485,9 +2485,9 @@ dvl.svg = {}
     processDim4(p, panel.height, 'top', 'height', 'bottom', 'centerY')
     g = initGroup(panel, o)
     clip = initClip(panel, g, o)
-      
+
     anchors =
-      center: 
+      center:
         dep: [p.left, p.top, p.width, p.height]
         calc: ->
           length = calcLength(p)
@@ -2497,7 +2497,7 @@ dvl.svg = {}
           h = p.height.gen()
           as = []
           i = 0
-          while i < length 
+          while i < length
             as.push { x:x(i) + w(i) / 2, y: y(i) + h(i) / 2 }
             i += 1
           return as
@@ -2514,21 +2514,21 @@ dvl.svg = {}
           dur = 0
         else
           dur = o.duration.get()
-    
+
         m = reselectUpdate(g, o, dur)
         update_attr[o.myClass](m, p)
-      
+
         g.style('display', null)
       else
         g.style('display', 'none')
-        
+
       return
-    
+
     listen = [panel.width, panel.height]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'bars_render'})
     makeAnchors(anchors, o)
-    
+
 
   listen_attr.labels = ['left', 'top', 'baseline', 'align', 'text', 'color']
   update_attr.labels = (m, p, prev) ->
@@ -2548,14 +2548,14 @@ dvl.svg = {}
 
     baseline = p.baseline
     if baseline and (prev or baseline.hasChanged())
-      baseline_gen = baseline[gen]() 
-      m.attr('dy', ((i) -> 
+      baseline_gen = baseline[gen]()
+      m.attr('dy', ((i) ->
                     pi = baseline_gen(i)
                     if pi is 'top' then '.71em' else if pi is 'middle' then '.35em' else null))
 
     align = p.align
     m.attr('text-anchor', align[gen]()) if align and (prev or align.hasChanged())
-    
+
     color = p.color
     m.style('fill', color[gen]()) if color and (prev or color.hasChanged())
     return
@@ -2574,36 +2574,36 @@ dvl.svg = {}
 
     render = ->
       len = calcLength(p)
-      
+
       if len > 0 and o.visible.get()
         text = p.text.gen()
         m = selectEnterExit(g, o, p, len)
         update_attr[o.myClass](m, p, true)
-        m.text(text) 
+        m.text(text)
 
         if panel.width.hasChanged() or panel.height.hasChanged()
           dur = 0
         else
           dur = o.duration.get()
-      
+
         #m = reselectUpdate(g, o, dur)
         m = g.selectAll("#{o.mySvg}.#{o.myClass}")
         m.text(text) if p.text.hasChanged()
         m = m.transition().duration(dur) if dur > 0
         update_attr[o.myClass](m, p)
-      
+
         g.style('display', null)
       else
         g.style('display', 'none')
-      
+
       return
 
     listen = [panel.width, panel.height, o.visible]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'labels_render'})
     makeAnchors(anchors, o)
-  
-  
+
+
   listen_attr.dots = ['left', 'top', 'radius', 'fill', 'stroke']
   update_attr.dots = (m, p, prev) ->
     gen = if prev then 'genPrev' else 'gen'
@@ -2623,7 +2623,7 @@ dvl.svg = {}
     stroke = p.stroke
     m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
     return
-    
+
   dvl.svg.dots = (options) ->
     o = processOptions(options, 'circle', 'dots')
     o.clip = true unless o.clip?
@@ -2658,11 +2658,11 @@ dvl.svg = {}
           r = p.radius.gen()
           as = []
           i = 0
-          while i < length 
+          while i < length
             as.push { x:x(i) + r(i), y:y(i) }
             i += 1
           return as
-          
+
       top:
         dep: [p.left, p.top, p.radius]
         calc: ->
@@ -2672,11 +2672,11 @@ dvl.svg = {}
           r = p.radius.gen()
           as = []
           i = 0
-          while i < length-1 
+          while i < length-1
             as.push { x:x(i), y:y(i) - r(i) }
             i += 1
           return as
-          
+
       bottom:
         dep: [p.left, p.top, p.radius]
         calc: ->
@@ -2686,7 +2686,7 @@ dvl.svg = {}
           r = p.radius.gen()
           as = []
           i = 0
-          while i < length-1 
+          while i < length-1
             as.push { x:x(i), y:y(i) + r(i) }
             i += 1
           return as
@@ -2705,17 +2705,17 @@ dvl.svg = {}
 
         m = reselectUpdate(g, o, dur)
         update_attr[o.myClass](m, p)
-      
+
         g.style('display', null)
       else
         g.style('display', 'none')
-    
+
       return
 
     listen = [panel.width, panel.height, o.visible]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'dots_renderer'})
-    makeAnchors(anchors, o)  
+    makeAnchors(anchors, o)
 )()
 
 
@@ -2734,11 +2734,11 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 
   throw 'must have selector' unless selector
   selector = dvl.wrapConstIfNeeded(selector)
-  
+
   format = dvl.wrapConstIfNeeded(format or dvl.identity)
   invalid = dvl.wrapConstIfNeeded(invalid or null)
   hideInvalid = dvl.wrapConstIfNeeded(hideInvalid or false)
-  
+
   if attr
     what = dvl.wrapConstIfNeeded(attr)
     out = (selector, string) -> d3.select(selector).attr(what.get(), string)
@@ -2776,14 +2776,25 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
   throw 'must have selector' unless selector
   selection  = dvl.wrapVarIfNeeded(selection, 'selection')
   selections = dvl.wrapVarIfNeeded(selections or [], 'selections')
-  
+
   values = dvl.wrapConstIfNeeded(values)
   names = dvl.wrapConstIfNeeded(names or values)
   links = dvl.wrapConstIfNeeded(links)
-  listClassStr = dvl.wrapConstIfNeeded(listClassStr)
-  
+
+  if listClassStr?
+    listClassStr = dvl.wrapConstIfNeeded(listClassStr)
+  else
+    classFn = dvl.apply {
+      args: [selection, selections]
+      fn: (sel, sels) -> (value) ->
+        (if value is sel then 'selection' else 'not_selection') + ' ' +
+        (if value in sels then 'selections' else 'not_selections')
+    }
+
+    listClassStr = dvl.gen.fromArray(values, null, classFn)
+
   ul = d3.select(selector).append('ul').attr('class', classStr)
-  
+
   updateAll = (val, notify) ->
     selection.set(val)
 
@@ -2798,81 +2809,83 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
     dvl.notify(selection, selections)
     return
 
+  dvl.register {
+    name: 'update_html_list'
+    listen: [names, values, links]
+    fn: ->
+      len = Math.min(
+        values.len(),
+        names.len(),
+        links.len() or Infinity
+      )
+      len = 1 if len is Infinity
 
-  updateList = ->
-    len = Math.min(
-      values.len(),
-      names.len(),
-      links.len() or Infinity, 
-      listClassStr.len()
-    )
-    len = 1 if len is Infinity
-    
-    ng = names.gen()
-    vg = values.gen()
-    lg = links.gen()
-    cs = listClassStr.gen()
+      ng = names.gen()
+      vg = values.gen()
+      lg = links.gen()
+      cs = listClassStr.gen()
 
-    onClick = (i) ->
-      val = vg(i)
-      if onSelect?(val, i) isnt false
-        link = lg(i)
-        updateAll(val)
-        window.location.href = link if link
+      onClick = (i) ->
+        val = vg(i)
+        if onSelect?(val, i) isnt false
+          link = lg(i)
+          updateAll(val)
+          window.location.href = link if link
+        return
+
+      sel = ul.selectAll('li').data(d3.range(len))
+      a = sel.enter().append('li').append('a')
+      if iconDiv in ['left', 'both']
+        a.append('div')
+          .attr('class', 'icon_cont left')
+          .append('div')
+            .attr('class', 'icon')
+
+      a.append('span')
+
+      if iconDiv in ['right', 'both']
+        a.append('div')
+          .attr('class', 'icon_cont right')
+          .append('div')
+            .attr('class', 'icon')
+
+      cont = sel
+        .attr('class', cs)
+        .on('click', onClick)
+        .select('a')
+          .attr('href', lg)
+
+      cont.select('span')
+        .text(ng)
+
+      cont.select('div.left')
+        .on('click', (i) ->
+          val = vg(i)
+          if onSelectLeft?(val, i) is false
+            d3.event.stopImmediatePropagation()
+        )
+
+      cont.select('div.right')
+        .on('click', (i) ->
+          val = vg(i)
+          if onSelectRight?(val, i) is false
+            d3.event.stopImmediatePropagation()
+        )
+
+      sel.exit().remove()
       return
+  }
 
-    sel = ul.selectAll('li').data(d3.range(len))
-    a = sel.enter().append('li').append('a')
-    a.append('div').attr('class', 'icon left') if iconDiv in ['left', 'both']
-    a.append('span')
-    a.append('div').attr('class', 'icon right') if iconDiv in ['right', 'both']
+  dvl.register {
+    name: 'update_class_list'
+    listen: [listClassStr]
+    fn: -> ul.selectAll('li').attr('class', listClassStr.gen())
+  }
 
-    cont = sel
-      .attr('class', cs)
-      .on('click', onClick)
-      .select('a')
-        .attr('href', lg)
-
-    cont.select('span')
-      .attr('class', cs)
-      .text(ng)
-
-    cont.select('div.left')
-      .on('click', (i) ->
-        val = vg(i)
-        if onSelectLeft?(val, i) is false
-          d3.event.stopImmediatePropagation()
-      )
-
-    cont.select('div.right')
-      .on('click', (i) ->
-        val = vg(i)
-        if onSelectRight?(val, i) is false
-          d3.event.stopImmediatePropagation()
-      )
-
-    sel.exit().remove()
-    return
-  
-  dvl.register({fn:updateList, listen:[names, values, links, listClassStr], name:'html_list'})
-  
-  updateSelection = ->
-    sel = selection.get()
-    sels = selections.get()
-    vg = values.gen()
-    
-    ul.selectAll('li')
-      .classed('selection', (i) -> vg(i) is sel)
-      .classed('selections', (i) -> sels and vg(i) in sels)
-
-    return
-    
-  dvl.register({fn:updateSelection, listen:[selection, selections, values], name:'html_list_selection'})
-  
   return {
     selection
     selections
-    node:ul.node()
+    node: ul.node()
   }
 
 
@@ -2882,27 +2895,27 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   selections = dvl.wrapVarIfNeeded(selections, 'selections')
   menuAnchor = dvl.wrapConstIfNeeded(menuAnchor or 'left')
   menuOffset = dvl.wrapConstIfNeeded(menuOffset or { x:0, y:0 })
-  
+
   values = dvl.wrapConstIfNeeded(values)
   names = dvl.wrapConstIfNeeded(names or values)
   selectionNames = dvl.wrapConstIfNeeded(selectionNames or names)
   links = if links then dvl.wrapConstIfNeeded(links) else null
   title = dvl.wrapConstIfNeeded(title) if title
-  
+
   menuOpen = false
   getClass = ->
     (classStr ? '') + ' ' + (if menuOpen then 'open' else 'closed')
-  
+
   divCont = d3.select(selector)
     .append('div')
     .attr('class', getClass())
     .style('position', 'relative')
-  
+
   selectedDiv = divCont.append('div')
-    .attr('class', 'selection')
-  
+    .attr('class', 'selected')
+
   valueSpan = selectedDiv.append('span')
-  
+
   open = () ->
     sp = $(selectedDiv.node())
     pos = sp.position()
@@ -2912,22 +2925,22 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     listDiv
       .style('display', null)
       .style('top', (pos.top + height + offset.y) + 'px')
-      
+
     if anchor is 'left'
       listDiv.style('left', (pos.left + offset.x) + 'px')
     else
       listDiv.style('right', (pos.left - offset.x) + 'px')
-      
+
     menuOpen = true
     divCont.attr('class', getClass())
     return
-    
+
   close = () ->
     listDiv.style('display', 'none')
     menuOpen = false
     divCont.attr('class', getClass())
     return
-  
+
   myOnSelect = (text, i) ->
     close() unless keepOnClick
     return onSelect?(text, i)
@@ -2954,15 +2967,15 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     listClassStr
     iconDiv
   }
-  
+
   listDiv = d3.select(list.node)
     .style('position', 'absolute')
     .style('z-index', 1000)
     .style('display', 'none')
-  
+
   $(window).click((e) ->
     return if $(listDiv.node()).find(e.target).length
-    
+
     if selectedDiv.node() is e.target or $(selectedDiv.node()).find(e.target).length
       if menuOpen
         close()
@@ -2970,10 +2983,10 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
         open()
     else
       close()
-      
+
     return
   )
-  
+
   updateSelection = ->
     if title
       valueSpan.text(title.get())
@@ -2988,11 +3001,11 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
           if vg(i) is sel
             valueSpan.text(ng(i))
             return
-          i++ 
-  
+          i++
+
       valueSpan.html('&nbsp;')
     return
-  
+
   dvl.register {
     fn:updateSelection
     listen:[selection, selectionNames, values, title]
@@ -3003,49 +3016,6 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     node: divCont.node()
     selection
   }
-
-
-##-------------------------------------------------------
-##
-##  Select (dropdown box) made with HTML
-##
-dvl.html.select = ({selector, values, names, selection, classStr}) ->
-  throw 'must have selector' unless selector
-  selection = dvl.wrapVarIfNeeded(selection, 'selection')
-  
-  values = dvl.wrapConstIfNeeded(values)
-  names = dvl.wrapConstIfNeeded(names)
-  
-  selChange = ->
-    selection.update(selectEl.node().value)
-  
-  selectEl = d3.select(selector)
-    .append('select')
-    .attr('class', classStr or null)
-    .on('change', selChange)
-    
-  selectEl.selectAll('option')
-    .data(d3.range(values.len()))
-      .enter().append('option')
-        .attr('value', values.gen())
-        .text(names.gen())
-  
-        
-  dvl.register {
-    listen: [selection]
-    fn: ->
-      if selectEl.node().value isnt selection.get()
-        selectEl.node().value = selection.get()
-      return
-  }
-        
-  
-  #updateSelection = () ->
-  #  selectEl
-  
-  selChange()
-  #dvl.register({fn: updateSelection, listen:[], change:[selection]})
-  return selection
 
 
 ##-------------------------------------------------------
@@ -3064,7 +3034,7 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
 ##     ~title:            The title of the column header.
 ##     ~headerTooltip:    The popup tool tip (title element text) of the column header.
 ##      classStr:         The class given to the 'th' and 'td' elements in this column, if not specified will default to the id.
-##      cellClassGen:     The class generator for the cell 
+##      cellClassGen:     The class generator for the cell
 ##     ~cellClick:        The generator of click handlers
 ##     -gen:              The generator that drives the column data.
 ##     ~sortable:         Toggles wheather the column is sortable or not. [true]
@@ -3080,7 +3050,7 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
 ##   ~modes:           The order rotation that is allowed. Must be an array of [{'asc', 'desc', 'none'}].
 ##   ~autoOnClick:     Toggle wheather the table will be sorted (updating sort.on and/or possibly sort.order) automaticaly when clicked. [true]
 ##   ~indicator:       [true / false]
-##                     
+##
 ## ~showHeader:        Toggle showing the header [true]
 ## ~onHeaderClick:     Callback or url when the header of a column is clicked.
 ## ~headerTooltip:     The default herder tooltip (title element text).
@@ -3090,30 +3060,30 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   throw 'selector has to be a plain string.' if dvl.knows(selector)
   throw 'columns has to be a plain array.' if dvl.knows(columns)
   throw 'sort has to be a plain object.' if dvl.knows(sort)
-  
+
   visible = dvl.wrapConstIfNeeded(visible ? true)
-  
+
   showHeader = dvl.wrapConstIfNeeded(showHeader ? true)
   onHeaderClick = dvl.wrapConstIfNeeded(onHeaderClick)
   headerTooltip = dvl.wrapConstIfNeeded(headerTooltip or null)
-  
+
   rowLimit = dvl.wrapConstIfNeeded(rowLimit or null)
-  
+
   sort = sort or {}
-  
+
   sortOn = dvl.wrapVarIfNeeded(sort.on)
   sortOnClick = dvl.wrapConstIfNeeded(sort.autoOnClick ? true)
   sortModes = dvl.wrapConstIfNeeded(sort.modes or ['asc', 'desc', 'none'])
   modes = sortModes.get()
   sortOrder = dvl.wrapVarIfNeeded(sort.order or (if modes.length > 0 then modes[0] else 'none'))
-  
+
   listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortModes, sortOrder]
-  
+
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
   listen.push sortIndicator
-  
+
   numRows = dvl.def(null, 'num_rows')
-  
+
   goOrCall = (arg, id) ->
     t = typeof(arg)
     if t is 'function'
@@ -3121,7 +3091,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     else if t is 'string'
       window.location.href = arg
     return
-  
+
   # flatten possible merge header columns
   if columns.length and columns[0].columns
     topHeader = []
@@ -3133,7 +3103,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       for c in tc.columns
         newColumns.push c
     columns = newColumns
-  
+
   # process columns
   for i, c of columns
     c.title = dvl.wrapConstIfNeeded(c.title or '')
@@ -3148,18 +3118,18 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen
     if c.renderer.depends
       listen.push d for d in c.renderer.depends
-    c.uniquClass = 'column_' + i 
-  
+    c.uniquClass = 'column_' + i
+
   t = d3.select(selector).append('table')
   t.attr('class', classStr) if classStr
-  
+
   colClass = (c) -> (c.classStr or c.id) + ' ' + c.uniquClass + (if c.sorted then ' sorted' else '') + (if c.sortable.get() then ' sortable' else ' unsortable')
 
   thead = t.append('thead')
   th = thead.append('tr').attr('class', 'top_header') if topHeader
   h = thead.append('tr')
   b = t.append('tbody')
-  
+
   if topHeader
     th.selectAll('th')
       .data(topHeader)
@@ -3168,15 +3138,15 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
         .attr('colspan', (d) -> d.span)
           .append('div')
             .text((d) -> d.title.get());
-  
+
   sel = h.selectAll('th')
     .data(columns)
     .enter().append('th')
       .on('click', (c) ->
         return unless c.id?
-        
+
         goOrCall(onHeaderClick.get(), c.id)
-        
+
         if sortOnClick.get() and c.sortable.get()
           if sortOn.get() is c.id
             modes = sortModes.get()
@@ -3185,15 +3155,15 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
           else
             sortOn.set(c.id).notify()
         )
-  
+
   sel.append('span') # title text container
-  
+
   si = sortIndicator.get();
   if si
     sel.append('div')
       .attr('class', 'sort_indicator')
       .style('display', (c) -> if c.sortable.get() then null else 'none')
-      
+
   tableLength = ->
     length = +Infinity
     for c in columns
@@ -3228,21 +3198,21 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
         if c.sorted = (c.id is sortOnId)
           sortCol = c
           throw "sort on column marked unsortable (#{sortOnId})" unless sortCol.sortable.get()
-          
-    
+
+
       if sortCol
         sortGen = (sortCol.sortGen or sortCol.gen).gen()
         numeric = sortGen and typeof(sortGen(0)) is 'number'
 
         dir = String(sortOrder.get()).toLowerCase()
         if dir is 'desc'
-          sortFn = if numeric then ((i,j) -> sortGen(j) - sortGen(i)) else ((i,j) -> sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase())) 
+          sortFn = if numeric then ((i,j) -> sortGen(j) - sortGen(i)) else ((i,j) -> sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase()))
           r.sort(sortFn)
-        else if dir is 'asc' 
+        else if dir is 'asc'
           sortFn = if numeric then ((i,j) -> sortGen(i) - sortGen(j)) else ((i,j) -> sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase()))
           r.sort(sortFn)
         # else do nothing
-        
+
       if sortIndicator.get()
         h.selectAll('th').data(columns)
           .select('div.sort_indicator')
@@ -3250,17 +3220,17 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
             .attr('class', (c) ->
               which = if c is sortCol and dir isnt 'none'
                 if c.reverseIndicator.get() then (if dir is 'asc' then 'desc' else 'asc') else dir
-              else 
+              else
                 'none'
               return 'sort_indicator ' + which
             )
-    
+
     h.selectAll('th').data(columns)
       .attr('class', colClass)
       .style('display', (c) -> if c.visible.get() and not c.hideHeader then null else "none")
       .attr('title', (c) -> c.headerTooltip.get())
         .select('span')[if htmlTitles then 'html' else 'text']((c) -> c.title.get())
-    
+
     limit = rowLimit.get()
     r = r.splice(0, Math.max(0, limit)) if limit?
     numRows.update(r.length)
@@ -3286,27 +3256,27 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
         csel
           .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id))
           .style('display', null)
-          
+
         if col.hoverGen
           csel.attr('title', col.hoverGen.gen())
-        
+
         if col.cellClassGen
           cg = col.cellClassGen.gen()
           csel.attr('class', (i) -> colClass(col) + if cg? then ' ' + cg(i))
-          
+
         col.renderer(csel, gen, col.sorted)
       else
         csel.style('display', 'none')
 
     return
-  
+
   dvl.register {
     name: 'table_maker'
     fn: makeTable
     listen: listen
-    change: [numRows]  
+    change: [numRows]
   }
-  
+
   return {
     sortOn
     sortOrder
@@ -3314,7 +3284,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     node: t.node()
   }
 
-dvl.html.table.renderer = 
+dvl.html.table.renderer =
   text: (col, dataFn) ->
     col.text(dataFn)
     return
@@ -3331,9 +3301,9 @@ dvl.html.table.renderer =
       return
     f.depends = [linkGen]
     return f
-  spanLink: ({click}) -> 
+  spanLink: ({click}) ->
     titleGen = dvl.wrapConstIfNeeded(titleGen)
-    f = (col, dataFn) -> 
+    f = (col, dataFn) ->
       sel = col.selectAll('span').data((d) -> [d])
       sel.enter().append('span').attr('class', 'span_link')
       sel.html(dataFn).on('click', click)
@@ -3354,10 +3324,10 @@ dvl.html.table.renderer =
     sel.enter().append('div').attr('class', dataFn)
     sel.attr('class', dataFn)
     return
-  svgSparkline: ({classStr, width, height, x, y, padding}) -> 
-    f = (col, dataFn) -> 
+  svgSparkline: ({classStr, width, height, x, y, padding}) ->
+    f = (col, dataFn) ->
       svg = col.selectAll('svg').data((i) -> [dataFn(i)])
-    
+
       line = (d) ->
         mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
         mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
@@ -3365,17 +3335,17 @@ dvl.html.table.renderer =
         sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
         return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
 
-    
+
       svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height)
 
       sel = svg.selectAll('path').data((d) -> [d])
-  
+
       sel.enter().append("svg:path").attr("class", "line")
-    
+
       sel.attr("d", line)
-    
+
       points = svg.selectAll('circle')
-        .data((d) -> 
+        .data((d) ->
           mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
           mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
           sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
@@ -3387,11 +3357,11 @@ dvl.html.table.renderer =
             ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
           ]
         )
-    
+
       points.enter().append("svg:circle")
         .attr("r", 2)
         .attr("class", (d) -> d[0])
-      
+
       points
         .attr("cx", (d) -> d[1])
         .attr("cy", (d) -> d[2])
@@ -3399,5 +3369,4 @@ dvl.html.table.renderer =
 
     f.depends = []
     return f
-    
-    
+
