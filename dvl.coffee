@@ -2772,7 +2772,7 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({selector, names, values, links, selection, selections, onSelect, onSelectLeft, onSelectRight, classStr, listClassStr, iconDiv}) ->
+dvl.html.list = ({selector, names, values, links, selection, selections, onSelect, icons, classStr, listClassStr}) ->
   throw 'must have selector' unless selector
   selection  = dvl.wrapVarIfNeeded(selection, 'selection')
   selections = dvl.wrapVarIfNeeded(selections or [], 'selections')
@@ -2780,6 +2780,10 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
   values = dvl.wrapConstIfNeeded(values)
   names = dvl.wrapConstIfNeeded(names or values)
   links = dvl.wrapConstIfNeeded(links)
+
+  icons or= []
+  for i in icons
+    i.position or= 'right'
 
   if listClassStr?
     listClassStr = dvl.wrapConstIfNeeded(listClassStr)
@@ -2829,21 +2833,31 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
           window.location.href = link if link
         return
 
+      addIcons = (el, position) ->
+        icons.forEach (icon) ->
+          return unless icon.position is position
+
+          classStr = 'icon_cont ' + position
+          classStr += ' ' + icon.classStr if icon.classStr
+
+          el.append('div')
+            .attr('class', classStr)
+            .on('click', (i) ->
+              val = values.gen()(i)
+              d3.event.stopImmediatePropagation() if icon.onSelect?(val, i) is false
+              return
+            ).append('div')
+              .attr('class', 'icon')
+
+          return
+        return
+
       sel = ul.selectAll('li').data(d3.range(len))
       a = sel.enter().append('li').append('a')
-      if iconDiv in ['left', 'both']
-        a.append('div')
-          .attr('class', 'icon_cont left')
-          .append('div')
-            .attr('class', 'icon')
 
+      addIcons a, 'left'
       a.append('span')
-
-      if iconDiv in ['right', 'both']
-        a.append('div')
-          .attr('class', 'icon_cont right')
-          .append('div')
-            .attr('class', 'icon')
+      addIcons a, 'right'
 
       cont = sel
         .attr('class', cs)
@@ -2853,20 +2867,6 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
 
       cont.select('span')
         .text(ng)
-
-      cont.select('div.left')
-        .on('click', (i) ->
-          val = vg(i)
-          if onSelectLeft?(val, i) is false
-            d3.event.stopImmediatePropagation()
-        )
-
-      cont.select('div.right')
-        .on('click', (i) ->
-          val = vg(i)
-          if onSelectRight?(val, i) is false
-            d3.event.stopImmediatePropagation()
-        )
 
       sel.exit().remove()
       return
@@ -2885,7 +2885,7 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
   }
 
 
-dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, selections, onSelect, onSelectLeft, onSelectRight, classStr, listClassStr, menuAnchor, menuOffset, title, iconDiv, keepOnClick}) ->
+dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, selections, onSelect, classStr, listClassStr, menuAnchor, menuOffset, title, icons, keepOnClick}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   selections = dvl.wrapVarIfNeeded(selections, 'selections')
@@ -2897,6 +2897,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
   selectionNames = dvl.wrapConstIfNeeded(selectionNames or names)
   links = if links then dvl.wrapConstIfNeeded(links) else null
   title = dvl.wrapConstIfNeeded(title) if title
+  icons or= []
 
   menuOpen = false
   getClass = ->
@@ -2941,13 +2942,12 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     close() unless keepOnClick
     return onSelect?(text, i)
 
-  myOnSelectRight = (text, i) ->
-    close() unless keepOnClick
-    return onSelectRight?(text, i)
-
-  myOnSelectLeft = (text, i) ->
-    close() unless keepOnClick
-    return onSelectLeft?(text, i)
+  icons.forEach (icon) ->
+    icon_onSelect = icon.onSelect
+    icon.onSelect = (text, i) ->
+      close() unless keepOnClick
+      return icon_onSelect?(text, i)
+    return
 
   list = dvl.html.list {
     selector: divCont.node()
@@ -2957,11 +2957,9 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     selection
     selections
     onSelect: myOnSelect
-    onSelectRight: myOnSelectRight
-    onSelectLeft: myOnSelectLeft
     classStr: 'list'
     listClassStr
-    iconDiv
+    icons
   }
 
   listDiv = d3.select(list.node)
@@ -2980,7 +2978,11 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     else
       close()
 
-    return
+    return {
+      node: divCont.node()
+      selection
+      selections
+    }
   )
 
   updateSelection = ->

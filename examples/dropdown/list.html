@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>DVL List</title>
-    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />	
+    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />
     <script type="text/javascript" src="../../js/jquery-1.6.2.min.js"></script>
     <script type="text/javascript" src="../../js/jquery-ui-1.8.7.custom.js"></script>
     <script type="text/javascript" src="../../d3.js"></script>
@@ -85,7 +85,7 @@ li.selections {
     var links = dvl.def("http://google.com", 'link');
     var selection = dvl.def(null, 'selection');
     var selections = dvl.def(null, 'selections');
-  
+
     dvl.html.list({
       selector: '#cont1',
       names: names,
@@ -93,16 +93,16 @@ li.selections {
       links: links,
       selection: selection,
       selections: selections,
-      iconDiv: 'right'
+      icons: [ { position: 'right' } ]
     });
-  
+
     dvl.html.list({
       selector: '#cont2',
       names: names,
       values: values,
       selection: selection,
       selections: selections,
-      iconDiv: 'left',
+      icons: [ { position: 'left' } ]
     });
 
     dvl.html.list({
@@ -123,12 +123,21 @@ li.selections {
         selections.update(sl);
         return false;
       },
-      onSelectRight: function(val) {
-        selection.update(val);
-        return false
-      }
+      icons: [
+        {
+          position: 'left'
+        },
+        {
+          position: 'right',
+          onSelect: function(val) {
+            selection.update(val);
+            return false
+          }
+        }
+      ]
+
     });
-    
+
     dvl.html.dropdownList({
       selector: '#cont4',
       names: names,
@@ -136,7 +145,7 @@ li.selections {
       selection: selection,
       selections: selections
     });
-    
+
     dvl.html.out({
       selector: '#out1',
       data: selection,
