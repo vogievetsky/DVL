@@ -19,7 +19,7 @@ a {
   text-decoration: none;
 }
 
-li.selection {
+li.is_selection {
   color: red;
 }
 
@@ -32,7 +32,7 @@ div.right {
   background-color: green;
 }
 
-li.selections {
+li.is_selections {
   text-decoration: underline;
 }
 
@@ -102,7 +102,13 @@ li.selections {
       values: values,
       selection: selection,
       selections: selections,
-      icons: [ { position: 'left' } ]
+      icons: [
+        {
+          position: 'left',
+          onEnter: function(val) { console.log('in', val); },
+          onLeave: function(val) { console.log('out', val); }
+        }
+      ]
     });
 
     dvl.html.list({

@@ -49,7 +49,7 @@ debug = function() {
   return argCopy[0];
 };
 window.dvl = {
-  version: '0.96'
+  version: '0.97'
 };
 (function() {
   var array_ctor, date_ctor, regex_ctor;
@@ -2241,6 +2241,33 @@ dvl.gen.fromValue = function(value, acc, fn, name) {
   });
   return gen;
 };
+dvl.gen.fromGen = function(generator, fn, name) {
+  var gen, makeGen;
+  generator = dvl.wrapConstIfNeeded(generator);
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  gen = dvl.def(null, name || 'generator_generator');
+  makeGen = function() {
+    var g, _fn, _generator;
+    _generator = generator.gen();
+    _fn = fn.get();
+    if ((_generator != null) && (_fn != null)) {
+      g = function(i) {
+        return _fn(_generator(i));
+      };
+      gen.setGen(g, generator.len);
+    } else {
+      gen.setGen(null);
+    }
+    return dvl.notify(gen);
+  };
+  dvl.register({
+    fn: makeGen,
+    listen: [generator, fn],
+    change: [gen],
+    name: 'generator_make_gen'
+  });
+  return gen;
+};
 dvl.gen.fromArray = function(data, acc, fn, name) {
   var d, gen, makeGen;
   data = dvl.wrapConstIfNeeded(data);
@@ -3489,13 +3516,14 @@ dvl.html.out = function(_arg) {
   });
 };
 dvl.html.list = function(_arg) {
-  var classFn, classStr, i, icons, links, listClassStr, names, onSelect, selection, selections, selector, ul, values, _i, _len;
-  selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, icons = _arg.icons, classStr = _arg.classStr, listClassStr = _arg.listClassStr;
+  var classFn, classStr, extras, i, icons, links, listClassStr, names, onEnter, onLeave, onSelect, selection, selections, selector, sortFn, ul, values, _i, _len;
+  selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, listClassStr = _arg.listClassStr, sortFn = _arg.sortFn;
   if (!selector) {
     throw 'must have selector';
   }
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
   selections = dvl.wrapVarIfNeeded(selections || [], 'selections');
+  sortFn = dvl.wrapConstIfNeeded(sortFn);
   values = dvl.wrapConstIfNeeded(values);
   names = dvl.wrapConstIfNeeded(names || values);
   links = dvl.wrapConstIfNeeded(links);
@@ -3507,12 +3535,42 @@ dvl.html.list = function(_arg) {
   if (listClassStr != null) {
     listClassStr = dvl.wrapConstIfNeeded(listClassStr);
   } else {
-    classFn = dvl.apply({
-      args: [selection, selections],
-      fn: function(sel, sels) {
-        return function(value) {
-          return (value === sel ? 'selection' : 'not_selection') + ' ' + (__indexOf.call(sels, value) >= 0 ? 'selections' : 'not_selections');
-        };
+    classFn = dvl.def(null, 'class_fn');
+    dvl.register({
+      listen: [selection, selections],
+      change: [classFn],
+      fn: function() {
+        var f, _selection, _selections;
+        _selection = selection.get();
+        _selections = selections.get();
+        if (_selection) {
+          if (_selections) {
+            f = function(value) {
+              return (value === _selection ? 'is_selection' : 'isnt_selection') + ' ' + (__indexOf.call(_selections, value) >= 0 ? 'is_selections' : 'isnt_selections');
+            };
+          } else {
+            f = function(value) {
+              if (value === _selection) {
+                return 'is_selection';
+              } else {
+                return 'isnt_selection';
+              }
+            };
+          }
+        } else {
+          if (_selections) {
+            f = function(value) {
+              if (__indexOf.call(_selections, value) >= 0) {
+                return 'is_selections';
+              } else {
+                return 'isnt_selections';
+              }
+            };
+          } else {
+            f = null;
+          }
+        }
+        classFn.set(f).notify();
       }
     });
     listClassStr = dvl.gen.fromArray(values, null, classFn);
@@ -3522,7 +3580,7 @@ dvl.html.list = function(_arg) {
     name: 'update_html_list',
     listen: [names, values, links],
     fn: function() {
-      var a, addIcons, cont, cs, len, lg, ng, onClick, sel, vg;
+      var a, addIcons, cont, cs, len, lg, myOnEnter, myOnLeave, ng, onClick, sel, vg;
       len = Math.min(values.len(), names.len(), links.len() || Infinity);
       if (len === Infinity) {
         len = 1;
@@ -3541,6 +3599,7 @@ dvl.html.list = function(_arg) {
           i = sl.indexOf(val);
           if (i === -1) {
             sl.push(val);
+            sl.sort(sortFn.get());
           } else {
             sl.splice(i, 1);
           }
@@ -3549,6 +3608,20 @@ dvl.html.list = function(_arg) {
           if (link) {
             window.location.href = link;
           }
+        }
+      };
+      myOnEnter = function(i) {
+        var val;
+        val = vg(i);
+        if (typeof onEnter === "function") {
+          onEnter(val, i);
+        }
+      };
+      myOnLeave = function(i) {
+        var val;
+        val = vg(i);
+        if (typeof onLeave === "function") {
+          onLeave(val, i);
         }
       };
       addIcons = function(el, position) {
@@ -3560,10 +3633,22 @@ dvl.html.list = function(_arg) {
           if (icon.classStr) {
             classStr += ' ' + icon.classStr;
           }
-          el.append('div').attr('class', classStr).on('click', function(i) {
+          el.append('div').attr('class', classStr).attr('title', icon.title).on('click', function(i) {
             var val;
             val = values.gen()(i);
             if ((typeof icon.onSelect === "function" ? icon.onSelect(val, i) : void 0) === false) {
+              d3.event.stopImmediatePropagation();
+            }
+          }).on('mouseover', function(i) {
+            var val;
+            val = values.gen()(i);
+            if ((typeof icon.onEnter === "function" ? icon.onEnter(val, i) : void 0) === false) {
+              d3.event.stopImmediatePropagation();
+            }
+          }).on('mouseout', function(i) {
+            var val;
+            val = values.gen()(i);
+            if ((typeof icon.onLeave === "function" ? icon.onLeave(val, i) : void 0) === false) {
               d3.event.stopImmediatePropagation();
             }
           }).append('div').attr('class', 'icon');
@@ -3574,7 +3659,7 @@ dvl.html.list = function(_arg) {
       addIcons(a, 'left');
       a.append('span');
       addIcons(a, 'right');
-      cont = sel.attr('class', cs).on('click', onClick).select('a').attr('href', lg);
+      cont = sel.attr('class', cs).on('click', onClick).on('mouseover', myOnEnter).on('mouseout', myOnLeave).select('a').attr('href', lg);
       cont.select('span').text(ng);
       sel.exit().remove();
     }
@@ -3593,8 +3678,8 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, icons, keepOnClick, links, list, listClassStr, listDiv, menuAnchor, menuOffset, menuOpen, myOnSelect, names, onSelect, open, selectedDiv, selection, selectionNames, selections, selector, title, updateSelection, valueSpan, values;
-  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick;
+  var classStr, close, divCont, getClass, icons, keepOnClick, links, listClassStr, menuAnchor, menuCont, menuOffset, menuOpen, myOnSelect, names, onEnter, onLeave, onSelect, open, selectedDiv, selection, selectionNames, selections, selector, sortFn, title, updateSelection, valueSpan, values;
+  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, icons = _arg.icons, sortFn = _arg.sortFn, keepOnClick = _arg.keepOnClick;
   if (!selector) {
     throw 'must have selector';
   }
@@ -3627,17 +3712,17 @@ dvl.html.dropdownList = function(_arg) {
     height = sp.outerHeight(true);
     anchor = menuAnchor.get();
     offset = menuOffset.get();
-    listDiv.style('display', null).style('top', (pos.top + height + offset.y) + 'px');
+    menuCont.style('display', null).style('top', (pos.top + height + offset.y) + 'px');
     if (anchor === 'left') {
-      listDiv.style('left', (pos.left + offset.x) + 'px');
+      menuCont.style('left', (pos.left + offset.x) + 'px');
     } else {
-      listDiv.style('right', (pos.left - offset.x) + 'px');
+      menuCont.style('right', (pos.left - offset.x) + 'px');
     }
     menuOpen = true;
     divCont.attr('class', getClass());
   };
   close = function() {
-    listDiv.style('display', 'none');
+    menuCont.style('display', 'none');
     menuOpen = false;
     divCont.attr('class', getClass());
   };
@@ -3650,28 +3735,31 @@ dvl.html.dropdownList = function(_arg) {
   icons.forEach(function(icon) {
     var icon_onSelect;
     icon_onSelect = icon.onSelect;
-    icon.onSelect = function(text, i) {
+    icon.onSelect = function(val, i) {
       if (!keepOnClick) {
         close();
       }
-      return typeof icon_onSelect === "function" ? icon_onSelect(text, i) : void 0;
+      return typeof icon_onSelect === "function" ? icon_onSelect(val, i) : void 0;
     };
   });
-  list = dvl.html.list({
-    selector: divCont.node(),
+  menuCont = divCont.append('div').attr('class', 'menu_cont').style('position', 'absolute').style('z-index', 1000).style('display', 'none');
+  dvl.html.list({
+    selector: menuCont.node(),
     names: names,
     values: values,
     links: links,
+    sortFn: sortFn,
     selection: selection,
     selections: selections,
     onSelect: myOnSelect,
+    onEnter: onEnter,
+    onLeave: onLeave,
     classStr: 'list',
     listClassStr: listClassStr,
     icons: icons
   });
-  listDiv = d3.select(list.node).style('position', 'absolute').style('z-index', 1000).style('display', 'none');
-  $(window).click(function(e) {
-    if ($(listDiv.node()).find(e.target).length) {
+  $(window).bind('click', function(e) {
+    if ($(menuCont.node()).find(e.target).length) {
       return;
     }
     if (selectedDiv.node() === e.target || $(selectedDiv.node()).find(e.target).length) {
@@ -3688,7 +3776,7 @@ dvl.html.dropdownList = function(_arg) {
       selection: selection,
       selections: selections
     };
-  });
+  }).bind('blur', close);
   updateSelection = function() {
     var i, len, ng, sel, vg;
     if (title) {
@@ -3718,11 +3806,37 @@ dvl.html.dropdownList = function(_arg) {
   });
   return {
     node: divCont.node(),
+    menuCont: menuCont.node(),
     selection: selection
   };
 };
+dvl.html.select = function(_arg) {
+  var classStr, names, selChange, selectEl, selection, selector, values;
+  selector = _arg.selector, values = _arg.values, names = _arg.names, selection = _arg.selection, classStr = _arg.classStr;
+  if (!selector) {
+    throw 'must have selector';
+  }
+  selection = dvl.wrapVarIfNeeded(selection, 'selection');
+  values = dvl.wrapConstIfNeeded(values);
+  names = dvl.wrapConstIfNeeded(names);
+  selChange = function() {
+    return selection.update(selectEl.node().value);
+  };
+  selectEl = d3.select(selector).append('select').attr('class', classStr || null).on('change', selChange);
+  selectEl.selectAll('option').data(d3.range(values.len())).enter().append('option').attr('value', values.gen()).text(names.gen());
+  dvl.register({
+    listen: [selection],
+    fn: function() {
+      if (selectEl.node().value !== selection.get()) {
+        selectEl.node().value = selection.get();
+      }
+    }
+  });
+  selChange();
+  return selection;
+};
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6;
+  var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOnIndicator, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7;
   selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit, htmlTitles = _arg.htmlTitles;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
@@ -3740,11 +3854,12 @@ dvl.html.table = function(_arg) {
   rowLimit = dvl.wrapConstIfNeeded(rowLimit || null);
   sort = sort || {};
   sortOn = dvl.wrapVarIfNeeded(sort.on);
-  sortOnClick = dvl.wrapConstIfNeeded((_ref = sort.autoOnClick) != null ? _ref : true);
+  sortOnIndicator = dvl.wrapVarIfNeeded((_ref = sort.onIndicator) != null ? _ref : sortOn);
+  sortOnClick = dvl.wrapConstIfNeeded((_ref2 = sort.autoOnClick) != null ? _ref2 : true);
   sortModes = dvl.wrapConstIfNeeded(sort.modes || ['asc', 'desc', 'none']);
   modes = sortModes.get();
   sortOrder = dvl.wrapVarIfNeeded(sort.order || (modes.length > 0 ? modes[0] : 'none'));
-  listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortModes, sortOrder];
+  listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortOnIndicator, sortModes, sortOrder];
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
   listen.push(sortIndicator);
   numRows = dvl.def(null, 'num_rows');
@@ -3771,9 +3886,9 @@ dvl.html.table = function(_arg) {
         span: tc.columns.length
       });
       listen.push(tc.title);
-      _ref2 = tc.columns;
-      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
-        c = _ref2[_j];
+      _ref3 = tc.columns;
+      for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
+        c = _ref3[_j];
         newColumns.push(c);
       }
     }
@@ -3782,19 +3897,19 @@ dvl.html.table = function(_arg) {
   for (i in columns) {
     c = columns[i];
     c.title = dvl.wrapConstIfNeeded(c.title || '');
-    c.sortable = dvl.wrapConstIfNeeded((_ref3 = c.sortable) != null ? _ref3 : true);
-    c.showIndicator = dvl.wrapConstIfNeeded((_ref4 = c.showIndicator) != null ? _ref4 : true);
+    c.sortable = dvl.wrapConstIfNeeded((_ref4 = c.sortable) != null ? _ref4 : true);
+    c.showIndicator = dvl.wrapConstIfNeeded((_ref5 = c.showIndicator) != null ? _ref5 : true);
     c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator || false);
     c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip || null);
     c.cellClick = dvl.wrapConstIfNeeded(c.cellClick || null);
-    c.visible = dvl.wrapConstIfNeeded((_ref5 = c.visible) != null ? _ref5 : true);
+    c.visible = dvl.wrapConstIfNeeded((_ref6 = c.visible) != null ? _ref6 : true);
     c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'html'];
     c.cellClassGen = c.cellClassGen ? dvl.wrapConstIfNeeded(c.cellClassGen) : null;
     listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen);
     if (c.renderer.depends) {
-      _ref6 = c.renderer.depends;
-      for (_k = 0, _len3 = _ref6.length; _k < _len3; _k++) {
-        d = _ref6[_k];
+      _ref7 = c.renderer.depends;
+      for (_k = 0, _len3 = _ref7.length; _k < _len3; _k++) {
+        d = _ref7[_k];
         listen.push(d);
       }
     }
@@ -3865,7 +3980,7 @@ dvl.html.table = function(_arg) {
     return length;
   };
   makeTable = function() {
-    var c, cg, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortOnId, _l, _len4, _len5, _m;
+    var c, cg, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortIndicatorCol, sortOnId, sortOnIndicatorId, _l, _len4, _len5, _m, _sortOrder;
     length = tableLength();
     r = pv.range(length);
     if (visible.hasChanged()) {
@@ -3884,7 +3999,9 @@ dvl.html.table = function(_arg) {
     }
     if (sort) {
       sortOnId = sortOn.get();
+      sortOnIndicatorId = sortOnIndicator.get();
       sortCol = null;
+      sortIndicatorCol = null;
       for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
         c = columns[_l];
         if (c.sorted = c.id === sortOnId) {
@@ -3893,11 +4010,15 @@ dvl.html.table = function(_arg) {
             throw "sort on column marked unsortable (" + sortOnId + ")";
           }
         }
+        if (c.sortedIndicator = c.id === sortOnIndicatorId) {
+          sortIndicatorCol = c;
+        }
       }
-      if (sortCol) {
+      _sortOrder = sortOrder.get();
+      if (_sortOrder && sortCol) {
         sortGen = (sortCol.sortGen || sortCol.gen).gen();
         numeric = sortGen && typeof (sortGen(0)) === 'number';
-        dir = String(sortOrder.get()).toLowerCase();
+        dir = String(_sortOrder).toLowerCase();
         if (dir === 'desc') {
           sortFn = numeric ? (function(i, j) {
             return sortGen(j) - sortGen(i);
@@ -3914,7 +4035,8 @@ dvl.html.table = function(_arg) {
           r.sort(sortFn);
         }
       }
-      if (sortIndicator.get()) {
+      if (_sortOrder && sortIndicator.get()) {
+        dir = String(_sortOrder).toLowerCase();
         h.selectAll('th').data(columns).select('div.sort_indicator').style('display', function(c) {
           if (c.sortable.get()) {
             return null;
@@ -3923,7 +4045,7 @@ dvl.html.table = function(_arg) {
           }
         }).attr('class', function(c) {
           var which;
-          which = c === sortCol && dir !== 'none' ? c.reverseIndicator.get() ? (dir === 'asc' ? 'desc' : 'asc') : dir : 'none';
+          which = c === sortIndicatorCol && dir !== 'none' ? c.reverseIndicator.get() ? (dir === 'asc' ? 'desc' : 'asc') : dir : 'none';
           return 'sort_indicator ' + which;
         });
       }
