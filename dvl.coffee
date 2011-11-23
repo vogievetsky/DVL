@@ -2872,7 +2872,11 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
           i = sl.indexOf(val)
           if i is -1
             sl.push(val)
-            sl.sort(sortFn.get())
+            _sortFn = sortFn.get()
+            if typeof _sortFn is 'function'
+              sl.sort(_sortFn)
+            else
+              sl.sort()
           else
             sl.splice(i,1)
           selections.set(sl)
@@ -3196,6 +3200,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
   sortOrder = dvl.wrapVarIfNeeded(sort.order or (if modes.length > 0 then modes[0] else 'none'))
 
   listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortOnIndicator, sortModes, sortOrder]
+  listenColumnVisible = []
 
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
   listen.push sortIndicator
@@ -3233,7 +3238,8 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
     c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'html']
     c.cellClassGen = if c.cellClassGen then dvl.wrapConstIfNeeded(c.cellClassGen) else null
-    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen
+    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen
+    listenColumnVisible.push c.visible
     if c.renderer.depends
       listen.push d for d in c.renderer.depends
     c.uniquClass = 'column_' + i
@@ -3377,21 +3383,19 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     for col in columns
       gen = col.gen.gen();
       csel = sel.select('td.' + col.uniquClass)
-      if col.visible.get()
-        csel
-          .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id))
-          .style('display', null)
 
-        if col.hoverGen
-          csel.attr('title', col.hoverGen.gen())
+      csel
+        .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id))
+        .style('display', if col.visible.get() then null else 'none')
 
-        if col.cellClassGen
-          cg = col.cellClassGen.gen()
-          csel.attr('class', (i) -> colClass(col) + if cg? then ' ' + cg(i))
+      if col.hoverGen
+        csel.attr('title', col.hoverGen.gen())
 
-        col.renderer(csel, gen, col.sorted)
-      else
-        csel.style('display', 'none')
+      if col.cellClassGen
+        cg = col.cellClassGen.gen()
+        csel.attr('class', (i) -> colClass(col) + if cg? then ' ' + cg(i))
+
+      col.renderer(csel, gen, col.sorted)
 
     return
 
@@ -3400,6 +3404,23 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     fn: makeTable
     listen: listen
     change: [numRows]
+  }
+
+
+  columnVisible = ->
+    h.selectAll('th').data(columns)
+      .style('display', (c) -> if c.visible.get() and not c.hideHeader then null else "none")
+
+    for col in columns
+      sel.select('td.' + col.uniquClass)
+        .style('display', if col.visible.get() then null else 'none')
+
+    return
+
+  dvl.register {
+    name: 'table_column_visible'
+    fn: columnVisible
+    listen: listenColumnVisible
   }
 
   return {

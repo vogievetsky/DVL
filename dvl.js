@@ -3590,7 +3590,7 @@ dvl.html.list = function(_arg) {
       lg = links.gen();
       cs = listClassStr.gen();
       onClick = function(i) {
-        var link, sl, val;
+        var link, sl, val, _sortFn;
         val = vg(i);
         if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
           link = lg(i);
@@ -3599,7 +3599,12 @@ dvl.html.list = function(_arg) {
           i = sl.indexOf(val);
           if (i === -1) {
             sl.push(val);
-            sl.sort(sortFn.get());
+            _sortFn = sortFn.get();
+            if (typeof _sortFn === 'function') {
+              sl.sort(_sortFn);
+            } else {
+              sl.sort();
+            }
           } else {
             sl.splice(i, 1);
           }
@@ -3836,7 +3841,7 @@ dvl.html.select = function(_arg) {
   return selection;
 };
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOnIndicator, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7;
+  var b, c, classStr, colClass, columnVisible, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, listenColumnVisible, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOnIndicator, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7;
   selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit, htmlTitles = _arg.htmlTitles;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
@@ -3860,6 +3865,7 @@ dvl.html.table = function(_arg) {
   modes = sortModes.get();
   sortOrder = dvl.wrapVarIfNeeded(sort.order || (modes.length > 0 ? modes[0] : 'none'));
   listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortOnIndicator, sortModes, sortOrder];
+  listenColumnVisible = [];
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
   listen.push(sortIndicator);
   numRows = dvl.def(null, 'num_rows');
@@ -3905,7 +3911,8 @@ dvl.html.table = function(_arg) {
     c.visible = dvl.wrapConstIfNeeded((_ref6 = c.visible) != null ? _ref6 : true);
     c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'html'];
     c.cellClassGen = c.cellClassGen ? dvl.wrapConstIfNeeded(c.cellClassGen) : null;
-    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.visible, c.cellClassGen);
+    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen);
+    listenColumnVisible.push(c.visible);
     if (c.renderer.depends) {
       _ref7 = c.renderer.depends;
       for (_k = 0, _len3 = _ref7.length; _k < _len3; _k++) {
@@ -4083,23 +4090,19 @@ dvl.html.table = function(_arg) {
       col = columns[_m];
       gen = col.gen.gen();
       csel = sel.select('td.' + col.uniquClass);
-      if (col.visible.get()) {
-        csel.on('click', function(i) {
-          return goOrCall(col.cellClick.gen()(i), col.id);
-        }).style('display', null);
-        if (col.hoverGen) {
-          csel.attr('title', col.hoverGen.gen());
-        }
-        if (col.cellClassGen) {
-          cg = col.cellClassGen.gen();
-          csel.attr('class', function(i) {
-            return colClass(col) + (cg != null ? ' ' + cg(i) : void 0);
-          });
-        }
-        col.renderer(csel, gen, col.sorted);
-      } else {
-        csel.style('display', 'none');
+      csel.on('click', function(i) {
+        return goOrCall(col.cellClick.gen()(i), col.id);
+      }).style('display', col.visible.get() ? null : 'none');
+      if (col.hoverGen) {
+        csel.attr('title', col.hoverGen.gen());
       }
+      if (col.cellClassGen) {
+        cg = col.cellClassGen.gen();
+        csel.attr('class', function(i) {
+          return colClass(col) + (cg != null ? ' ' + cg(i) : void 0);
+        });
+      }
+      col.renderer(csel, gen, col.sorted);
     }
   };
   dvl.register({
@@ -4107,6 +4110,25 @@ dvl.html.table = function(_arg) {
     fn: makeTable,
     listen: listen,
     change: [numRows]
+  });
+  columnVisible = function() {
+    var col, _l, _len4;
+    h.selectAll('th').data(columns).style('display', function(c) {
+      if (c.visible.get() && !c.hideHeader) {
+        return null;
+      } else {
+        return "none";
+      }
+    });
+    for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
+      col = columns[_l];
+      sel.select('td.' + col.uniquClass).style('display', col.visible.get() ? null : 'none');
+    }
+  };
+  dvl.register({
+    name: 'table_column_visible',
+    fn: columnVisible,
+    listen: listenColumnVisible
   });
   return {
     sortOn: sortOn,
