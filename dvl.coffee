@@ -2907,15 +2907,15 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
             .attr('title', icon.title)
             .on('click', (i) ->
               val = values.gen()(i)
-              d3.event.stopImmediatePropagation() if icon.onSelect?(val, i) is false
+              d3.event.stopPropagation() if icon.onSelect?(val, i) is false
               return
             ).on('mouseover', (i) ->
               val = values.gen()(i)
-              d3.event.stopImmediatePropagation() if icon.onEnter?(val, i) is false
+              d3.event.stopPropagation() if icon.onEnter?(val, i) is false
               return
             ).on('mouseout', (i) ->
               val = values.gen()(i)
-              d3.event.stopImmediatePropagation() if icon.onLeave?(val, i) is false
+              d3.event.stopPropagation() if icon.onLeave?(val, i) is false
               return
             ).append('div')
               .attr('class', 'icon')

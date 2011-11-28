@@ -3642,19 +3642,19 @@ dvl.html.list = function(_arg) {
             var val;
             val = values.gen()(i);
             if ((typeof icon.onSelect === "function" ? icon.onSelect(val, i) : void 0) === false) {
-              d3.event.stopImmediatePropagation();
+              d3.event.stopPropagation();
             }
           }).on('mouseover', function(i) {
             var val;
             val = values.gen()(i);
             if ((typeof icon.onEnter === "function" ? icon.onEnter(val, i) : void 0) === false) {
-              d3.event.stopImmediatePropagation();
+              d3.event.stopPropagation();
             }
           }).on('mouseout', function(i) {
             var val;
             val = values.gen()(i);
             if ((typeof icon.onLeave === "function" ? icon.onLeave(val, i) : void 0) === false) {
-              d3.event.stopImmediatePropagation();
+              d3.event.stopPropagation();
             }
           }).append('div').attr('class', 'icon');
         });
