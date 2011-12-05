@@ -257,6 +257,7 @@ dvl.util = {
         val = @lazy()
         @prev = val
         @value = val
+        @lazy = null
       return
 
     toString: -> "|#{@id}:#{@value}|"

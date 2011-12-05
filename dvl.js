@@ -372,6 +372,7 @@ dvl.util = {
         val = this.lazy();
         this.prev = val;
         this.value = val;
+        this.lazy = null;
       }
     };
     DVLDef.prototype.toString = function() {
