@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DVL Brushing + Linking</title>
+    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />
+    <script type="text/javascript" src="../../js/jquery-1.6.2.min.js"></script>
+    <script type="text/javascript" src="../../js/jquery-ui-1.8.7.custom.js"></script>
+    <script type="text/javascript" src="../../d3.js"></script>
+    <script type="text/javascript" src="../../protovis-r3.2.js"></script>
+    <script type="text/javascript" src="../../sprintf.js"></script>
+    <script type="text/javascript" src="../../dvl.js"></script>
+
+
+    <script type="text/javascript" src="gendata.js"></script>
+    <script type="text/javascript" src="utils.js"></script>
+    <script type="text/javascript" src="scatter.js"></script>
+    <script type="text/javascript" src="time.js"></script>
+    <script type="text/javascript" src="histogram.js"></script>
+
+
+    <style type="text/css">
+
+* {
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+body {
+  font: 12px sans-serif;
+}
+
+.highlight {
+  shape-rendering: crispEdges;
+  opacity: 0.05;
+  fill: blue;
+  pointer-events: none;
+}
+
+
+.scatter .background {
+  fill: #ccc;
+}
+
+.scatter .lines {
+  shape-rendering: crispEdges;
+  stroke: white;
+  pointer-events: none;
+}
+
+.scatter .dots {
+  fill: none;
+  stroke: red;
+  pointer-events: none;
+}
+
+
+.time .background {
+  fill: #ccc;
+}
+
+.time .lines {
+  shape-rendering: crispEdges;
+  stroke: white;
+  pointer-events: none;
+}
+
+.time .line {
+  stroke: red;
+  pointer-events: none;
+}
+
+.time .dots {
+  fill: #41BF28;
+  stroke: none;
+  pointer-events: none;
+}
+
+
+.histogram .background {
+  fill: #ccc;
+}
+
+.histogram .lines {
+  shape-rendering: crispEdges;
+}
+
+.histogram .bars {
+  fill: red;
+  shape-rendering: crispEdges;
+}
+
+.histogram .selection .bars {
+  fill: #41BF28;
+  pointer-events: none;
+  shape-rendering: crispEdges;
+}
+
+.chart1,
+.chart2 {
+  display: inline-block;
+}
+
+    </style>
+
+  </head>
+  <body>
+    <div>
+      <button onclick="toggleRealtime()">Toggle Realtime</button>
+      <div class="info"></div>
+      <div class="chart1"></div>
+      <div class="chart2"></div>
+      <div class="chart3"></div>
+      <div class="chart4"></div>
+    </div>
+  </body>
+  <script type="text/javascript">
+
+  var dataGen = generateData();
+  var data = dataGen.data;
+  var metrics = dataGen.metrics;
+  var realtime = dataGen.realtime;
+
+  function toggleRealtime() {
+    realtime.set(!realtime.get()).notify();
+  }
+
+  selHolder = dvl.def(null, 'sel_holder');
+  selData = dvl.def(null, 'sel_data');
+
+  dvl.html.out({
+    selector: 'div.info',
+    data: [data, selData],
+    text: true,
+    fn: function(_data, _selData) {
+      return 'There are ' + _data.length + ' data points.'
+    }
+  });
+
+  scatter({
+    selector: 'div.chart1',
+    selHolder: selHolder,
+    selData: selData,
+    data: data,
+    metricX: 'aa',
+    metricY: 'bb'
+  });
+
+  scatter({
+    selector: 'div.chart2',
+    selHolder: selHolder,
+    selData: selData,
+    data: data,
+    metricX: 'bb',
+    metricY: 'cc'
+  });
+
+  time({
+    selector: 'div.chart3',
+    selHolder: selHolder,
+    selData: selData,
+    data: data,
+    time: 'time',
+    metric: 'dd'
+  });
+
+  histogram({
+    selector: 'div.chart4',
+    selHolder: selHolder,
+    selData: selData,
+    data: data,
+    dimension: 'dim'
+  });
+
+  </script>
+</html>

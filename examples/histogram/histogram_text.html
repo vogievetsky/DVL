@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>DVL Histogram Text</title>
-    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />	
+    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />
     <script type="text/javascript" src="../../js/jquery-1.6.2.min.js"></script>
     <script type="text/javascript" src="../../js/jquery-ui-1.8.7.custom.js"></script>
     <script type="text/javascript" src="../../d3.js"></script>
@@ -34,9 +34,9 @@ body {
   <body>
   </body>
   <script type="text/javascript">
-  
+
   text = text.toUpperCase().replace(/[^A-Z]/g, '');
-  
+
   var letters = dvl.const("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(''));
 
   data = dvl.def([], 'data');
@@ -44,16 +44,16 @@ body {
 	var getY = dvl.acc('letter');
 	var getX = dvl.acc('count');
 	var duration = 0;
-	
+
 	var margin = dvl.def({ top: 30, bottom: 30, left: 30, right: 10 }, "margin");
-  
+
   var panel = dvl.svg.canvas({
     selector:'body',
     width: 800,
     height: 700,
     margin:margin
   });
-	
+
   var sx = dvl.scale.linear({
     name: "scale_x",
     domain: { data:data, acc:getX },
@@ -62,7 +62,7 @@ body {
     padding: 10,
     anchor: true
   })
-  
+
   var sy = dvl.scale.ordinal({
     name: "scale_y",
     domain: { data:letters },
@@ -70,12 +70,12 @@ body {
     rangeTo: panel.height,
     padding: 10
   });
-  
+
   var scaledTicksX = dvl.gen.fromArray(sx.ticks, null, sx.scale),
       scaledTicksY = dvl.gen.fromArray(sy.ticks, null, sy.scale);
-      
+
   var formatedTicksX = dvl.gen.fromArray(sx.ticks, null, function(d) { return d.toFixed(0); });
-  
+
   var sizeY = dvl.apply({
     fn: function(b) { return 0.9 * b; },
     args: sy.band
@@ -86,13 +86,26 @@ body {
     duration: duration,
     props: {
       key: dvl.gen.fromArray(data, function(d) { return d.pair; }),
-      left: 10,
+      left: dvl.gen.fromValue(dvl.zero, sx.scale),
       centerY: dvl.gen.fromArray(data, getY, sy.scale),
-      width: dvl.gen.sub(dvl.gen.fromArray(data, getX, sx.scale), dvl.const(10)),
+      width: dvl.gen.sub(dvl.gen.fromArray(data, getX, sx.scale), dvl.gen.fromValue(dvl.zero, sx.scale)),
       height: sizeY
     }
   });
-  
+
+  dvl.svg.bars({
+    panel: panel,
+    duration: duration,
+    classStr: 'selection'
+    props: {
+      key: dvl.gen.fromArray(data, function(d) { return d.pair; }),
+      left: dvl.gen.fromValue(dvl.zero, sx.scale),
+      centerY: dvl.gen.fromArray(data, getY, sy.scale),
+      width: dvl.gen.sub(dvl.gen.fromArray(data, getX, sx.scale), dvl.gen.fromValue(dvl.zero, sx.scale)),
+      height: sizeY
+    }
+  });
+
   dvl.svg.lines({
     panel: panel,
     duration: duration,
@@ -104,7 +117,7 @@ body {
       stroke: "white"
     }
   });
-  
+
   dvl.svg.lines({
     panel: panel,
     duration: duration,
@@ -115,7 +128,7 @@ body {
       stroke: "black"
     }
   });
-  
+
   dvl.svg.labels({
     panel: panel,
     duration: duration,
@@ -128,7 +141,7 @@ body {
       align: "middle"
     }
   });
-  
+
   dvl.svg.labels({
     panel: panel,
     duration: duration,
@@ -141,7 +154,7 @@ body {
       align: "middle"
     }
   });
-  
+
   dvl.svg.labels({
     panel: panel,
     duration: duration,
@@ -154,7 +167,7 @@ body {
       baseline: "middle"
     }
   });
-  
+
   ////////////////////////////
   var pos = 0;
   var timer = setInterval(function() {

@@ -2277,16 +2277,17 @@ dvl.gen.fromArray = function(data, acc, fn, name) {
   gen = dvl.def(null, name || 'array_generator');
   d = [];
   makeGen = function() {
-    var a, f, g;
-    a = acc.get();
-    f = fn.get();
-    d = data.get();
-    if ((a != null) && (f != null) && (d != null) && d.length > 0) {
+    var g, _acc, _data, _fn;
+    _acc = acc.get();
+    _fn = fn.get();
+    _data = data.get();
+    if ((_acc != null) && (_fn != null) && (_data != null) && _data.length > 0) {
+      d = _data;
       g = function(i) {
         i = i % d.length;
-        return f(a(d[i], i));
+        return _fn(_acc(d[i], i));
       };
-      gen.setGen(g, data.get().length);
+      gen.setGen(g, _data.length);
     } else {
       gen.setGen(null);
     }
@@ -2431,9 +2432,9 @@ dvl.gen.sub = generator_maker_maker((function(a, b, c) {
 }), 'sub');
 dvl.svg = {};
 (function() {
-  var calcLength, gen_subDouble, gen_subHalf, getNextClipPathId, initClip, initGroup, listen_attr, makeAnchors, nextClipPathId, processDim2, processDim3, processDim4, processOptions, processProps, removeUndefined, reselectUpdate, selectEnterExit, update_attr;
+  var calcLength, gen_subDouble, gen_subHalf, getNextClipPathId, initClip, initGroup, listen_attr, makeAnchors, nextClipPathId, proc_attr, processDim2, processDim3, processDim4, processOptions, processProps, removeUndefined, reselectUpdate, selectEnterExit, selectUpdate, update_attr;
   processOptions = function(options, mySvg, myClass) {
-    var out, _ref;
+    var eventData, f, k, out, _fn, _ref, _ref2;
     if (!options.panel) {
       throw 'No panel defined.';
     }
@@ -2445,8 +2446,21 @@ dvl.svg = {};
       out.duration = dvl.wrapConstIfNeeded(options.duration || dvl.zero);
       out.classStr = options.classStr;
       out.clip = options.clip;
-      out.on = options.on;
-      out.visible = dvl.wrapConstIfNeeded((_ref = options.visible) != null ? _ref : true);
+      if (options.on) {
+        out.on = {};
+        eventData = options.eventData || dvl.identity;
+        _ref = options.on;
+        _fn = function(f) {
+          return out.on[k] = function(i) {
+            return f(eventData.gen()(i));
+          };
+        };
+        for (k in _ref) {
+          f = _ref[k];
+          _fn(f);
+        }
+      }
+      out.visible = dvl.wrapConstIfNeeded((_ref2 = options.visible) != null ? _ref2 : true);
     }
     return out;
   };
@@ -2612,6 +2626,43 @@ dvl.svg = {};
     }
     return m;
   };
+  selectUpdate = function(g, options, props, numMarks, duration) {
+    var id_gen, join, key_gen, m, onFn, proc, sel, what, _ref;
+    if (props.key && props.key.gen()) {
+      key_gen = props.key.gen();
+      id_gen = function(i) {
+        return 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '');
+      };
+      join = function(i) {
+        if (this.getAttribute) {
+          return this.getAttribute('id');
+        } else {
+          return key_gen(i);
+        }
+      };
+    }
+    sel = g.selectAll("" + options.mySvg + "." + options.myClass).data(pv.range(0, numMarks), join);
+    sel.exit().remove();
+    m = sel.enter().append("svg:" + options.mySvg);
+    if (props.key && props.key.gen()) {
+      m.attr('id', id_gen);
+    }
+    m.attr('class', options.myClass);
+    if (options.on) {
+      _ref = options.on;
+      for (what in _ref) {
+        onFn = _ref[what];
+        m.on(what, onFn);
+      }
+    }
+    proc = proc_attr[options.myClass];
+    proc.tran(m, props, true);
+    proc.imm(sel, props);
+    if (duration > 0) {
+      sel = sel.transition().duration(duration);
+    }
+    proc.tran(sel, props);
+  };
   makeAnchors = function(anchors, options) {
     var a, anchor, av, info, lazy;
     anchor = [];
@@ -2740,6 +2791,7 @@ dvl.svg = {};
   };
   listen_attr = {};
   update_attr = {};
+  proc_attr = {};
   listen_attr.panels = ['left', 'top', 'width', 'height'];
   update_attr.panels = function(m, p, prev) {
     var gen, height, left, left_gen, top, top_gen, width;
@@ -3194,7 +3246,7 @@ dvl.svg = {};
         g.style('display', 'none');
       }
     };
-    listen = [panel.width, panel.height];
+    listen = [panel.width, panel.height, o.visible];
     _ref = listen_attr[o.myClass];
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       k = _ref[_i];
@@ -3305,28 +3357,41 @@ dvl.svg = {};
     return makeAnchors(anchors, o);
   };
   listen_attr.dots = ['left', 'top', 'radius', 'fill', 'stroke'];
-  update_attr.dots = function(m, p, prev) {
-    var fill, gen, left, radius, stroke, top;
-    gen = prev ? 'genPrev' : 'gen';
-    left = p.left;
-    if (left && (prev || left.hasChanged())) {
-      m.attr('cx', left[gen]());
-    }
-    top = p.top;
-    if (top && (prev || top.hasChanged())) {
-      m.attr('cy', top[gen]());
-    }
-    radius = p.radius;
-    if (radius && (prev || radius.hasChanged())) {
-      m.attr('r', radius[gen]());
-    }
-    fill = p.fill;
-    if (fill && (prev || fill.hasChanged())) {
-      m.style('fill', fill[gen]());
-    }
-    stroke = p.stroke;
-    if (stroke && (prev || stroke.hasChanged())) {
-      m.style('stroke', stroke[gen]());
+  proc_attr.dots = {
+    imm: function(m, p) {
+      var fill, stroke;
+      fill = p.fill;
+      if (fill && fill.hasChanged()) {
+        m.style('fill', fill.gen());
+      }
+      stroke = p.stroke;
+      if (stroke && stroke.hasChanged()) {
+        m.style('stroke', stroke.gen());
+      }
+    },
+    tran: function(m, p, prev) {
+      var fill, gen, left, radius, stroke, top;
+      gen = prev ? 'genPrev' : 'gen';
+      left = p.left;
+      if (left && (prev || left.hasChanged())) {
+        m.attr('cx', left[gen]());
+      }
+      top = p.top;
+      if (top && (prev || top.hasChanged())) {
+        m.attr('cy', top[gen]());
+      }
+      radius = p.radius;
+      if (radius && (prev || radius.hasChanged())) {
+        m.attr('r', radius[gen]());
+      }
+      fill = p.fill;
+      if (fill && (prev || fill.hasChanged())) {
+        m.style('fill', fill[gen]());
+      }
+      stroke = p.stroke;
+      if (stroke && (prev || stroke.hasChanged())) {
+        m.style('stroke', stroke[gen]());
+      }
     }
   };
   return dvl.svg.dots = function(options) {
@@ -3424,18 +3489,15 @@ dvl.svg = {};
       }
     };
     render = function() {
-      var dur, len, m;
+      var dur, len;
       len = calcLength(p);
       if (len > 0 && o.visible.get()) {
-        m = selectEnterExit(g, o, p, len);
-        update_attr[o.myClass](m, p, true);
         if (panel.width.hasChanged() || panel.height.hasChanged()) {
           dur = 0;
         } else {
           dur = o.duration.get();
         }
-        m = reselectUpdate(g, o, dur);
-        update_attr[o.myClass](m, p);
+        selectUpdate(g, o, p, len, dur);
         g.style('display', null);
       } else {
         g.style('display', 'none');
@@ -3817,8 +3879,8 @@ dvl.html.dropdownList = function(_arg) {
   };
 };
 dvl.html.select = function(_arg) {
-  var classStr, names, selChange, selectEl, selection, selector, values;
-  selector = _arg.selector, values = _arg.values, names = _arg.names, selection = _arg.selection, classStr = _arg.classStr;
+  var classStr, names, onChange, selChange, selectEl, selection, selector, values;
+  selector = _arg.selector, values = _arg.values, names = _arg.names, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr;
   if (!selector) {
     throw 'must have selector';
   }
@@ -3826,7 +3888,12 @@ dvl.html.select = function(_arg) {
   values = dvl.wrapConstIfNeeded(values);
   names = dvl.wrapConstIfNeeded(names);
   selChange = function() {
-    return selection.update(selectEl.node().value);
+    var val;
+    val = selectEl.node().value;
+    if ((typeof onChange === "function" ? onChange(val) : void 0) === false) {
+      return;
+    }
+    return selection.update(val);
   };
   selectEl = d3.select(selector).append('select').attr('class', classStr || null).on('change', selChange);
   selectEl.selectAll('option').data(d3.range(values.len())).enter().append('option').attr('value', values.gen()).text(names.gen());
@@ -3870,11 +3937,11 @@ dvl.html.table = function(_arg) {
   sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
   listen.push(sortIndicator);
   numRows = dvl.def(null, 'num_rows');
-  goOrCall = function(arg, id) {
+  goOrCall = function(arg, id, that) {
     var t;
     t = typeof arg;
     if (t === 'function') {
-      arg(id);
+      arg.call(that, id);
     } else if (t === 'string') {
       window.location.href = arg;
     }
@@ -3950,7 +4017,7 @@ dvl.html.table = function(_arg) {
     if (c.id == null) {
       return;
     }
-    goOrCall(onHeaderClick.get(), c.id);
+    goOrCall(onHeaderClick.get(), c.id, this);
     if (sortOnClick.get() && c.sortable.get()) {
       if (sortOn.get() === c.id) {
         modes = sortModes.get();
@@ -4028,18 +4095,56 @@ dvl.html.table = function(_arg) {
         numeric = sortGen && typeof (sortGen(0)) === 'number';
         dir = String(_sortOrder).toLowerCase();
         if (dir === 'desc') {
-          sortFn = numeric ? (function(i, j) {
-            return sortGen(j) - sortGen(i);
-          }) : (function(i, j) {
-            return sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase());
-          });
+          if (numeric) {
+            sortFn = function(i, j) {
+              var sj;
+              si = sortGen(i);
+              sj = sortGen(j);
+              if (isNaN(si)) {
+                if (isNaN(sj)) {
+                  return 0;
+                } else {
+                  return 1;
+                }
+              } else {
+                if (isNaN(sj)) {
+                  return -1;
+                } else {
+                  return sj - si;
+                }
+              }
+            };
+          } else {
+            sortFn = function(i, j) {
+              return sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase());
+            };
+          }
           r.sort(sortFn);
         } else if (dir === 'asc') {
-          sortFn = numeric ? (function(i, j) {
-            return sortGen(i) - sortGen(j);
-          }) : (function(i, j) {
-            return sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase());
-          });
+          if (numeric) {
+            sortFn = function(i, j) {
+              var sj;
+              si = sortGen(j);
+              sj = sortGen(i);
+              if (isNaN(si)) {
+                if (isNaN(sj)) {
+                  return 0;
+                } else {
+                  return 1;
+                }
+              } else {
+                if (isNaN(sj)) {
+                  return -1;
+                } else {
+                  return sj - si;
+                }
+              }
+            };
+          } else {
+            sortFn = function(i, j) {
+              return sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase());
+            };
+          }
           r.sort(sortFn);
         }
       }
@@ -4092,7 +4197,7 @@ dvl.html.table = function(_arg) {
       gen = col.gen.gen();
       csel = sel.select('td.' + col.uniquClass);
       csel.on('click', function(i) {
-        return goOrCall(col.cellClick.gen()(i), col.id);
+        return goOrCall(col.cellClick.gen()(i), col, this);
       }).style('display', col.visible.get() ? null : 'none');
       if (col.hoverGen) {
         csel.attr('title', col.hoverGen.gen());

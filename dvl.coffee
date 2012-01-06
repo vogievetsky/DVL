@@ -1775,15 +1775,16 @@ dvl.gen.fromArray = (data, acc, fn, name) ->
 
   d = []
   makeGen = ->
-    a = acc.get()
-    f = fn.get()
-    d = data.get()
-    if a? and f? and d? and d.length > 0
+    _acc = acc.get()
+    _fn = fn.get()
+    _data = data.get()
+    if _acc? and _fn? and _data? and _data.length > 0
+      d = _data
       g = (i) ->
         i = i % d.length
-        f(a(d[i], i))
+        _fn(_acc(d[i], i))
 
-      gen.setGen(g, data.get().length)
+      gen.setGen(g, _data.length)
     else
       gen.setGen(null)
 
@@ -1905,7 +1906,15 @@ dvl.svg = {}
       out.duration = dvl.wrapConstIfNeeded(options.duration or dvl.zero)
       out.classStr = options.classStr
       out.clip = options.clip
-      out.on = options.on
+
+      if options.on
+        out.on = {}
+        eventData = options.eventData or dvl.identity
+        for k, f of options.on
+          do (f) ->
+            out.on[k] = (i) ->
+              f(eventData.gen()(i))
+
       out.visible = dvl.wrapConstIfNeeded(options.visible ? true)
 
     return out
@@ -2056,6 +2065,35 @@ dvl.svg = {}
     return m
 
 
+
+  selectUpdate = (g, options, props, numMarks, duration) ->
+    if props.key and props.key.gen()
+      key_gen = props.key.gen()
+      id_gen = (i) -> 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '')
+      join = (i) -> if this.getAttribute then this.getAttribute('id') else key_gen(i)
+
+    sel = g.selectAll("#{options.mySvg}.#{options.myClass}").data(pv.range(0, numMarks), join)
+
+    sel.exit().remove()
+
+    m = sel.enter().append("svg:#{options.mySvg}")
+    m.attr('id', id_gen) if props.key and props.key.gen()
+    m.attr('class', options.myClass)
+
+    if options.on
+      m.on(what, onFn) for what, onFn of options.on
+
+    proc = proc_attr[options.myClass]
+
+    proc.tran(m, props, true)
+
+    proc.imm(sel, props)
+    sel = sel.transition().duration(duration) if duration > 0
+
+    proc.tran(sel, props)
+    return
+
+
   makeAnchors = (anchors, options) ->
     anchor = []
     for a, info of anchors
@@ -2163,6 +2201,7 @@ dvl.svg = {}
 
   listen_attr = {}
   update_attr = {}
+  proc_attr = {}
 
 
   listen_attr.panels = ['left', 'top', 'width', 'height']
@@ -2550,7 +2589,7 @@ dvl.svg = {}
 
       return
 
-    listen = [panel.width, panel.height]
+    listen = [panel.width, panel.height, o.visible]
     listen.push p[k] for k in listen_attr[o.myClass]
     dvl.register({fn:render, listen:listen, name:'bars_render'})
     makeAnchors(anchors, o)
@@ -2631,24 +2670,34 @@ dvl.svg = {}
 
 
   listen_attr.dots = ['left', 'top', 'radius', 'fill', 'stroke']
-  update_attr.dots = (m, p, prev) ->
-    gen = if prev then 'genPrev' else 'gen'
+  proc_attr.dots = {
+    imm: (m, p) ->
+      fill = p.fill
+      m.style('fill', fill.gen()) if fill and fill.hasChanged()
 
-    left = p.left
-    m.attr('cx',  left[gen]()) if left and (prev or left.hasChanged())
+      stroke = p.stroke
+      m.style('stroke', stroke.gen()) if stroke and stroke.hasChanged()
+      return
 
-    top = p.top
-    m.attr('cy',  top[gen]()) if top and (prev or top.hasChanged())
+    tran: (m, p, prev) ->
+      gen = if prev then 'genPrev' else 'gen'
 
-    radius = p.radius
-    m.attr('r',  radius[gen]()) if radius and (prev or radius.hasChanged())
+      left = p.left
+      m.attr('cx',  left[gen]()) if left and (prev or left.hasChanged())
 
-    fill = p.fill
-    m.style('fill', fill[gen]()) if fill and (prev or fill.hasChanged())
+      top = p.top
+      m.attr('cy',  top[gen]()) if top and (prev or top.hasChanged())
 
-    stroke = p.stroke
-    m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-    return
+      radius = p.radius
+      m.attr('r',  radius[gen]()) if radius and (prev or radius.hasChanged())
+
+      fill = p.fill
+      m.style('fill', fill[gen]()) if fill and (prev or fill.hasChanged())
+
+      stroke = p.stroke
+      m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
+      return
+  }
 
   dvl.svg.dots = (options) ->
     o = processOptions(options, 'circle', 'dots')
@@ -2721,16 +2770,20 @@ dvl.svg = {}
       len = calcLength(p)
 
       if len > 0 and o.visible.get()
-        m = selectEnterExit(g, o, p, len)
-        update_attr[o.myClass](m, p, true)
-
         if panel.width.hasChanged() or panel.height.hasChanged()
           dur = 0
         else
           dur = o.duration.get()
 
-        m = reselectUpdate(g, o, dur)
-        update_attr[o.myClass](m, p)
+        selectUpdate(g, o, p, len, dur)
+
+        # m = selectEnterExit(g, o, p, len)
+        # update_attr[o.myClass](m, p, true)
+
+        # m = reselectUpdate(g, o, dur)
+        # update_attr[o.myClass](m, p)
+
+
 
         g.style('display', null)
       else
@@ -3100,7 +3153,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
 ##
 ##  Select (dropdown box) made with HTML
 ##
-dvl.html.select = ({selector, values, names, selection, classStr}) ->
+dvl.html.select = ({selector, values, names, selection, onChange, classStr}) ->
   throw 'must have selector' unless selector
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
 
@@ -3108,7 +3161,9 @@ dvl.html.select = ({selector, values, names, selection, classStr}) ->
   names = dvl.wrapConstIfNeeded(names)
 
   selChange = ->
-    selection.update(selectEl.node().value)
+    val = selectEl.node().value
+    return if onChange?(val) is false
+    selection.update(val)
 
   selectEl = d3.select(selector)
     .append('select')
@@ -3208,10 +3263,10 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
   numRows = dvl.def(null, 'num_rows')
 
-  goOrCall = (arg, id) ->
+  goOrCall = (arg, id, that) ->
     t = typeof(arg)
     if t is 'function'
-      arg(id)
+      arg.call(that, id)
     else if t is 'string'
       window.location.href = arg
     return
@@ -3270,7 +3325,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       .on('click', (c) ->
         return unless c.id?
 
-        goOrCall(onHeaderClick.get(), c.id)
+        goOrCall(onHeaderClick.get(), c.id, this)
 
         if sortOnClick.get() and c.sortable.get()
           if sortOn.get() is c.id
@@ -3337,10 +3392,42 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
         dir = String(_sortOrder).toLowerCase()
         if dir is 'desc'
-          sortFn = if numeric then ((i,j) -> sortGen(j) - sortGen(i)) else ((i,j) -> sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase()))
+          if numeric
+            sortFn = (i,j) ->
+              si = sortGen(i)
+              sj = sortGen(j)
+              if isNaN(si)
+                if isNaN(sj)
+                  return 0
+                else
+                  return 1
+              else
+                if isNaN(sj)
+                  return -1
+                else
+                  return sj - si
+          else
+            sortFn = (i,j) ->
+              return sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase())
           r.sort(sortFn)
         else if dir is 'asc'
-          sortFn = if numeric then ((i,j) -> sortGen(i) - sortGen(j)) else ((i,j) -> sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase()))
+          if numeric
+            sortFn = (i,j) ->
+              si = sortGen(j)
+              sj = sortGen(i)
+              if isNaN(si)
+                if isNaN(sj)
+                  return 0
+                else
+                  return 1
+              else
+                if isNaN(sj)
+                  return -1
+                else
+                  return sj - si
+          else
+            sortFn = (i,j) ->
+              return sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase())
           r.sort(sortFn)
         # else do nothing
 
@@ -3386,7 +3473,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
       csel = sel.select('td.' + col.uniquClass)
 
       csel
-        .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col.id))
+        .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col, this))
         .style('display', if col.visible.get() then null else 'none')
 
       if col.hoverGen
