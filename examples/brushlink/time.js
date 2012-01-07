@@ -20,9 +20,9 @@ function time(args) {
 
   var panel = dvl.svg.canvas({
     selector: selector,
-    width: 800,
-    height: 500,
-    margin: { top: 30, bottom: 70, left: 70, right: 30 },
+    width: 1400,
+    height: 400,
+    margin: { top: 30, bottom: 30, left: 70, right: 30 },
     classStr: 'time'
   });
 
@@ -158,6 +158,27 @@ function time(args) {
       text: dvl.gen.fromArray(sy.ticks, null, sy.format),
       align: "end",
       baseline: "middle"
+    }
+  });
+
+  dvl.svg.labels({
+    panel: panel,
+    props: {
+      right: 0,
+      bottom: -17,
+      text: time,
+      align: "end",
+      baseline: "top"
+    }
+  });
+
+  dvl.svg.labels({
+    panel: panel,
+    props: {
+      top: -5,
+      left: 2,
+      text: metric,
+      baseline: "bottom"
     }
   });
 

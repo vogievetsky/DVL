@@ -10,13 +10,10 @@
     <script type="text/javascript" src="../../sprintf.js"></script>
     <script type="text/javascript" src="../../dvl.js"></script>
 
-
     <script type="text/javascript" src="gendata.js"></script>
-    <script type="text/javascript" src="utils.js"></script>
     <script type="text/javascript" src="scatter.js"></script>
     <script type="text/javascript" src="time.js"></script>
     <script type="text/javascript" src="histogram.js"></script>
-
 
     <style type="text/css">
 
@@ -41,25 +38,8 @@ body {
 }
 
 
-.scatter .background {
-  fill: #ccc;
-}
-
-.scatter .lines {
-  shape-rendering: crispEdges;
-  stroke: white;
-  pointer-events: none;
-}
-
-.scatter .dots {
-  fill: none;
-  stroke: red;
-  pointer-events: none;
-}
-
-
 .time .background {
-  fill: #ccc;
+  fill: #eee;
 }
 
 .time .lines {
@@ -69,7 +49,7 @@ body {
 }
 
 .time .line {
-  stroke: red;
+  stroke: steelblue;
   pointer-events: none;
 }
 
@@ -80,8 +60,26 @@ body {
 }
 
 
+.scatter .background {
+  fill: #eee;
+}
+
+.scatter .lines {
+  shape-rendering: crispEdges;
+  stroke: white;
+  pointer-events: none;
+}
+
+.scatter .dots {
+  fill: none;
+  stroke: steelblue;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+
 .histogram .background {
-  fill: #ccc;
+  fill: #eee;
 }
 
 .histogram .lines {
@@ -89,7 +87,7 @@ body {
 }
 
 .histogram .bars {
-  fill: red;
+  fill: steelblue;
   shape-rendering: crispEdges;
 }
 
@@ -99,9 +97,20 @@ body {
   shape-rendering: crispEdges;
 }
 
-.chart1,
-.chart2 {
+.control {
+  margin-left: 70px;
+}
+
+.chart2,
+.chart3,
+.chart4,
+.other {
   display: inline-block;
+  vertical-align: top;
+}
+
+pre {
+  font-size: 25px;
 }
 
     </style>
@@ -109,12 +118,27 @@ body {
   </head>
   <body>
     <div>
-      <button onclick="toggleRealtime()">Toggle Realtime</button>
-      <div class="info"></div>
+      <div class="control">
+        <button onclick="toggleRealtime()">Toggle Realtime data</button>
+        <button onclick="dvl.postGraph()">Object graph</button>
+        <span class="info"></span>
+      </div>
       <div class="chart1"></div>
       <div class="chart2"></div>
       <div class="chart3"></div>
       <div class="chart4"></div>
+      <div class="other">
+        <button onclick="addChart()">Add another chart</button>
+        <pre class=".demo">
+{
+  "time": 1,
+  "temp": 30.39108925522305,
+  "phase": "Heating",
+  "bubbling": 0,
+  "energy": 411.8623010581359
+}
+        </pre>
+      </div>
     </div>
   </body>
   <script type="text/javascript">
@@ -131,49 +155,61 @@ body {
   selHolder = dvl.def(null, 'sel_holder');
   selData = dvl.def(null, 'sel_data');
 
-  dvl.html.out({
-    selector: 'div.info',
-    data: [data, selData],
-    text: true,
+  var summaryText = dvl.apply({
+    args: [data, selData],
+    allowNull: true,
     fn: function(_data, _selData) {
-      return 'There are ' + _data.length + ' data points.'
+      var str = 'There are ' + _data.length + ' data points.';
+      if (_selData) {
+        str += ' (' + _selData.length + ' selected)';
+      }
+      return str;
     }
+  })
+
+  dvl.html.out({
+    selector: '.info',
+    data: summaryText,
+    text: true
   });
 
-  scatter({
+  time({
     selector: 'div.chart1',
     selHolder: selHolder,
     selData: selData,
     data: data,
-    metricX: 'aa',
-    metricY: 'bb'
+    time: 'time',
+    metric: 'temp'
   });
 
-  scatter({
+  histogram({
     selector: 'div.chart2',
     selHolder: selHolder,
     selData: selData,
     data: data,
-    metricX: 'bb',
-    metricY: 'cc'
+    dimension: 'phase'
   });
 
-  time({
+  scatter({
     selector: 'div.chart3',
     selHolder: selHolder,
     selData: selData,
     data: data,
-    time: 'time',
-    metric: 'dd'
+    metricX: 'energy',
+    metricY: 'temp'
   });
 
-  histogram({
-    selector: 'div.chart4',
-    selHolder: selHolder,
-    selData: selData,
-    data: data,
-    dimension: 'dim'
-  });
+  function addChart() {
+    d3.select('.other').style('display', 'none')
+    scatter({
+      selector: 'div.chart4',
+      selHolder: selHolder,
+      selData: selData,
+      data: data,
+      metricX: 'temp',
+      metricY: 'bubbling'
+    });
+  }
 
   </script>
 </html>

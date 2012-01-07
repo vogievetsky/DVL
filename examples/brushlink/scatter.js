@@ -22,7 +22,7 @@ function scatter(args) {
     selector: selector,
     width: 500,
     height: 500,
-    margin: { top: 30, bottom: 70, left: 70, right: 30 },
+    margin: { top: 15, bottom: 70, left: 70, right: 30 },
     classStr: 'scatter'
   });
 
@@ -176,10 +176,11 @@ function scatter(args) {
   dvl.svg.labels({
     panel: panel,
     props: {
-      right: -5,
-      bottom: 0,
+      right: 0,
+      bottom: -17,
       text: metricX,
-      baseline: "middle"
+      align: "end",
+      baseline: "top"
     }
   });
 
@@ -193,24 +194,36 @@ function scatter(args) {
     }
   });
 
-  selectedColor = dvl.apply({
+  var selectedColor = dvl.apply({
     args: selData,
     fn: function(_selData) {
       return function(d) {
-        return (_selData.indexOf(d) != -1 ? '#41BF28' : '#ff0000');
+        return (_selData.indexOf(d) != -1 ? '#41BF28' : '#4682b4');
       }
     },
-    invalid: function() { return '#ff0000'; }
-  })
+    invalid: function() { return '#4682b4'; }
+  });
+
+  var fillColor = dvl.apply({
+    args: selData,
+    fn: function(_selData) {
+      return function(d) {
+        return (_selData.indexOf(d) != -1 ? '#41BF28' : 'none');
+      }
+    },
+    invalid: function() { return 'none'; }
+  });
 
   dvl.svg.dots({
     panel: panel,
     duration: duration,
     props: {
+      key: dvl.gen.fromArray(data, dvl.acc('time')),
       radius: 3,
       left: dvl.gen.fromArray(data, getX, sx.scale),
       top: dvl.gen.fromArray(data, getY, sy.scale),
       stroke: dvl.gen.fromArray(data, null, selectedColor),
+      fill: dvl.gen.fromArray(data, null, fillColor),
     }
   });
 

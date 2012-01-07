@@ -63,7 +63,7 @@ function histogram(args) {
     selector: selector,
     width: 400,
     height: 200,
-    margin: { top: 30, bottom: 30, left: 70, right: 10 },
+    margin: { top: 15, bottom: 30, left: 70, right: 10 },
     classStr: 'histogram'
   });
 
@@ -90,7 +90,7 @@ function histogram(args) {
   var formatedTicksX = dvl.gen.fromArray(sx.ticks, null, function(d) { return d.toFixed(0); });
 
   var sizeY = dvl.apply({
-    fn: function(b) { return 0.9 * b; },
+    fn: function(b) { return 0.8 * b; },
     args: sy.band
   });
 
@@ -99,13 +99,14 @@ function histogram(args) {
   var selectedDims = dvl.def({}, 'selected_dims');
 
   dvl.register({
-    listen: [dataRaw, selectedDims],
-    change: [selHolder, selDataRaw],
+    listen: [dataRaw, selectedDims, selHolder],
+    change: [selDataRaw],
     fn: function() {
       _dataRaw = dataRaw.get();
       _dimension = dimension.get();
       _selectedDims = selectedDims.get();
-      if (_dataRaw == null || _dimension == null) return;
+      _selHolder = selHolder.get();
+      if (_dataRaw == null || _dimension == null || _selHolder !== me) return;
 
       var _selDataRaw = [];
       for (var i = 0; i < _dataRaw.length; i++) {
@@ -115,9 +116,7 @@ function histogram(args) {
         }
       }
 
-      selHolder.set(me);
-      selDataRaw.set(_selDataRaw);
-      dvl.notify(selHolder, selDataRaw);
+      selDataRaw.set(_selDataRaw).notify();
     }
   })
 
@@ -141,7 +140,9 @@ function histogram(args) {
           _selectedDims = {};
           _selectedDims[what] = true;
         }
-        selectedDims.set(_selectedDims).notify();
+        selectedDims.set(_selectedDims);
+        selHolder.set(me);
+        dvl.notify(selectedDims, selHolder);
       }
     }
   });
@@ -218,6 +219,17 @@ function histogram(args) {
       text: sy.ticks,
       align: "end",
       baseline: "middle"
+    }
+  });
+
+  dvl.svg.labels({
+    panel: panel,
+    props: {
+      right: 0,
+      bottom: -17,
+      text: "count",
+      align: "end",
+      baseline: "top"
     }
   });
 }
