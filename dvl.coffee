@@ -32,14 +32,11 @@ throw 'jQuery is needed for now.' unless jQuery
 
 debug = ->
   return unless console?.log
-  argCopy = Array::slice
-    .apply(arguments)
-    .map((x) -> if dvl.typeOf(x) is 'date' then x.toString() else x) # bypass silly chrome beta date priniting
-  console.log.apply(console, argCopy)
-  return argCopy[0]
+  console.log.apply(console, arguments)
+  return arguments[0]
 
 window.dvl =
-  version: '0.97'
+  version: '0.98'
 
 (->
   array_ctor = (new Array).constructor
@@ -1050,8 +1047,7 @@ dvl.delay = ({ data, time, name, init }) ->
           processData: q.processData.get()
           fn: q.fn
           outstanding
-          complete: getData
-          context:  ctx
+          complete: (err, data) -> getData.call(ctx, err, data)
         }
 
       else
@@ -1155,7 +1151,7 @@ dvl.delay = ({ data, time, name, init }) ->
 dvl.ajax.requester = {
   normal: () ->
     return {
-      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete, context}) ->
+      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete}) ->
         dataVal = if method isnt 'GET' then dataFn(data) else null
 
         getData = (resVal) ->
@@ -1164,12 +1160,12 @@ dvl.ajax.requester = {
             resVal = fn.call(ctx, resVal)
 
           ajax = null
-          complete.call(context, null, resVal)
+          complete(null, resVal)
 
         getError = (xhr, textStatus) ->
           return if textStatus is "abort"
           ajax = null
-          complete.call(context, textStatus, null)
+          complete(textStatus, null)
 
         ajax = jQuery.ajax {
           url
@@ -1227,10 +1223,9 @@ dvl.ajax.requester = {
 
 
     return {
-      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete, context}) ->
+      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete}) ->
         dataVal = if method isnt 'GET' then dataFn(data) else null
         key = [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@')
-        cb = {context, complete}
 
         c = cache[key]
         added = false
@@ -1238,7 +1233,7 @@ dvl.ajax.requester = {
           # first time we see this query, create stub
           cache[key] = c = {
             time: Date.now()
-            waiting: [cb]
+            waiting: [complete]
           }
           added = true
           count++
@@ -1252,7 +1247,7 @@ dvl.ajax.requester = {
 
             c.ajax = null
             c.resVal = resVal
-            w.complete.call(w.context, null, resVal) for w in c.waiting
+            cb(null, resVal) for cb in c.waiting
             delete c.waiting
             return
 
@@ -1261,7 +1256,7 @@ dvl.ajax.requester = {
             c.ajax = null
             delete cache[key]
             count--
-            w.complete.call(w.context, textStatus, null) for w in c.waiting
+            cb(textStatus, null) for cb in c.waiting
             delete c.waiting
             return
 
@@ -1281,18 +1276,19 @@ dvl.ajax.requester = {
           outstanding.set(outstanding.get() + 1).notify()
 
         if c.resVal
-          complete.call(context, null, c.resVal)
+          complete(null, c.resVal)
 
           return {
             abort: ->
               return
           }
         else
-          c.waiting.push(cb) unless added
+          c.waiting.push(complete) unless added
 
           return {
             abort: ->
-              c.waiting = c.waiting.filter((l) -> l isnt cb)
+              return unless c.waiting
+              c.waiting = c.waiting.filter((l) -> l isnt complete)
 
               if c.waiting.length is 0 and c.ajax
                 c.ajax.abort()
@@ -3292,10 +3288,11 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip or null)
     c.cellClick = dvl.wrapConstIfNeeded(c.cellClick or null)
     c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
-    c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'html']
+    c.hideHeader = dvl.wrapConstIfNeeded(c.hideHeader)
+    c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'text']
     c.cellClassGen = if c.cellClassGen then dvl.wrapConstIfNeeded(c.cellClassGen) else null
     listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen
-    listenColumnVisible.push c.visible
+    listenColumnVisible.push c.visible, c.hideHeader
     if c.renderer.depends
       listen.push d for d in c.renderer.depends
     c.uniquClass = 'column_' + i
@@ -3446,7 +3443,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
     h.selectAll('th').data(columns)
       .attr('class', colClass)
-      .style('display', (c) -> if c.visible.get() and not c.hideHeader then null else "none")
+      .style('display', (c) -> if c.visible.get() and not c.hideHeader.get() then null else "none")
       .attr('title', (c) -> c.headerTooltip.get())
         .select('span')[if htmlTitles then 'html' else 'text']((c) -> c.title.get())
 
@@ -3497,7 +3494,7 @@ dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
   columnVisible = ->
     h.selectAll('th').data(columns)
-      .style('display', (c) -> if c.visible.get() and not c.hideHeader then null else "none")
+      .style('display', (c) -> if c.visible.get() and not c.hideHeader.get() then null else "none")
 
     for col in columns
       sel.select('td.' + col.uniquClass)
@@ -3525,7 +3522,7 @@ dvl.html.table.renderer =
   html: (col, dataFn) ->
     col.html(dataFn)
     return
-  aLink: ({linkGen, html}) ->
+  aLink: ({linkGen, html, poo}) ->
     what = if html then 'html' else 'text'
     linkGen = dvl.wrapConstIfNeeded(linkGen)
     f = (col, dataFn) ->

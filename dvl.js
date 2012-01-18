@@ -34,22 +34,14 @@ if (!Array.prototype.filter) {
   };
 };
 debug = function() {
-  var argCopy;
   if (!(typeof console !== "undefined" && console !== null ? console.log : void 0)) {
     return;
   }
-  argCopy = Array.prototype.slice.apply(arguments).map(function(x) {
-    if (dvl.typeOf(x) === 'date') {
-      return x.toString();
-    } else {
-      return x;
-    }
-  });
-  console.log.apply(console, argCopy);
-  return argCopy[0];
+  console.log.apply(console, arguments);
+  return arguments[0];
 };
 window.dvl = {
-  version: '0.97'
+  version: '0.98'
 };
 (function() {
   var array_ctor, date_ctor, regex_ctor;
@@ -1385,8 +1377,9 @@ dvl.delay = function(_arg) {
           processData: q.processData.get(),
           fn: q.fn,
           outstanding: outstanding,
-          complete: getData,
-          context: ctx
+          complete: function(err, data) {
+            return getData.call(ctx, err, data);
+          }
         });
       } else {
         return getData.call(ctx, null, null);
@@ -1507,8 +1500,8 @@ dvl.ajax.requester = {
   normal: function() {
     return {
       request: function(_arg) {
-        var ajax, complete, contentType, context, data, dataFn, dataType, dataVal, fn, getData, getError, method, outstanding, processData, url;
-        url = _arg.url, data = _arg.data, dataFn = _arg.dataFn, method = _arg.method, dataType = _arg.dataType, contentType = _arg.contentType, processData = _arg.processData, fn = _arg.fn, outstanding = _arg.outstanding, complete = _arg.complete, context = _arg.context;
+        var ajax, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, method, outstanding, processData, url;
+        url = _arg.url, data = _arg.data, dataFn = _arg.dataFn, method = _arg.method, dataType = _arg.dataType, contentType = _arg.contentType, processData = _arg.processData, fn = _arg.fn, outstanding = _arg.outstanding, complete = _arg.complete;
         dataVal = method !== 'GET' ? dataFn(data) : null;
         getData = function(resVal) {
           var ajax, ctx;
@@ -1520,7 +1513,7 @@ dvl.ajax.requester = {
             resVal = fn.call(ctx, resVal);
           }
           ajax = null;
-          return complete.call(context, null, resVal);
+          return complete(null, resVal);
         };
         getError = function(xhr, textStatus) {
           var ajax;
@@ -1528,7 +1521,7 @@ dvl.ajax.requester = {
             return;
           }
           ajax = null;
-          return complete.call(context, textStatus, null);
+          return complete(textStatus, null);
         };
         ajax = jQuery.ajax({
           url: url,
@@ -1603,26 +1596,22 @@ dvl.ajax.requester = {
     });
     return {
       request: function(_arg2) {
-        var added, c, cb, complete, contentType, context, data, dataFn, dataType, dataVal, fn, getData, getError, key, method, outstanding, processData, url;
-        url = _arg2.url, data = _arg2.data, dataFn = _arg2.dataFn, method = _arg2.method, dataType = _arg2.dataType, contentType = _arg2.contentType, processData = _arg2.processData, fn = _arg2.fn, outstanding = _arg2.outstanding, complete = _arg2.complete, context = _arg2.context;
+        var added, c, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, key, method, outstanding, processData, url;
+        url = _arg2.url, data = _arg2.data, dataFn = _arg2.dataFn, method = _arg2.method, dataType = _arg2.dataType, contentType = _arg2.contentType, processData = _arg2.processData, fn = _arg2.fn, outstanding = _arg2.outstanding, complete = _arg2.complete;
         dataVal = method !== 'GET' ? dataFn(data) : null;
         key = [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@');
-        cb = {
-          context: context,
-          complete: complete
-        };
         c = cache[key];
         added = false;
         if (!c) {
           cache[key] = c = {
             time: Date.now(),
-            waiting: [cb]
+            waiting: [complete]
           };
           added = true;
           count++;
           trim();
           getData = function(resVal) {
-            var ctx, w, _i, _len, _ref2;
+            var cb, ctx, _i, _len, _ref2;
             if (fn) {
               ctx = {
                 url: url,
@@ -1634,13 +1623,13 @@ dvl.ajax.requester = {
             c.resVal = resVal;
             _ref2 = c.waiting;
             for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-              w = _ref2[_i];
-              w.complete.call(w.context, null, resVal);
+              cb = _ref2[_i];
+              cb(null, resVal);
             }
             delete c.waiting;
           };
           getError = function(xhr, textStatus) {
-            var w, _i, _len, _ref2;
+            var cb, _i, _len, _ref2;
             if (textStatus === "abort") {
               return;
             }
@@ -1649,8 +1638,8 @@ dvl.ajax.requester = {
             count--;
             _ref2 = c.waiting;
             for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-              w = _ref2[_i];
-              w.complete.call(w.context, textStatus, null);
+              cb = _ref2[_i];
+              cb(textStatus, null);
             }
             delete c.waiting;
           };
@@ -1673,18 +1662,21 @@ dvl.ajax.requester = {
           outstanding.set(outstanding.get() + 1).notify();
         }
         if (c.resVal) {
-          complete.call(context, null, c.resVal);
+          complete(null, c.resVal);
           return {
             abort: function() {}
           };
         } else {
           if (!added) {
-            c.waiting.push(cb);
+            c.waiting.push(complete);
           }
           return {
             abort: function() {
+              if (!c.waiting) {
+                return;
+              }
               c.waiting = c.waiting.filter(function(l) {
-                return l !== cb;
+                return l !== complete;
               });
               if (c.waiting.length === 0 && c.ajax) {
                 c.ajax.abort();
@@ -3977,10 +3969,11 @@ dvl.html.table = function(_arg) {
     c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip || null);
     c.cellClick = dvl.wrapConstIfNeeded(c.cellClick || null);
     c.visible = dvl.wrapConstIfNeeded((_ref6 = c.visible) != null ? _ref6 : true);
-    c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'html'];
+    c.hideHeader = dvl.wrapConstIfNeeded(c.hideHeader);
+    c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'text'];
     c.cellClassGen = c.cellClassGen ? dvl.wrapConstIfNeeded(c.cellClassGen) : null;
     listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen);
-    listenColumnVisible.push(c.visible);
+    listenColumnVisible.push(c.visible, c.hideHeader);
     if (c.renderer.depends) {
       _ref7 = c.renderer.depends;
       for (_k = 0, _len3 = _ref7.length; _k < _len3; _k++) {
@@ -4164,7 +4157,7 @@ dvl.html.table = function(_arg) {
       }
     }
     h.selectAll('th').data(columns).attr('class', colClass).style('display', function(c) {
-      if (c.visible.get() && !c.hideHeader) {
+      if (c.visible.get() && !c.hideHeader.get()) {
         return null;
       } else {
         return "none";
@@ -4220,7 +4213,7 @@ dvl.html.table = function(_arg) {
   columnVisible = function() {
     var col, _l, _len4;
     h.selectAll('th').data(columns).style('display', function(c) {
-      if (c.visible.get() && !c.hideHeader) {
+      if (c.visible.get() && !c.hideHeader.get()) {
         return null;
       } else {
         return "none";
@@ -4251,8 +4244,8 @@ dvl.html.table.renderer = {
     col.html(dataFn);
   },
   aLink: function(_arg) {
-    var f, html, linkGen, what;
-    linkGen = _arg.linkGen, html = _arg.html;
+    var f, html, linkGen, poo, what;
+    linkGen = _arg.linkGen, html = _arg.html, poo = _arg.poo;
     what = html ? 'html' : 'text';
     linkGen = dvl.wrapConstIfNeeded(linkGen);
     f = function(col, dataFn) {
