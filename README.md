@@ -1,6 +1,6 @@
 # DVL
 
-**DVL** is a free functionally reactive library written in JavaScript. DVL is based on the idea that code should automaticity be run when the variables that it depends on changes.
+**DVL** is a free functionally reactive library written in JavaScript. DVL is based on the idea that code should automatically be run when the variables that it depends on changes.
 
 DVL consists of three parts:
 DVL core – The DVL event dispatcher and miscellaneous helper utilities.
