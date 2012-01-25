@@ -10,25 +10,16 @@ throw 'd3 is needed for now.' unless d3
 throw 'protovis is needed for now.' unless pv
 throw 'jQuery is needed for now.' unless jQuery
 
-`if (!Array.prototype.filter) {
-  Array.prototype.filter = function(fun, thisp) {
-    var len = this.length;
-    if (typeof fun != 'function')
-      throw new TypeError();
 
-    var res = new Array();
-    for (var i = 0; i < len; i++)
-    {
-      if (i in this)
-      {
-        var val = this[i]; // in case fun mutates this
-        if (fun.call(thisp, val, i, this))
-          res.push(val);
-      }
-    }
-    return res;
-  };
-}`
+Array::filter ?= (fun, thisp) ->
+  throw new TypeError() if typeof fun isnt 'function'
+
+  res = new Array()
+  for val in this
+    res.push val if fun.call(thisp, val, i, this)
+
+  return res
+
 
 debug = ->
   return unless console?.log
