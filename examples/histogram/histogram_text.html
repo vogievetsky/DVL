@@ -39,26 +39,34 @@ body {
 
   var letters = dvl.const("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(''));
 
-  data = dvl.def([], 'data');
+  var data = dvl.def([], 'data');
 
 	var getY = dvl.acc('letter');
 	var getX = dvl.acc('count');
 	var duration = 0;
 
-	var margin = dvl.def({ top: 30, bottom: 30, left: 30, right: 10 }, "margin");
+  var width = 740;
+  var height = 640;
+	var padding = 30;
 
-  var panel = dvl.svg.canvas({
-    selector:'body',
-    width: 800,
-    height: 700,
-    margin:margin
-  });
+  var svg = d3.select('body')
+    .append('svg')
+    .attr('width',  width + padding * 2)
+    .attr('height', height + padding * 2)
+
+  var mainGroup = svg.append('g')
+    .attr('transform', 'translate(' + padding + ',' + padding + ')')
+
+  mainGroup.append('rect')
+    .attr('class', 'background')
+    .attr('width',  width )
+    .attr('height', height)
 
   var sx = dvl.scale.linear({
     name: "scale_x",
     domain: { data:data, acc:getX },
     rangeFrom: 0,
-    rangeTo: panel.width,
+    rangeTo: width,
     padding: 10,
     anchor: true
   })
@@ -67,105 +75,107 @@ body {
     name: "scale_y",
     domain: { data:letters },
     rangeFrom: 0,
-    rangeTo: panel.height,
+    rangeTo: height,
     padding: 10
   });
-
-  var scaledTicksX = dvl.gen.fromArray(sx.ticks, null, sx.scale),
-      scaledTicksY = dvl.gen.fromArray(sy.ticks, null, sy.scale);
-
-  var formatedTicksX = dvl.gen.fromArray(sx.ticks, null, function(d) { return d.toFixed(0); });
 
   var sizeY = dvl.apply({
     fn: function(b) { return 0.9 * b; },
     args: sy.band
   });
 
-  dvl.svg.bars({
-    panel: panel,
-    duration: duration,
-    props: {
-      key: dvl.gen.fromArray(data, function(d) { return d.pair; }),
-      left: dvl.gen.fromValue(dvl.zero, sx.scale),
-      centerY: dvl.gen.fromArray(data, getY, sy.scale),
-      width: dvl.gen.sub(dvl.gen.fromArray(data, getX, sx.scale), dvl.gen.fromValue(dvl.zero, sx.scale)),
+  var scaledX = dvl.chain(getX, sx.scale)
+  var scaledY = dvl.chain(getY, sy.scale)
+  var leftPos = dvl.apply({ args: dvl.zero, fn: sx.scale });
+  var widthFn = dvl.apply({
+    args: [scaledX, leftPos],
+    fn: function(sx, lp) {
+      return function(d,i) {
+        return sx(d,i) - lp;
+      }
+    }
+  });
+  var yFn = dvl.apply({
+    args: [scaledY, sy.band],
+    fn: function(sy, b) {
+      return function(d,i) {
+        return sy(d,i) - b/2;
+      }
+    }
+  });
+  dvl.mark({
+    type: 'rect',
+    selection: mainGroup.append('g').attr('class', 'bars'),
+    data: data,
+    join: function(d) { return d.letter; },
+    attr: {
+      x: leftPos,
+      y: yFn,
+      width: widthFn,
       height: sizeY
     }
   });
 
-  dvl.svg.bars({
-    panel: panel,
-    duration: duration,
-    classStr: 'selection',
-    props: {
-      key: dvl.gen.fromArray(data, function(d) { return d.pair; }),
-      left: dvl.gen.fromValue(dvl.zero, sx.scale),
-      centerY: dvl.gen.fromArray(data, getY, sy.scale),
-      width: dvl.gen.sub(dvl.gen.fromArray(data, getX, sx.scale), dvl.gen.fromValue(dvl.zero, sx.scale)),
-      height: sizeY
+  dvl.mark({
+    type: 'line',
+    selection: mainGroup.append('g').attr('class', 'lines'),
+    data: sx.ticks,
+    join: dvl.ident,
+    attr: {
+      x1: sx.scale,
+      y1: 0,
+      x2: sx.scale,
+      y2: height,
+    },
+    style: {
+      stroke: function(d,i) { return (d > 0 ? 'white' : 'black'); }
     }
   });
 
-  dvl.svg.lines({
-    panel: panel,
-    duration: duration,
-    props: {
-      key: sx.ticks,
-      left: scaledTicksX,
-      top1: 0,
-      bottom2: 0,
-      stroke: "white"
-    }
+  dvl.mark({
+    type: 'text',
+    selection: mainGroup.append('g').attr('class', 'xlabels_top'),
+    data: sx.ticks,
+    join: dvl.ident,
+    attr: {
+      x: sx.scale,
+      y: -3
+    },
+    style: {
+      'text-anchor': 'middle'
+    },
+    text: function(d) { return d.toFixed(0); }
   });
 
-  dvl.svg.lines({
-    panel: panel,
-    duration: duration,
-    props: {
-      left: 10,
-      top1: 0,
-      bottom2: 0,
-      stroke: "black"
-    }
+  dvl.mark({
+    type: 'text',
+    selection: mainGroup.append('g').attr('class', 'xlabels_bottom').attr('transform', 'translate(0,' + height + ')'),
+    data: sx.ticks,
+    join: dvl.ident,
+    attr: {
+      x: sx.scale,
+      y: 10,
+      dy: 0.71
+    },
+    style: {
+      'text-anchor': 'middle'
+    },
+    text: function(d) { return d.toFixed(0); }
   });
 
-  dvl.svg.labels({
-    panel: panel,
-    duration: duration,
-    props: {
-      key: sx.ticks,
-      left: scaledTicksX,
-      bottom: -3,
-      text: formatedTicksX,
-      baseline: "top",
-      align: "middle"
-    }
-  });
-
-  dvl.svg.labels({
-    panel: panel,
-    duration: duration,
-    props: {
-      key: sx.ticks,
-      left: scaledTicksX,
-      top: -3,
-      text: formatedTicksX,
-      baseline: "bottom",
-      align: "middle"
-    }
-  });
-
-  dvl.svg.labels({
-    panel: panel,
-    duration: duration,
-    props: {
-      key: sy.ticks,
-      left: -3,
-      top:  scaledTicksY,
-      text: sy.ticks,
-      align: "end",
-      baseline: "middle"
-    }
+  dvl.mark({
+    type: 'text',
+    selection: mainGroup.append('g').attr('class', 'ylabels'),
+    data: sy.ticks,
+    join: dvl.ident,
+    attr: {
+      x: -3,
+      y: sy.scale,
+    },
+    style: {
+      'text-anchor': 'end'
+    },
+    text: dvl.ident
   });
 
   ////////////////////////////
