@@ -1703,7 +1703,265 @@ dvl.scale = {}
     band: bandRef
 )()
 
-dvl.dataMapper
+# dvl.mark # --------------------------------------------------
+
+# {selection, ns, type, data, join, attr, style, text, html, on, trans}
+dvl.mark = (args) ->
+  throw "'selection' not defiend" unless args.selection
+  type = args.type
+  throw "'type' not defiend" unless typeof type is 'string'
+  trans = args.trans or []
+  staticClass = args.staticClass
+
+  selection = dvl.wrapConstIfNeeded(args.selection)
+  data = dvl.wrapConstIfNeeded(args.data or [undefined])
+  join = dvl.wrapConstIfNeeded(args.join)
+  text = if args.text then dvl.wrapConstIfNeeded(args.text) else null
+  html = if args.html then dvl.wrapConstIfNeeded(args.html) else null
+
+  listen = [selection, data, join, text, html]
+
+  attrList = {}
+  for k, v of args.attr
+    v = dvl.wrapConstIfNeeded(v)
+    listen.push(v)
+    attrList[k] = v
+
+  if staticClass
+    attrList['class'] = dvl.const(staticClass)
+
+  styleList = {}
+  for k, v of args.style
+    v = dvl.wrapConstIfNeeded(v)
+    listen.push(v)
+    styleList[k] = v
+
+  onList = {}
+  for k, v of args.on
+    v = dvl.wrapConstIfNeeded(v)
+    listen.push(v)
+    onList[k] = v
+
+  out = dvl.def(null, 'out')
+
+  dvl.register {
+    listen
+    change: [out]
+    fn: ->
+      _selection = selection.get()
+      return unless _selection
+
+      force = data.hasChanged() or join.hasChanged()
+      _data = data.get()
+      _join = join.get()
+
+      if _data
+        # prep
+        enter     = []
+        preTrans  = []
+        postTrans = []
+
+        add1 = (fn, v) ->
+          if v.hasChanged() or force
+            enter.push  { fn, a1: v.getPrev() }
+            postTrans.push { fn, a1: v.get() }
+          else
+            enter.push  { fn, a1: v.get() }
+          return
+
+        add2 = (fn, k, v) ->
+          if v.hasChanged() or force
+            enter.push     { fn, a1: k, a2: v.getPrev() }
+            postTrans.push { fn, a1: k, a2: v.get() }
+          else
+            enter.push     { fn, a1: k, a2: v.get() }
+          return
+
+        addO = (fn, k, v) ->
+          if v.hasChanged() or force
+            preTrans.push { fn, a1: k, a2: v.get() }
+          else
+            enter.push  { fn, a1: k, a2: v.get() }
+          return
+
+        add1('text', text)  if text
+        add1('html', html)  if html
+        add2('attr', k, v)  for k, v of attrList
+        add2('style', k, v) for k, v of styleList
+        addO('on', k, v)    for k, v of onList
+
+        # trans
+        selTransition = null
+        for t in trans
+          good = true
+
+          if t.changed
+            for v in t.changed
+              if not v.hasChanged()
+                good = false
+                break
+
+          if t.same and good
+            for v in t.same
+              if v.hasChanged()
+                good = false
+                break
+
+          if good
+            selTransition = t
+            break
+
+        # d3 stuff
+        if staticClass
+          selector = staticClass.split(' ')
+          selector.unshift(type)
+          selector = selector.join('.')
+        else
+          selector = type
+        s = _selection.selectAll(selector).data(_data, _join)
+        e = s.enter().append(type)
+
+        e[a.fn](a.a1, a.a2) for a in enter
+
+        s[a.fn](a.a1, a.a2) for a in preTrans
+
+        if selTransition and selTransition.duration isnt 0
+          t = s.transition()
+          t.duration(selTransition.duration or 1000)
+          t.ease(dvl.valueOf(selTransition.ease)) if selTransition.ease
+        else
+          t = s
+
+        t[a.fn](a.a1, a.a2) for a in postTrans
+
+        s.exit().remove()
+      else
+        s = _selection.selectAll(type).remove()
+
+      out.set(s).notify()
+      return
+  }
+
+  return out
+
+
+dvl.chain = (f, h) ->
+  f = dvl.wrapConstIfNeeded(f)
+  h = dvl.wrapConstIfNeeded(h)
+
+  out = dvl.def(null, 'chain')
+
+  dvl.register {
+    listen: [f, h]
+    change: [out]
+    fn: ->
+      _f = f.get()
+      _h = h.get()
+      if _f and _h
+        out.set((x) -> _h(_f(x)))
+      else
+        out.set(null)
+
+      dvl.notify(out)
+      return
+  }
+
+  return out
+
+
+dvl.op = {
+  'or': ->
+    args = Array::slice.call(arguments).map(dvl.wrapConstIfNeeded)
+    out = dvl.def(null, 'out')
+
+    dvl.register {
+      listen: args
+      change: [out]
+      fn: ->
+        for a in args
+          _a = a.get()
+          if _a
+            out.set(_a).notify()
+            return
+
+        out.set(null).notify()
+        return
+    }
+
+    return out
+
+  'add': ->
+    args = Array::slice.call(arguments).map(dvl.wrapConstIfNeeded)
+    out = dvl.def(null, 'out')
+
+    dvl.register {
+      listen: args
+      change: [out]
+      fn: ->
+        sum = 0
+        for a in args
+          _a = a.get()
+          if _a is null
+            sum = null
+            break
+          else
+            sum += _a
+
+        out.set(sum).notify()
+        return
+    }
+
+    return out
+
+  'iff': (cond, truthy, falsy) ->
+    cond   = dvl.wrapConstIfNeeded(cond)
+    truthy = dvl.wrapConstIfNeeded(truthy)
+    falsy  = dvl.wrapConstIfNeeded(falsy)
+    out = dvl.def(null, 'out')
+
+    dvl.register {
+      listen: [cond, truthy, falsy]
+      change: [out]
+      fn: ->
+        res = if cond.get() then truthy.get() else falsy.get()
+
+        out.set(res).notify()
+        return
+    }
+
+    return out
+}
+
+
+clipId = 0
+dvl.mark.clipPath = ({selection, x, y, width, height}) ->
+  x = dvl.wrapConstIfNeeded(x or 0)
+  y = dvl.wrapConstIfNeeded(y or 0)
+
+  clipId++
+  myId = "cp#{clipId}"
+  cp = dvl.valueOf(selection)
+    .append('defs')
+      .append('clipPath')
+      .attr('id', myId)
+
+  dvl.mark {
+    type: 'rect'
+    selection: cp
+    attr: {
+      x
+      y
+      width
+      height
+    }
+  }
+
+  return "url(##{myId})"
+
+
+
+
+
 
 # Gens # --------------------------------------------------
 

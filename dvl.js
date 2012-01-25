@@ -1,4 +1,4 @@
-"use strict";var debug, generator_maker_maker;
+"use strict";var clipId, debug, generator_maker_maker;
 var __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
@@ -2196,7 +2196,316 @@ dvl.scale = {};
     };
   };
 })();
-dvl.dataMapper;
+dvl.mark = function(args) {
+  var attrList, data, html, join, k, listen, onList, out, selection, staticClass, styleList, text, trans, type, v, _ref, _ref2, _ref3;
+  if (!args.selection) {
+    throw "'selection' not defiend";
+  }
+  type = args.type;
+  if (typeof type !== 'string') {
+    throw "'type' not defiend";
+  }
+  trans = args.trans || [];
+  staticClass = args.staticClass;
+  selection = dvl.wrapConstIfNeeded(args.selection);
+  data = dvl.wrapConstIfNeeded(args.data || [void 0]);
+  join = dvl.wrapConstIfNeeded(args.join);
+  text = args.text ? dvl.wrapConstIfNeeded(args.text) : null;
+  html = args.html ? dvl.wrapConstIfNeeded(args.html) : null;
+  listen = [selection, data, join, text, html];
+  attrList = {};
+  _ref = args.attr;
+  for (k in _ref) {
+    v = _ref[k];
+    v = dvl.wrapConstIfNeeded(v);
+    listen.push(v);
+    attrList[k] = v;
+  }
+  if (staticClass) {
+    attrList['class'] = dvl["const"](staticClass);
+  }
+  styleList = {};
+  _ref2 = args.style;
+  for (k in _ref2) {
+    v = _ref2[k];
+    v = dvl.wrapConstIfNeeded(v);
+    listen.push(v);
+    styleList[k] = v;
+  }
+  onList = {};
+  _ref3 = args.on;
+  for (k in _ref3) {
+    v = _ref3[k];
+    v = dvl.wrapConstIfNeeded(v);
+    listen.push(v);
+    onList[k] = v;
+  }
+  out = dvl.def(null, 'out');
+  dvl.register({
+    listen: listen,
+    change: [out],
+    fn: function() {
+      var a, add1, add2, addO, e, enter, force, good, k, postTrans, preTrans, s, selTransition, selector, t, v, _data, _i, _j, _join, _k, _l, _len, _len2, _len3, _len4, _len5, _len6, _m, _n, _ref4, _ref5, _selection;
+      _selection = selection.get();
+      if (!_selection) {
+        return;
+      }
+      force = data.hasChanged() || join.hasChanged();
+      _data = data.get();
+      _join = join.get();
+      if (_data) {
+        enter = [];
+        preTrans = [];
+        postTrans = [];
+        add1 = function(fn, v) {
+          if (v.hasChanged() || force) {
+            enter.push({
+              fn: fn,
+              a1: v.getPrev()
+            });
+            postTrans.push({
+              fn: fn,
+              a1: v.get()
+            });
+          } else {
+            enter.push({
+              fn: fn,
+              a1: v.get()
+            });
+          }
+        };
+        add2 = function(fn, k, v) {
+          if (v.hasChanged() || force) {
+            enter.push({
+              fn: fn,
+              a1: k,
+              a2: v.getPrev()
+            });
+            postTrans.push({
+              fn: fn,
+              a1: k,
+              a2: v.get()
+            });
+          } else {
+            enter.push({
+              fn: fn,
+              a1: k,
+              a2: v.get()
+            });
+          }
+        };
+        addO = function(fn, k, v) {
+          if (v.hasChanged() || force) {
+            preTrans.push({
+              fn: fn,
+              a1: k,
+              a2: v.get()
+            });
+          } else {
+            enter.push({
+              fn: fn,
+              a1: k,
+              a2: v.get()
+            });
+          }
+        };
+        if (text) {
+          add1('text', text);
+        }
+        if (html) {
+          add1('html', html);
+        }
+        for (k in attrList) {
+          v = attrList[k];
+          add2('attr', k, v);
+        }
+        for (k in styleList) {
+          v = styleList[k];
+          add2('style', k, v);
+        }
+        for (k in onList) {
+          v = onList[k];
+          addO('on', k, v);
+        }
+        selTransition = null;
+        for (_i = 0, _len = trans.length; _i < _len; _i++) {
+          t = trans[_i];
+          good = true;
+          if (t.changed) {
+            _ref4 = t.changed;
+            for (_j = 0, _len2 = _ref4.length; _j < _len2; _j++) {
+              v = _ref4[_j];
+              if (!v.hasChanged()) {
+                good = false;
+                break;
+              }
+            }
+          }
+          if (t.same && good) {
+            _ref5 = t.same;
+            for (_k = 0, _len3 = _ref5.length; _k < _len3; _k++) {
+              v = _ref5[_k];
+              if (v.hasChanged()) {
+                good = false;
+                break;
+              }
+            }
+          }
+          if (good) {
+            selTransition = t;
+            break;
+          }
+        }
+        if (staticClass) {
+          selector = staticClass.split(' ');
+          selector.unshift(type);
+          selector = selector.join('.');
+        } else {
+          selector = type;
+        }
+        s = _selection.selectAll(selector).data(_data, _join);
+        e = s.enter().append(type);
+        for (_l = 0, _len4 = enter.length; _l < _len4; _l++) {
+          a = enter[_l];
+          e[a.fn](a.a1, a.a2);
+        }
+        for (_m = 0, _len5 = preTrans.length; _m < _len5; _m++) {
+          a = preTrans[_m];
+          s[a.fn](a.a1, a.a2);
+        }
+        if (selTransition && selTransition.duration !== 0) {
+          t = s.transition();
+          t.duration(selTransition.duration || 1000);
+          if (selTransition.ease) {
+            t.ease(dvl.valueOf(selTransition.ease));
+          }
+        } else {
+          t = s;
+        }
+        for (_n = 0, _len6 = postTrans.length; _n < _len6; _n++) {
+          a = postTrans[_n];
+          t[a.fn](a.a1, a.a2);
+        }
+        s.exit().remove();
+      } else {
+        s = _selection.selectAll(type).remove();
+      }
+      out.set(s).notify();
+    }
+  });
+  return out;
+};
+dvl.chain = function(f, h) {
+  var out;
+  f = dvl.wrapConstIfNeeded(f);
+  h = dvl.wrapConstIfNeeded(h);
+  out = dvl.def(null, 'chain');
+  dvl.register({
+    listen: [f, h],
+    change: [out],
+    fn: function() {
+      var _f, _h;
+      _f = f.get();
+      _h = h.get();
+      if (_f && _h) {
+        out.set(function(x) {
+          return _h(_f(x));
+        });
+      } else {
+        out.set(null);
+      }
+      dvl.notify(out);
+    }
+  });
+  return out;
+};
+dvl.op = {
+  'or': function() {
+    var args, out;
+    args = Array.prototype.slice.call(arguments).map(dvl.wrapConstIfNeeded);
+    out = dvl.def(null, 'out');
+    dvl.register({
+      listen: args,
+      change: [out],
+      fn: function() {
+        var a, _a, _i, _len;
+        for (_i = 0, _len = args.length; _i < _len; _i++) {
+          a = args[_i];
+          _a = a.get();
+          if (_a) {
+            out.set(_a).notify();
+            return;
+          }
+        }
+        out.set(null).notify();
+      }
+    });
+    return out;
+  },
+  'add': function() {
+    var args, out;
+    args = Array.prototype.slice.call(arguments).map(dvl.wrapConstIfNeeded);
+    out = dvl.def(null, 'out');
+    dvl.register({
+      listen: args,
+      change: [out],
+      fn: function() {
+        var a, sum, _a, _i, _len;
+        sum = 0;
+        for (_i = 0, _len = args.length; _i < _len; _i++) {
+          a = args[_i];
+          _a = a.get();
+          if (_a === null) {
+            sum = null;
+            break;
+          } else {
+            sum += _a;
+          }
+        }
+        out.set(sum).notify();
+      }
+    });
+    return out;
+  },
+  'iff': function(cond, truthy, falsy) {
+    var out;
+    cond = dvl.wrapConstIfNeeded(cond);
+    truthy = dvl.wrapConstIfNeeded(truthy);
+    falsy = dvl.wrapConstIfNeeded(falsy);
+    out = dvl.def(null, 'out');
+    dvl.register({
+      listen: [cond, truthy, falsy],
+      change: [out],
+      fn: function() {
+        var res;
+        res = cond.get() ? truthy.get() : falsy.get();
+        out.set(res).notify();
+      }
+    });
+    return out;
+  }
+};
+clipId = 0;
+dvl.mark.clipPath = function(_arg) {
+  var cp, height, myId, selection, width, x, y;
+  selection = _arg.selection, x = _arg.x, y = _arg.y, width = _arg.width, height = _arg.height;
+  x = dvl.wrapConstIfNeeded(x || 0);
+  y = dvl.wrapConstIfNeeded(y || 0);
+  clipId++;
+  myId = "cp" + clipId;
+  cp = dvl.valueOf(selection).append('defs').append('clipPath').attr('id', myId);
+  dvl.mark({
+    type: 'rect',
+    selection: cp,
+    attr: {
+      x: x,
+      y: y,
+      width: width,
+      height: height
+    }
+  });
+  return "url(#" + myId + ")";
+};
 dvl.gen = {};
 dvl.gen.fromFn = function(fn) {
   var gen;
