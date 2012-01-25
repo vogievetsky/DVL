@@ -1,4 +1,4 @@
-"use strict";var clipId, debug, generator_maker_maker;
+"use strict";var clipId, debug, generator_maker_maker, id_class_spliter, _ref;
 var __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
@@ -14,20 +14,19 @@ if (!pv) {
 if (!jQuery) {
   throw 'jQuery is needed for now.';
 }
-if (!Array.prototype.filter) {
+if ((_ref = Array.prototype.filter) != null) {
+  _ref;
+} else {
   Array.prototype.filter = function(fun, thisp) {
-    var len = this.length;
-    if (typeof fun != 'function')
+    var res, val, _i, _len;
+    if (typeof fun !== 'function') {
       throw new TypeError();
-
-    var res = new Array();
-    for (var i = 0; i < len; i++)
-    {
-      if (i in this)
-      {
-        var val = this[i]; // in case fun mutates this
-        if (fun.call(thisp, val, i, this))
-          res.push(val);
+    }
+    res = new Array();
+    for (_i = 0, _len = this.length; _i < _len; _i++) {
+      val = this[_i];
+      if (fun.call(thisp, val, i, this)) {
+        res.push(val);
       }
     }
     return res;
@@ -542,15 +541,15 @@ dvl.util = {
     return res;
   };
   checkForCycle = function(fo) {
-    var stack, v, visited, w, _i, _len, _ref;
+    var stack, v, visited, w, _i, _len, _ref2;
     stack = fo.updates.slice();
     visited = {};
     while (stack.length > 0) {
       v = stack.pop();
       visited[v.id] = true;
-      _ref = v.updates;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        w = _ref[_i];
+      _ref2 = v.updates;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        w = _ref2[_i];
         if (w === fo) {
           throw "circular dependancy detected around " + w.id;
         }
@@ -561,13 +560,13 @@ dvl.util = {
     }
   };
   bfsUpdate = function(stack) {
-    var nextLevel, v, w, _i, _len, _ref;
+    var nextLevel, v, w, _i, _len, _ref2;
     while (stack.length > 0) {
       v = stack.pop();
       nextLevel = v.level + 1;
-      _ref = v.updates;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        w = _ref[_i];
+      _ref2 = v.updates;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        w = _ref2[_i];
         if (w.level < nextLevel) {
           w.level = nextLevel;
           stack.push(w);
@@ -576,12 +575,12 @@ dvl.util = {
     }
   };
   bfsZero = function(queue) {
-    var v, w, _i, _len, _ref;
+    var v, w, _i, _len, _ref2;
     while (queue.length > 0) {
       v = queue.shift();
-      _ref = v.updates;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        w = _ref[_i];
+      _ref2 = v.updates;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        w = _ref2[_i];
         w.level = 0;
         queue.push(w);
       }
@@ -602,16 +601,16 @@ dvl.util = {
       return this;
     }
     DVLFunctionObject.prototype.addChange = function() {
-      var l, uv, v, _i, _j, _len, _len2, _ref;
+      var l, uv, v, _i, _j, _len, _len2, _ref2;
       uv = uniqById(arguments);
       if (uv.length) {
         for (_i = 0, _len = uv.length; _i < _len; _i++) {
           v = uv[_i];
           this.change.push(v);
           v.changers.push(this);
-          _ref = v.listeners;
-          for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
-            l = _ref[_j];
+          _ref2 = v.listeners;
+          for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+            l = _ref2[_j];
             this.updates.push(l);
           }
         }
@@ -621,16 +620,16 @@ dvl.util = {
       return this;
     };
     DVLFunctionObject.prototype.addListen = function() {
-      var c, changedSave, i, uv, v, _i, _j, _k, _len, _len2, _len3, _len4, _ref;
+      var c, changedSave, i, uv, v, _i, _j, _k, _len, _len2, _len3, _len4, _ref2;
       uv = uniqById(arguments);
       if (uv.length) {
         for (_i = 0, _len = uv.length; _i < _len; _i++) {
           v = uv[_i];
           this.listen.push(v);
           v.listeners.push(this);
-          _ref = v.changers;
-          for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
-            c = _ref[_j];
+          _ref2 = v.changers;
+          for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+            c = _ref2[_j];
             c.updates.push(this);
             this.level = Math.max(this.level, c.level + 1);
           }
@@ -655,28 +654,28 @@ dvl.util = {
       return this;
     };
     DVLFunctionObject.prototype.remove = function() {
-      var cf, lv, queue, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref, _ref2, _ref3, _ref4;
+      var cf, lv, queue, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref2, _ref3, _ref4, _ref5;
       delete registerers[this.id];
       bfsZero([this]);
       queue = [];
-      _ref = this.listen;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        lv = _ref[_i];
-        _ref2 = lv.changers;
-        for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
-          cf = _ref2[_j];
+      _ref2 = this.listen;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        lv = _ref2[_i];
+        _ref3 = lv.changers;
+        for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
+          cf = _ref3[_j];
           queue.push(cf);
           cf.updates.splice(cf.updates.indexOf(this), 1);
         }
       }
-      _ref3 = this.change;
-      for (_k = 0, _len3 = _ref3.length; _k < _len3; _k++) {
-        v = _ref3[_k];
+      _ref4 = this.change;
+      for (_k = 0, _len3 = _ref4.length; _k < _len3; _k++) {
+        v = _ref4[_k];
         v.changers.splice(v.changers.indexOf(this), 1);
       }
-      _ref4 = this.listen;
-      for (_l = 0, _len4 = _ref4.length; _l < _len4; _l++) {
-        v = _ref4[_l];
+      _ref5 = this.listen;
+      for (_l = 0, _len4 = _ref5.length; _l < _len4; _l++) {
+        v = _ref5[_l];
         v.listeners.splice(v.listeners.indexOf(this), 1);
       }
       bfsUpdate(this.updates);
@@ -685,7 +684,7 @@ dvl.util = {
     return DVLFunctionObject;
   })();
   dvl.register = function(_arg) {
-    var c, cf, change, changedSave, ctx, cv, fn, fo, force, i, id, l, lf, listen, listenConst, lv, name, noRun, v, _i, _j, _k, _l, _len, _len10, _len11, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _len9, _m, _n, _o, _p, _q, _ref, _ref2;
+    var c, cf, change, changedSave, ctx, cv, fn, fo, force, i, id, l, lf, listen, listenConst, lv, name, noRun, v, _i, _j, _k, _l, _len, _len10, _len11, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _len9, _m, _n, _o, _p, _q, _ref2, _ref3;
     ctx = _arg.ctx, fn = _arg.fn, listen = _arg.listen, change = _arg.change, name = _arg.name, force = _arg.force, noRun = _arg.noRun;
     if (curNotifyListener) {
       throw 'cannot call register from within a notify';
@@ -724,17 +723,17 @@ dvl.util = {
       }
       for (_l = 0, _len4 = change.length; _l < _len4; _l++) {
         cv = change[_l];
-        _ref = cv.listeners;
-        for (_m = 0, _len5 = _ref.length; _m < _len5; _m++) {
-          lf = _ref[_m];
+        _ref2 = cv.listeners;
+        for (_m = 0, _len5 = _ref2.length; _m < _len5; _m++) {
+          lf = _ref2[_m];
           fo.updates.push(lf);
         }
       }
       for (_n = 0, _len6 = listen.length; _n < _len6; _n++) {
         lv = listen[_n];
-        _ref2 = lv.changers;
-        for (_o = 0, _len7 = _ref2.length; _o < _len7; _o++) {
-          cf = _ref2[_o];
+        _ref3 = lv.changers;
+        for (_o = 0, _len7 = _ref3.length; _o < _len7; _o++) {
+          cf = _ref3[_o];
           cf.updates.push(fo);
           fo.level = Math.max(fo.level, cf.level + 1);
         }
@@ -841,7 +840,7 @@ dvl.util = {
     }
   };
   within_notify = function() {
-    var l, v, _i, _j, _len, _len2, _ref;
+    var l, v, _i, _j, _len, _len2, _ref2;
     if (!curNotifyListener) {
       throw 'bad stuff happened within';
     }
@@ -855,9 +854,9 @@ dvl.util = {
       }
       changedInNotify.push(v);
       lastNotifyRun.push(v.id);
-      _ref = v.listeners;
-      for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
-        l = _ref[_j];
+      _ref2 = v.listeners;
+      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+        l = _ref2[_j];
         if (!l.visited) {
           levelPriorityQueue.push(l);
         }
@@ -865,7 +864,7 @@ dvl.util = {
     }
   };
   init_notify = function() {
-    var l, v, visitedListener, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref;
+    var l, v, visitedListener, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref2;
     if (curNotifyListener) {
       throw 'bad stuff happened init';
     }
@@ -879,9 +878,9 @@ dvl.util = {
       }
       changedInNotify.push(v);
       lastNotifyRun.push(v.id);
-      _ref = v.listeners;
-      for (_j = 0, _len2 = _ref.length; _j < _len2; _j++) {
-        l = _ref[_j];
+      _ref2 = v.listeners;
+      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+        l = _ref2[_j];
         levelPriorityQueue.push(l);
       }
     }
@@ -925,15 +924,15 @@ dvl.util = {
     rec = curRecording;
     curRecording = null;
     rec.remove = function() {
-      var f, v, _i, _j, _len, _len2, _ref, _ref2;
-      _ref = rec.fns;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        f = _ref[_i];
+      var f, v, _i, _j, _len, _len2, _ref2, _ref3;
+      _ref2 = rec.fns;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        f = _ref2[_i];
         f.remove();
       }
-      _ref2 = rec.vars;
-      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
-        v = _ref2[_j];
+      _ref3 = rec.vars;
+      for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
+        v = _ref3[_j];
         v.remove();
       }
     };
@@ -952,7 +951,7 @@ dvl.util = {
     return ret;
   };
   dvl.graphToDot = function(lastTrace, showId) {
-    var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, _i, _j, _k, _len, _len2, _len3, _name, _ref, _ref2;
+    var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, _i, _j, _k, _len, _len2, _len3, _name, _ref2, _ref3;
     execOrder = {};
     if (lastTrace && lastNotifyRun) {
       for (pos in lastNotifyRun) {
@@ -989,15 +988,15 @@ dvl.util = {
       levels[l.level].push(nameMap[l.id]);
       color = execOrder[l.id] ? 'red' : 'black';
       dot.push("  " + nameMap[l.id] + " [shape=box,color=" + color + "];");
-      _ref = l.listen;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        v = _ref[_i];
+      _ref2 = l.listen;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        v = _ref2[_i];
         color = execOrder[v.id] && execOrder[l.id] ? 'red' : 'black';
         dot.push("  " + nameMap[v.id] + " -> " + nameMap[l.id] + " [color=" + color + "];");
       }
-      _ref2 = l.change;
-      for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
-        w = _ref2[_j];
+      _ref3 = l.change;
+      for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
+        w = _ref3[_j];
         color = execOrder[l.id] && execOrder[w.id] ? 'red' : 'black';
         dot.push("  " + nameMap[l.id] + " -> " + nameMap[w.id] + " [color=" + color + "];");
       }
@@ -1309,7 +1308,7 @@ dvl.delay = function(_arg) {
     initQueue = [];
     queries = {};
     maybeDone = function(request) {
-      var notify, q, _i, _j, _len, _len2, _ref;
+      var notify, q, _i, _j, _len, _len2, _ref2;
       for (_i = 0, _len = request.length; _i < _len; _i++) {
         q = request[_i];
         if (q.status !== 'ready') {
@@ -1320,7 +1319,7 @@ dvl.delay = function(_arg) {
       for (_j = 0, _len2 = request.length; _j < _len2; _j++) {
         q = request[_j];
         if (q.hasOwnProperty('resVal')) {
-          q.res.set((_ref = q.resVal) != null ? _ref : null);
+          q.res.set((_ref2 = q.resVal) != null ? _ref2 : null);
           notify.push(q.res);
           q.status = '';
           delete q.resVal;
@@ -1552,8 +1551,8 @@ dvl.ajax.requester = {
     };
   },
   cache: function(_arg) {
-    var cache, count, max, timeout, trim, _ref;
-    _ref = _arg != null ? _arg : {}, max = _ref.max, timeout = _ref.timeout;
+    var cache, count, max, timeout, trim, _ref2;
+    _ref2 = _arg != null ? _arg : {}, max = _ref2.max, timeout = _ref2.timeout;
     max = dvl.wrapConstIfNeeded(max || 100);
     timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
     cache = {};
@@ -1611,7 +1610,7 @@ dvl.ajax.requester = {
           count++;
           trim();
           getData = function(resVal) {
-            var cb, ctx, _i, _len, _ref2;
+            var cb, ctx, _i, _len, _ref3;
             if (fn) {
               ctx = {
                 url: url,
@@ -1621,24 +1620,24 @@ dvl.ajax.requester = {
             }
             c.ajax = null;
             c.resVal = resVal;
-            _ref2 = c.waiting;
-            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-              cb = _ref2[_i];
+            _ref3 = c.waiting;
+            for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
+              cb = _ref3[_i];
               cb(null, resVal);
             }
             delete c.waiting;
           };
           getError = function(xhr, textStatus) {
-            var cb, _i, _len, _ref2;
+            var cb, _i, _len, _ref3;
             if (textStatus === "abort") {
               return;
             }
             c.ajax = null;
             delete cache[key];
             count--;
-            _ref2 = c.waiting;
-            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-              cb = _ref2[_i];
+            _ref3 = c.waiting;
+            for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
+              cb = _ref3[_i];
               cb(textStatus, null);
             }
             delete c.waiting;
@@ -2196,46 +2195,75 @@ dvl.scale = {};
     };
   };
 })();
-dvl.mark = function(args) {
-  var attrList, data, html, join, k, listen, onList, out, selection, staticClass, styleList, text, trans, type, v, _ref, _ref2, _ref3;
-  if (!args.selection) {
-    throw "'selection' not defiend";
+id_class_spliter = /(?=[#.])/;
+dvl.bind = function(args) {
+  var attrList, c, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, prependStatic, self, staticClass, styleList, text, trans, v, _i, _len, _ref2, _ref3, _ref4;
+  if (!args.parent) {
+    throw "'parent' not defiend";
   }
-  type = args.type;
-  if (typeof type !== 'string') {
-    throw "'type' not defiend";
+  self = args.self;
+  if (typeof self !== 'string') {
+    throw "'self' not defiend";
   }
+  parts = self.split(id_class_spliter);
+  nodeType = parts.shift();
+  staticClass = [];
+  for (_i = 0, _len = parts.length; _i < _len; _i++) {
+    part = parts[_i];
+    c = part[0];
+    if (c === '.') {
+      staticClass.push(part.slice(1));
+    } else if (c === '#') {
+      throw "id currently not supported in 'self' (" + part + ")";
+    }
+  }
+  staticClass = staticClass.join(' ');
   trans = args.trans || [];
-  staticClass = args.staticClass;
-  selection = dvl.wrapConstIfNeeded(args.selection);
+  parent = dvl.wrapConstIfNeeded(args.parent);
   data = dvl.wrapConstIfNeeded(args.data || [void 0]);
   join = dvl.wrapConstIfNeeded(args.join);
   text = args.text ? dvl.wrapConstIfNeeded(args.text) : null;
   html = args.html ? dvl.wrapConstIfNeeded(args.html) : null;
-  listen = [selection, data, join, text, html];
+  listen = [parent, data, join, text, html];
+  prependStatic = function(c) {
+    var t;
+    t = typeof c;
+    if (t === 'string') {
+      return c + ' ' + staticClass;
+    }
+    if (t === 'function') {
+      return function(d, i) {
+        return c.call(this, d, i) + ' ' + staticClass;
+      };
+    }
+    return null;
+  };
   attrList = {};
-  _ref = args.attr;
-  for (k in _ref) {
-    v = _ref[k];
+  _ref2 = args.attr;
+  for (k in _ref2) {
+    v = _ref2[k];
     v = dvl.wrapConstIfNeeded(v);
+    if (k === 'class' && staticClass) {
+      v = dvl.apply({
+        args: v,
+        fn: prependStatic
+      });
+    }
     listen.push(v);
     attrList[k] = v;
   }
-  if (staticClass) {
-    attrList['class'] = dvl["const"](staticClass);
-  }
   styleList = {};
-  _ref2 = args.style;
-  for (k in _ref2) {
-    v = _ref2[k];
+  _ref3 = args.style;
+  for (k in _ref3) {
+    v = _ref3[k];
     v = dvl.wrapConstIfNeeded(v);
     listen.push(v);
     styleList[k] = v;
   }
   onList = {};
-  _ref3 = args.on;
-  for (k in _ref3) {
-    v = _ref3[k];
+  _ref4 = args.on;
+  for (k in _ref4) {
+    v = _ref4[k];
     v = dvl.wrapConstIfNeeded(v);
     listen.push(v);
     onList[k] = v;
@@ -2245,9 +2273,9 @@ dvl.mark = function(args) {
     listen: listen,
     change: [out],
     fn: function() {
-      var a, add1, add2, addO, e, enter, force, good, k, postTrans, preTrans, s, selTransition, selector, t, v, _data, _i, _j, _join, _k, _l, _len, _len2, _len3, _len4, _len5, _len6, _m, _n, _ref4, _ref5, _selection;
-      _selection = selection.get();
-      if (!_selection) {
+      var a, add1, add2, addO, e, enter, force, good, k, postTrans, preTrans, s, selTransition, t, v, _data, _j, _join, _k, _l, _len2, _len3, _len4, _len5, _len6, _len7, _m, _n, _o, _parent, _ref5, _ref6;
+      _parent = parent.get();
+      if (!_parent) {
         return;
       }
       force = data.hasChanged() || join.hasChanged();
@@ -2259,7 +2287,7 @@ dvl.mark = function(args) {
         postTrans = [];
         add1 = function(fn, v) {
           if (v.hasChanged() || force) {
-            enter.push({
+            preTrans.push({
               fn: fn,
               a1: v.getPrev()
             });
@@ -2276,7 +2304,7 @@ dvl.mark = function(args) {
         };
         add2 = function(fn, k, v) {
           if (v.hasChanged() || force) {
-            enter.push({
+            preTrans.push({
               fn: fn,
               a1: k,
               a2: v.getPrev()
@@ -2328,13 +2356,13 @@ dvl.mark = function(args) {
           addO('on', k, v);
         }
         selTransition = null;
-        for (_i = 0, _len = trans.length; _i < _len; _i++) {
-          t = trans[_i];
+        for (_j = 0, _len2 = trans.length; _j < _len2; _j++) {
+          t = trans[_j];
           good = true;
           if (t.changed) {
-            _ref4 = t.changed;
-            for (_j = 0, _len2 = _ref4.length; _j < _len2; _j++) {
-              v = _ref4[_j];
+            _ref5 = t.changed;
+            for (_k = 0, _len3 = _ref5.length; _k < _len3; _k++) {
+              v = _ref5[_k];
               if (!v.hasChanged()) {
                 good = false;
                 break;
@@ -2342,9 +2370,9 @@ dvl.mark = function(args) {
             }
           }
           if (t.same && good) {
-            _ref5 = t.same;
-            for (_k = 0, _len3 = _ref5.length; _k < _len3; _k++) {
-              v = _ref5[_k];
+            _ref6 = t.same;
+            for (_l = 0, _len4 = _ref6.length; _l < _len4; _l++) {
+              v = _ref6[_l];
               if (v.hasChanged()) {
                 good = false;
                 break;
@@ -2356,21 +2384,14 @@ dvl.mark = function(args) {
             break;
           }
         }
-        if (staticClass) {
-          selector = staticClass.split(' ');
-          selector.unshift(type);
-          selector = selector.join('.');
-        } else {
-          selector = type;
-        }
-        s = _selection.selectAll(selector).data(_data, _join);
-        e = s.enter().append(type);
-        for (_l = 0, _len4 = enter.length; _l < _len4; _l++) {
-          a = enter[_l];
+        s = _parent.selectAll(self).data(_data, _join);
+        e = s.enter().append(nodeType);
+        for (_m = 0, _len5 = enter.length; _m < _len5; _m++) {
+          a = enter[_m];
           e[a.fn](a.a1, a.a2);
         }
-        for (_m = 0, _len5 = preTrans.length; _m < _len5; _m++) {
-          a = preTrans[_m];
+        for (_n = 0, _len6 = preTrans.length; _n < _len6; _n++) {
+          a = preTrans[_n];
           s[a.fn](a.a1, a.a2);
         }
         if (selTransition && selTransition.duration !== 0) {
@@ -2382,8 +2403,8 @@ dvl.mark = function(args) {
         } else {
           t = s;
         }
-        for (_n = 0, _len6 = postTrans.length; _n < _len6; _n++) {
-          a = postTrans[_n];
+        for (_o = 0, _len7 = postTrans.length; _o < _len7; _o++) {
+          a = postTrans[_o];
           t[a.fn](a.a1, a.a2);
         }
         s.exit().remove();
@@ -2486,7 +2507,7 @@ dvl.op = {
   }
 };
 clipId = 0;
-dvl.mark.clipPath = function(_arg) {
+dvl.bind.clipPath = function(_arg) {
   var cp, height, myId, selection, width, x, y;
   selection = _arg.selection, x = _arg.x, y = _arg.y, width = _arg.width, height = _arg.height;
   x = dvl.wrapConstIfNeeded(x || 0);
@@ -2735,7 +2756,7 @@ dvl.svg = {};
 (function() {
   var calcLength, gen_subDouble, gen_subHalf, getNextClipPathId, initClip, initGroup, listen_attr, makeAnchors, nextClipPathId, proc_attr, processDim2, processDim3, processDim4, processOptions, processProps, removeUndefined, reselectUpdate, selectEnterExit, selectUpdate, update_attr;
   processOptions = function(options, mySvg, myClass) {
-    var eventData, f, k, out, _fn, _ref, _ref2;
+    var eventData, f, k, out, _fn, _ref2, _ref3;
     if (!options.panel) {
       throw 'No panel defined.';
     }
@@ -2750,18 +2771,18 @@ dvl.svg = {};
       if (options.on) {
         out.on = {};
         eventData = options.eventData || dvl.identity;
-        _ref = options.on;
+        _ref2 = options.on;
         _fn = function(f) {
           return out.on[k] = function(i) {
             return f(eventData.gen()(i));
           };
         };
-        for (k in _ref) {
-          f = _ref[k];
+        for (k in _ref2) {
+          f = _ref2[k];
           _fn(f);
         }
       }
-      out.visible = dvl.wrapConstIfNeeded((_ref2 = options.visible) != null ? _ref2 : true);
+      out.visible = dvl.wrapConstIfNeeded((_ref3 = options.visible) != null ? _ref3 : true);
     }
     return out;
   };
@@ -2889,7 +2910,7 @@ dvl.svg = {};
     return 'cp_' + nextClipPathId;
   };
   selectEnterExit = function(g, options, props, numMarks) {
-    var id_gen, join, key_gen, m, onFn, sel, what, _ref;
+    var id_gen, join, key_gen, m, onFn, sel, what, _ref2;
     if (props.key && props.key.gen()) {
       key_gen = props.key.gen();
       id_gen = function(i) {
@@ -2911,9 +2932,9 @@ dvl.svg = {};
     }
     m.attr('class', options.myClass);
     if (options.on) {
-      _ref = options.on;
-      for (what in _ref) {
-        onFn = _ref[what];
+      _ref2 = options.on;
+      for (what in _ref2) {
+        onFn = _ref2[what];
         m.on(what, onFn);
       }
     }
@@ -2928,7 +2949,7 @@ dvl.svg = {};
     return m;
   };
   selectUpdate = function(g, options, props, numMarks, duration) {
-    var id_gen, join, key_gen, m, onFn, proc, sel, what, _ref;
+    var id_gen, join, key_gen, m, onFn, proc, sel, what, _ref2;
     if (props.key && props.key.gen()) {
       key_gen = props.key.gen();
       id_gen = function(i) {
@@ -2950,9 +2971,9 @@ dvl.svg = {};
     }
     m.attr('class', options.myClass);
     if (options.on) {
-      _ref = options.on;
-      for (what in _ref) {
-        onFn = _ref[what];
+      _ref2 = options.on;
+      for (what in _ref2) {
+        onFn = _ref2[what];
         m.on(what, onFn);
       }
     }
@@ -3116,7 +3137,7 @@ dvl.svg = {};
     }
   };
   dvl.svg.panels = function(options) {
-    var clip, content, g, heights, k, listen, o, p, panel, render, widths, _i, _len, _ref;
+    var clip, content, g, heights, k, listen, o, p, panel, render, widths, _i, _len, _ref2;
     o = processOptions(options, 'g', 'panels');
     if (o.clip == null) {
       o.clip = false;
@@ -3167,9 +3188,9 @@ dvl.svg = {};
       }
     };
     listen = [panel.width, panel.height];
-    _ref = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      k = _ref[_i];
+    _ref2 = listen_attr[o.myClass];
+    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+      k = _ref2[_i];
       listen.push(p[k]);
     }
     dvl.register({
@@ -3204,7 +3225,7 @@ dvl.svg = {};
     }
   };
   dvl.svg.line = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
+    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
     o = processOptions(options, 'line', 'line');
     if (o.clip == null) {
       o.clip = true;
@@ -3255,9 +3276,9 @@ dvl.svg = {};
       }
     };
     listen = [panel.width, panel.height, o.visible];
-    _ref = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      k = _ref[_i];
+    _ref2 = listen_attr[o.myClass];
+    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+      k = _ref2[_i];
       listen.push(p[k]);
     }
     dvl.register({
@@ -3349,7 +3370,7 @@ dvl.svg = {};
     }
   };
   dvl.svg.lines = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
+    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
     o = processOptions(options, 'line', 'lines');
     if (o.clip == null) {
       o.clip = true;
@@ -3451,9 +3472,9 @@ dvl.svg = {};
       }
     };
     listen = [panel.width, panel.height, o.visible];
-    _ref = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      k = _ref[_i];
+    _ref2 = listen_attr[o.myClass];
+    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+      k = _ref2[_i];
       listen.push(p[k]);
     }
     dvl.register({
@@ -3494,7 +3515,7 @@ dvl.svg = {};
     }
   };
   dvl.svg.bars = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
+    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
     o = processOptions(options, 'rect', 'bars');
     if (o.clip == null) {
       o.clip = true;
@@ -3548,9 +3569,9 @@ dvl.svg = {};
       }
     };
     listen = [panel.width, panel.height, o.visible];
-    _ref = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      k = _ref[_i];
+    _ref2 = listen_attr[o.myClass];
+    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+      k = _ref2[_i];
       listen.push(p[k]);
     }
     dvl.register({
@@ -3606,7 +3627,7 @@ dvl.svg = {};
     }
   };
   dvl.svg.labels = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
+    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
     o = processOptions(options, 'text', 'labels');
     if (o.clip == null) {
       o.clip = false;
@@ -3645,9 +3666,9 @@ dvl.svg = {};
       }
     };
     listen = [panel.width, panel.height, o.visible];
-    _ref = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      k = _ref[_i];
+    _ref2 = listen_attr[o.myClass];
+    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+      k = _ref2[_i];
       listen.push(p[k]);
     }
     dvl.register({
@@ -3696,7 +3717,7 @@ dvl.svg = {};
     }
   };
   return dvl.svg.dots = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref;
+    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
     o = processOptions(options, 'circle', 'dots');
     if (o.clip == null) {
       o.clip = true;
@@ -3805,9 +3826,9 @@ dvl.svg = {};
       }
     };
     listen = [panel.width, panel.height, o.visible];
-    _ref = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      k = _ref[_i];
+    _ref2 = listen_attr[o.myClass];
+    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+      k = _ref2[_i];
       listen.push(p[k]);
     }
     dvl.register({
@@ -4210,7 +4231,7 @@ dvl.html.select = function(_arg) {
   return selection;
 };
 dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columnVisible, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, listenColumnVisible, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOnIndicator, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7;
+  var b, c, classStr, colClass, columnVisible, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, listenColumnVisible, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOnIndicator, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8;
   selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit, htmlTitles = _arg.htmlTitles;
   if (dvl.knows(selector)) {
     throw 'selector has to be a plain string.';
@@ -4228,8 +4249,8 @@ dvl.html.table = function(_arg) {
   rowLimit = dvl.wrapConstIfNeeded(rowLimit || null);
   sort = sort || {};
   sortOn = dvl.wrapVarIfNeeded(sort.on);
-  sortOnIndicator = dvl.wrapVarIfNeeded((_ref = sort.onIndicator) != null ? _ref : sortOn);
-  sortOnClick = dvl.wrapConstIfNeeded((_ref2 = sort.autoOnClick) != null ? _ref2 : true);
+  sortOnIndicator = dvl.wrapVarIfNeeded((_ref2 = sort.onIndicator) != null ? _ref2 : sortOn);
+  sortOnClick = dvl.wrapConstIfNeeded((_ref3 = sort.autoOnClick) != null ? _ref3 : true);
   sortModes = dvl.wrapConstIfNeeded(sort.modes || ['asc', 'desc', 'none']);
   modes = sortModes.get();
   sortOrder = dvl.wrapVarIfNeeded(sort.order || (modes.length > 0 ? modes[0] : 'none'));
@@ -4261,9 +4282,9 @@ dvl.html.table = function(_arg) {
         span: tc.columns.length
       });
       listen.push(tc.title);
-      _ref3 = tc.columns;
-      for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
-        c = _ref3[_j];
+      _ref4 = tc.columns;
+      for (_j = 0, _len2 = _ref4.length; _j < _len2; _j++) {
+        c = _ref4[_j];
         newColumns.push(c);
       }
     }
@@ -4272,21 +4293,21 @@ dvl.html.table = function(_arg) {
   for (i in columns) {
     c = columns[i];
     c.title = dvl.wrapConstIfNeeded(c.title || '');
-    c.sortable = dvl.wrapConstIfNeeded((_ref4 = c.sortable) != null ? _ref4 : true);
-    c.showIndicator = dvl.wrapConstIfNeeded((_ref5 = c.showIndicator) != null ? _ref5 : true);
+    c.sortable = dvl.wrapConstIfNeeded((_ref5 = c.sortable) != null ? _ref5 : true);
+    c.showIndicator = dvl.wrapConstIfNeeded((_ref6 = c.showIndicator) != null ? _ref6 : true);
     c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator || false);
     c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip || null);
     c.cellClick = dvl.wrapConstIfNeeded(c.cellClick || null);
-    c.visible = dvl.wrapConstIfNeeded((_ref6 = c.visible) != null ? _ref6 : true);
+    c.visible = dvl.wrapConstIfNeeded((_ref7 = c.visible) != null ? _ref7 : true);
     c.hideHeader = dvl.wrapConstIfNeeded(c.hideHeader);
     c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'text'];
     c.cellClassGen = c.cellClassGen ? dvl.wrapConstIfNeeded(c.cellClassGen) : null;
     listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen);
     listenColumnVisible.push(c.visible, c.hideHeader);
     if (c.renderer.depends) {
-      _ref7 = c.renderer.depends;
-      for (_k = 0, _len3 = _ref7.length; _k < _len3; _k++) {
-        d = _ref7[_k];
+      _ref8 = c.renderer.depends;
+      for (_k = 0, _len3 = _ref8.length; _k < _len3; _k++) {
+        d = _ref8[_k];
         listen.push(d);
       }
     }

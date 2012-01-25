@@ -1694,32 +1694,52 @@ dvl.scale = {}
     band: bandRef
 )()
 
-# dvl.mark # --------------------------------------------------
+# dvl.bind # --------------------------------------------------
 
-# {selection, ns, type, data, join, attr, style, text, html, on, trans}
-dvl.mark = (args) ->
-  throw "'selection' not defiend" unless args.selection
-  type = args.type
-  throw "'type' not defiend" unless typeof type is 'string'
+# {parent, self, data, join, attr, style, text, html, on, trans}
+id_class_spliter = /(?=[#.])/
+dvl.bind = (args) ->
+  throw "'parent' not defiend" unless args.parent
+  self = args.self
+  throw "'self' not defiend" unless typeof self is 'string'
+  parts = self.split(id_class_spliter)
+  nodeType = parts.shift()
+  staticClass = []
+  for part in parts
+    c = part[0]
+    if c is '.'
+      staticClass.push part.slice(1)
+    else if c is '#'
+      throw "id currently not supported in 'self' (#{part})"
+
+  staticClass = staticClass.join(' ')
+
   trans = args.trans or []
-  staticClass = args.staticClass
 
-  selection = dvl.wrapConstIfNeeded(args.selection)
+  parent = dvl.wrapConstIfNeeded(args.parent)
   data = dvl.wrapConstIfNeeded(args.data or [undefined])
   join = dvl.wrapConstIfNeeded(args.join)
   text = if args.text then dvl.wrapConstIfNeeded(args.text) else null
   html = if args.html then dvl.wrapConstIfNeeded(args.html) else null
 
-  listen = [selection, data, join, text, html]
+  listen = [parent, data, join, text, html]
+
+  prependStatic = (c) ->
+    t = typeof c
+    if t is 'string'
+      return c + ' ' + staticClass
+    if t is 'function'
+      return (d,i) -> c.call(this,d,i) + ' ' + staticClass
+    return null
 
   attrList = {}
   for k, v of args.attr
     v = dvl.wrapConstIfNeeded(v)
+    if k is 'class' and staticClass
+      v = dvl.apply { args: v, fn: prependStatic }
+
     listen.push(v)
     attrList[k] = v
-
-  if staticClass
-    attrList['class'] = dvl.const(staticClass)
 
   styleList = {}
   for k, v of args.style
@@ -1739,8 +1759,8 @@ dvl.mark = (args) ->
     listen
     change: [out]
     fn: ->
-      _selection = selection.get()
-      return unless _selection
+      _parent = parent.get()
+      return unless _parent
 
       force = data.hasChanged() or join.hasChanged()
       _data = data.get()
@@ -1754,7 +1774,7 @@ dvl.mark = (args) ->
 
         add1 = (fn, v) ->
           if v.hasChanged() or force
-            enter.push  { fn, a1: v.getPrev() }
+            preTrans.push  { fn, a1: v.getPrev() }
             postTrans.push { fn, a1: v.get() }
           else
             enter.push  { fn, a1: v.get() }
@@ -1762,7 +1782,7 @@ dvl.mark = (args) ->
 
         add2 = (fn, k, v) ->
           if v.hasChanged() or force
-            enter.push     { fn, a1: k, a2: v.getPrev() }
+            preTrans.push  { fn, a1: k, a2: v.getPrev() }
             postTrans.push { fn, a1: k, a2: v.get() }
           else
             enter.push     { fn, a1: k, a2: v.get() }
@@ -1803,14 +1823,8 @@ dvl.mark = (args) ->
             break
 
         # d3 stuff
-        if staticClass
-          selector = staticClass.split(' ')
-          selector.unshift(type)
-          selector = selector.join('.')
-        else
-          selector = type
-        s = _selection.selectAll(selector).data(_data, _join)
-        e = s.enter().append(type)
+        s = _parent.selectAll(self).data(_data, _join)
+        e = s.enter().append(nodeType)
 
         e[a.fn](a.a1, a.a2) for a in enter
 
@@ -1925,7 +1939,7 @@ dvl.op = {
 
 
 clipId = 0
-dvl.mark.clipPath = ({selection, x, y, width, height}) ->
+dvl.bind.clipPath = ({selection, x, y, width, height}) ->
   x = dvl.wrapConstIfNeeded(x or 0)
   y = dvl.wrapConstIfNeeded(y or 0)
 

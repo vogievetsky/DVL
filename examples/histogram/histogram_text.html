@@ -103,9 +103,9 @@ body {
       }
     }
   });
-  dvl.mark({
-    type: 'rect',
-    selection: mainGroup.append('g').attr('class', 'bars'),
+  dvl.bind({
+    self: 'rect',
+    parent: mainGroup.append('g').attr('class', 'bars'),
     data: data,
     join: function(d) { return d.letter; },
     attr: {
@@ -116,9 +116,9 @@ body {
     }
   });
 
-  dvl.mark({
-    type: 'line',
-    selection: mainGroup.append('g').attr('class', 'lines'),
+  dvl.bind({
+    self: 'line',
+    parent: mainGroup.append('g').attr('class', 'lines'),
     data: sx.ticks,
     join: dvl.ident,
     attr: {
@@ -132,9 +132,9 @@ body {
     }
   });
 
-  dvl.mark({
-    type: 'text',
-    selection: mainGroup.append('g').attr('class', 'xlabels_top'),
+  dvl.bind({
+    self: 'text',
+    parent: mainGroup.append('g').attr('class', 'xlabels_top'),
     data: sx.ticks,
     join: dvl.ident,
     attr: {
@@ -147,9 +147,9 @@ body {
     text: function(d) { return d.toFixed(0); }
   });
 
-  dvl.mark({
-    type: 'text',
-    selection: mainGroup.append('g').attr('class', 'xlabels_bottom').attr('transform', 'translate(0,' + height + ')'),
+  dvl.bind({
+    self: 'text',
+    parent: mainGroup.append('g').attr('class', 'xlabels_bottom').attr('transform', 'translate(0,' + height + ')'),
     data: sx.ticks,
     join: dvl.ident,
     attr: {
@@ -163,9 +163,9 @@ body {
     text: function(d) { return d.toFixed(0); }
   });
 
-  dvl.mark({
-    type: 'text',
-    selection: mainGroup.append('g').attr('class', 'ylabels'),
+  dvl.bind({
+    self: 'text',
+    parent: mainGroup.append('g').attr('class', 'ylabels'),
     data: sy.ticks,
     join: dvl.ident,
     attr: {
