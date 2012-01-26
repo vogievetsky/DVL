@@ -2252,6 +2252,9 @@ dvl.bind = function(args) {
     listen.push(v);
     attrList[k] = v;
   }
+  if (staticClass && !attrList['class']) {
+    attrList['class'] = dvl["const"](staticClass);
+  }
   styleList = {};
   _ref3 = args.style;
   for (k in _ref3) {
@@ -2409,7 +2412,7 @@ dvl.bind = function(args) {
         }
         s.exit().remove();
       } else {
-        s = _selection.selectAll(type).remove();
+        s = _parent.selectAll(self).remove();
       }
       out.set(s).notify();
     }
@@ -2508,16 +2511,16 @@ dvl.op = {
 };
 clipId = 0;
 dvl.bind.clipPath = function(_arg) {
-  var cp, height, myId, selection, width, x, y;
-  selection = _arg.selection, x = _arg.x, y = _arg.y, width = _arg.width, height = _arg.height;
+  var cp, height, myId, parent, width, x, y;
+  parent = _arg.parent, x = _arg.x, y = _arg.y, width = _arg.width, height = _arg.height;
   x = dvl.wrapConstIfNeeded(x || 0);
   y = dvl.wrapConstIfNeeded(y || 0);
   clipId++;
   myId = "cp" + clipId;
-  cp = dvl.valueOf(selection).append('defs').append('clipPath').attr('id', myId);
-  dvl.mark({
-    type: 'rect',
-    selection: cp,
+  cp = dvl.valueOf(parent).append('defs').append('clipPath').attr('id', myId);
+  dvl.bind({
+    parent: cp,
+    self: 'rect',
     attr: {
       x: x,
       y: y,

@@ -1741,6 +1741,9 @@ dvl.bind = (args) ->
     listen.push(v)
     attrList[k] = v
 
+  if staticClass and not attrList['class']
+    attrList['class'] = dvl.const(staticClass)
+
   styleList = {}
   for k, v of args.style
     v = dvl.wrapConstIfNeeded(v)
@@ -1841,7 +1844,7 @@ dvl.bind = (args) ->
 
         s.exit().remove()
       else
-        s = _selection.selectAll(type).remove()
+        s = _parent.selectAll(self).remove()
 
       out.set(s).notify()
       return
@@ -1939,20 +1942,20 @@ dvl.op = {
 
 
 clipId = 0
-dvl.bind.clipPath = ({selection, x, y, width, height}) ->
+dvl.bind.clipPath = ({parent, x, y, width, height}) ->
   x = dvl.wrapConstIfNeeded(x or 0)
   y = dvl.wrapConstIfNeeded(y or 0)
 
   clipId++
   myId = "cp#{clipId}"
-  cp = dvl.valueOf(selection)
+  cp = dvl.valueOf(parent)
     .append('defs')
       .append('clipPath')
       .attr('id', myId)
 
-  dvl.mark {
-    type: 'rect'
-    selection: cp
+  dvl.bind {
+    parent: cp
+    self: 'rect'
     attr: {
       x
       y
