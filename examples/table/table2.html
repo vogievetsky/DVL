@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DVL Tables</title>
+    <link type="text/css"         href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />
+    <script type="text/javascript" src="../../js/jquery-1.6.2.min.js"></script>
+    <script type="text/javascript" src="../../js/jquery-ui-1.8.7.custom.js"></script>
+    <script type="text/javascript" src="../../d3.js"></script>
+    <script type="text/javascript" src="../../protovis-r3.2.js"></script>
+    <script type="text/javascript" src="../../sprintf.js"></script>
+    <script type="text/javascript" src="../../dvl.js"></script>
+    <style type="text/css">
+
+body {
+  font: 12px sans-serif;
+}
+
+th {
+  border: 1px solid black;
+}
+
+td {
+  border: 1px solid #ccc;
+}
+
+.sorted {
+  background: #ccc;
+}
+
+svg.sparkline path {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+svg.sparkline circle {
+  fill: red;
+  stroke: none;
+}
+
+.sort_indicator {
+  display: inline-block;
+  width: 9px;
+  height: 5px;
+}
+
+.sort_indicator.none { background: url('sort_none.png') no-repeat; }
+.sort_indicator.desc { background: url('sort_arrow_up.png') no-repeat; }
+.sort_indicator.asc  { background: url('sort_arrow_down.png') no-repeat; }
+
+    </style>
+
+  </head>
+  <body>
+    <div>
+      <button onclick="sort.set(null).notify()">Sort on NULL</button>
+      <button onclick="sort.set('a').notify()">Sort on a</button>
+      <button onclick="sort.set('b').notify()">Sort on b</button>
+      <button onclick="sort.set('c').notify()">Sort on c</button>
+      <button onclick="order.set(order.get() == 'asc' ? 'desc' : 'asc').notify()">Order toggle</button>
+    </div>
+  </body>
+  <script type="text/javascript">
+
+  var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var n = letters.length;
+  var data = [];
+  for (var i=0; i < 15; i++) {
+    var arr = [];
+    var offset = Math.random() * 100;
+    for (var j=0; j < 100; j++) { arr.push({ x:j/50, y:offset+Math.sin(j/(i+1)) }); }
+    data.push({
+      a: letters[i * 3  % n],
+      b: letters[(i+5) * 11 % n],
+      c: Math.random(),
+      d: Math.random(),
+      sparkline: arr
+    });
+  }
+  data = dvl.def(data, 'data');
+
+  var sort = dvl.def('b', 'sort');
+  var order = dvl.def('asc', 'order');
+
+  var body = d3.select('body');
+
+  dvl.debug(sort)
+
+  dvl.html.table2({
+    parent: body,
+    data: data,
+    sort: {
+      on: sort,
+      order: order,
+      modes: ['asc', 'none'],
+      indicator: true
+    },
+    columns: [
+      { id:'a', title:'A', headerTooltip: 'Apple',  value: dvl.acc('a'), compare: dvl.compare(dvl.acc('a')) },
+      { id:'b', title:'B', headerTooltip: 'Banana', value: dvl.acc('b'), compare: dvl.compare(dvl.acc('b')) },
+      { id:'c', title:'C', value: dvl.acc('c'), compare: dvl.compare(dvl.acc('c')), _renderer:dvl.html.table2.renderer.aLink({link: dvl.acc('b') }) },
+      { id:'s', title:'Sparkline', value: dvl.acc('sparkline'), renderer:dvl.html.table2.renderer.svgSparkline({width:100, height:14, x:"x", y:"y", classStr:"sparkline", padding:3}) },
+    ],
+    headerTooltip: 'table1'
+  });
+
+  dvl.html.table2({
+    parent: body,
+    data: data,
+    sort: {
+      on: sort,
+      order: order,
+      modes: ['asc', 'none'],
+      indicator: true
+    },
+    columns: [
+      { id:'a', title:'A', value: dvl.acc('a') },
+      { id:'b', title:'B', value: dvl.acc('b'), reverseIndicator:true },
+      { id:'d', title:'D', value: dvl.acc('d'), sortable:false, cellClick:"http://google.com" }
+    ],
+    rowLimit: 5
+  });
+
+
+  </script>
+</html>

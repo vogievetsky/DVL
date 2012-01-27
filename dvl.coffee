@@ -3867,3 +3867,736 @@ dvl.html.table.renderer =
     f.depends = []
     return f
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Lolz
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+dvl.compare = (acc, reverse) ->
+  acc = dvl.wrapConstIfNeeded(acc || dvl.ident)
+  reverse = dvl.wrapConstIfNeeded(reverse || false)
+  return dvl.apply {
+    args: [acc, reverse]
+    fn: (acc, reverse) ->
+      if reverse
+        return (a,b) ->
+          va = acc(a)
+          vb = acc(b)
+          t = typeof va
+          if t is 'string'
+            return vb.localeCompare(va)
+          else if t is 'number'
+            return vb - va
+          else
+            throw "bad type #{t}"
+      else
+        return (a,b) ->
+          va = acc(a)
+          vb = acc(b)
+          t = typeof va
+          if t is 'string'
+            return va.localeCompare(vb)
+          else if t is 'number'
+            return va - vb
+          else
+            throw "bad type #{t}"  }
+
+
+##-------------------------------------------------------
+##
+##  Table made with HTML
+##
+##  This module draws an HTML table that can be sorted
+##
+##  parent:      Where to append the table.
+## ~data:        The data displayed.
+##  classStr:    The class to add to the table.
+## ~rowClassGen: The generator for row classes
+## ~visible:     Toggles the visibility of the table. [true]
+##  columns:     A list of columns to drive the table.
+##    column:
+##      id:               The id by which the column will be identified.
+##     ~title:            The title of the column header.
+##     ~headerTooltip:    The popup tool tip (title element text) of the column header.
+##      classStr:         The class given to the 'th' and 'td' elements in this column, if not specified will default to the id.
+##      cellClassGen:     The class generator for the cell
+##     ~cellClick:        The generator of click handlers
+##     ~value:            The value of the cell
+##      sortable:         Toggles wheather the column is sortable or not. [true]
+##     -sortGen:          The generator that will drive the sorting, if not provided then gen will be used instead. [gen]
+##     ~hoverGen:         The generator for the (hover) title.
+##     ~showIndicator:    Toggle the display of the sorting indicator for this column. [true]
+##     ~reverseIndicator: Reverses the asc / desc directions of the indicator for this column. [false]
+##     ~visible:          Toggles the visibility of the column
+##
+##  sort:
+##   ~on:              The id of the column on which to sort.
+##   ~onIndicator:     The id of the column on which the indicator is palced (defaults to sort.on)
+##   ~order:           The order of the sort. Must be one of {'asc', 'desc', 'none'}.
+##   ~modes:           The order rotation that is allowed. Must be an array of [{'asc', 'desc', 'none'}].
+##   ~autoOnClick:     Toggle wheather the table will be sorted (updating sort.on and/or possibly sort.order) automaticaly when clicked. [true]
+##   ~indicator:       [true / false]
+##
+## ~showHeader:        Toggle showing the header [true]
+## ~onHeaderClick:     Callback or url when the header of a column is clicked.
+## ~headerTooltip:     The default herder tooltip (title element text).
+## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
+##
+dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) ->
+  table = dvl.valueOf(parent)
+    .append('table')
+    .attr('class', classStr)
+
+  sort = sort or {}
+  sortOn = dvl.wrapVarIfNeeded(sort.on)
+  sortOnIndicator = dvl.wrapVarIfNeeded(sort.onIndicator ? sortOn)
+
+  headerCol = []
+  bodyCol = []
+  compareMap = {}
+  compareList = [sortOn]
+  for c in columns
+    if c.sortable
+      if c.compare?
+        comp = dvl.wrapConstIfNeeded(c.compare)
+      else
+        comp = dvl.compare(c.value)
+      compareMap[c.id] = comp
+      compareList.push comp
+    headerCol.push {
+      id:       c.id
+      title:    c.title
+      classStr: c.classStr
+      tooltip:  c.headerTooltip
+    }
+    bodyCol.push {
+      id:       c.id
+      class:    c.classStr
+      value:    c.value
+      renderer: c.renderer
+      on:       c.on
+    }
+
+  compare = dvl.def(null, 'compare')
+  dvl.register {
+    listen: compareList
+    change: [compare]
+    fn: ->
+      _sortOn = sortOn.get()
+      if _sortOn?
+        compare.set(compareMap[_sortOn]?.get())
+      else
+        compare.set(null)
+      compare.notify()
+      return
+  }
+
+  dvl.html.table2.header {
+    parent: table
+    columns: headerCol
+    onClick: (id) ->
+      sortOn.update(id)
+      return
+  }
+
+  dvl.html.table2.body {
+    parent: table
+    data
+    rowLimit
+    columns: bodyCol
+    compare
+  }
+
+  return {}
+
+
+##-------------------------------------------------------
+##
+##  HTML table header (thead)
+##
+##  parent:      Where to append the table.
+##  columns:
+##   ~title:       The title of the column.
+##   ~classStr:    The class of the column
+##   ~tooltip:     The tooltip for the column
+##   ~onClick:     The click handler
+##
+dvl.html.table2.header = ({parent, columns, onClick}) ->
+  throw 'there needs to be a parent' unless parent
+  thead = dvl.valueOf(parent).append('thead').append('tr')
+
+  listen = []
+  for c in columns
+    c.title = dvl.wrapConstIfNeeded(c.title)
+    c.classStr = dvl.wrapConstIfNeeded(c.classStr)
+    c.tooltip = dvl.wrapConstIfNeeded(c.tooltip)
+    listen.push c.title, c.classStr, c.tooltip
+
+  dvl.register {
+    name: 'head_render'
+    listen
+    fn: ->
+      colSel = thead.selectAll('td').data(columns)
+      colSel.enter().append('td')
+      colSel.exit().remove()
+
+      colSel
+        .attr('class', (c) -> c.classStr.get())
+        .attr('title', (c) -> c.tooltip.get())
+        .text((c) -> c.title.get())
+        .on('click', (c) -> onClick(c.id))
+
+      return
+  }
+
+  return
+
+
+##-------------------------------------------------------
+##
+##  HTML table body (tbody)
+##
+##  parent:      Where to append the table.
+## ~data:        The data displayed.
+## ~compare:    The function to sort the data on
+## ~rowClass       The class of the row
+## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
+##  columns:
+##   ~value:       The value of the cell
+##   ~class:    The class of the column
+##
+dvl.html.table2.body = ({parent, data, compare, rowLimit, columns}) ->
+  throw 'there needs to be a parent' unless parent
+  throw 'there needs to be data' unless data
+  tbody = dvl.valueOf(parent).append('tbody')
+
+  compare = dvl.wrapConstIfNeeded(compare)
+  rowClass = dvl.wrapConstIfNeeded(rowClass) if rowClass?
+  rowLimit = dvl.wrapConstIfNeeded(rowLimit)
+  listen = [data, compare, rowLimit]
+  for c in columns
+    c.class = dvl.wrapConstIfNeeded(c.class)
+    c.value = dvl.wrapConstIfNeeded(c.value)
+    listen.push c.title, c.class
+
+    for k,v of c.on
+      v = dvl.wrapConstIfNeeded(v)
+      listen.push v
+      c.on[k] = v
+
+    c.renderer = dvl.html.table2.renderer[c.renderer or 'text'] if typeof c.renderer isnt 'function'
+
+
+  dvl.register {
+    name: 'body_render'
+    listen
+    fn: ->
+      _data = data.get()
+      if not _data
+        tbody.selectAll('tr').remove()
+        return
+
+      dataSorted = _data
+
+      _compare = compare.get()
+      dataSorted = dataSorted.slice().sort(_compare) if _compare
+
+      _rowLimit = rowLimit.get()
+      dataSorted = dataSorted.slice(0, _rowLimit) if _rowLimit?
+
+      rowSel = tbody.selectAll('tr').data(dataSorted)
+      rowSel.enter().append('tr')
+      rowSel.exit().remove()
+      if rowClass
+        _rowClass = rowClass.gen()
+        rowSel.attr('class', _rowClass)
+
+      colSel = rowSel.selectAll('td').data(columns)
+      colSel.enter().append('td')
+      colSel.exit().remove()
+
+      for c,i in columns
+        sel = tbody.selectAll("td:nth-child(#{i+1})").data(dataSorted)
+          .attr('class', c.class.get())
+
+        for k,v of c.on
+          sel.on(k, v.get())
+
+        c.renderer(sel, c.value.get())
+
+      return
+  }
+
+  return
+
+
+dvl.html.table2.renderer =
+  text: (sel, value) ->
+    sel.text(value)
+    return
+
+  html: (sel, value) ->
+    sel.html(value)
+    return
+
+
+  aLink: ({link, html}) ->
+    what = if html then 'html' else 'text'
+    link = dvl.wrapConstIfNeeded(link)
+    return (sel, value) ->
+      sel = sel.selectAll('a').data((d) -> [d])
+      sel.enter().append('a')
+      sel.attr('href', link.get())
+      sel[what](value)
+      return
+
+  spanLink: ({click}) ->
+    titleGen = dvl.wrapConstIfNeeded(titleGen)
+    return (sel, value) ->
+      sel = sel.selectAll('span').data((d) -> [d])
+      sel.enter().append('span').attr('class', 'span_link')
+      sel.html(value).on('click', click)
+      return
+
+  img: (sel, value) ->
+    sel = sel.selectAll('img').data((d) -> [d])
+    sel.enter().append('img')
+    sel.attr('src', value)
+    return
+
+  imgDiv: (sel, value) ->
+    sel = sel.selectAll('div').data((d) -> [d])
+    sel.enter().append('div')
+    sel.attr('class', value)
+    return
+
+  svgSparkline: ({classStr, width, height, x, y, padding}) ->
+    f = (sel, value) ->
+      svg = sel.selectAll('svg').data((d,i) -> [value(d,i)])
+
+      line = (d) ->
+        mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
+        mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
+        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
+        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
+        return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
+
+
+      svg.enter().append('svg').attr('class', classStr).attr('width', width).attr('height', height)
+
+      sel = svg.selectAll('path').data((d) -> [d])
+
+      sel.enter().append("path").attr("class", "line")
+
+      sel.attr("d", line)
+
+      points = svg.selectAll('circle')
+        .data((d) ->
+          mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
+          mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
+          sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
+          sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
+          return [
+            ['top',    sx(d[mmy.maxIdx][x]), sy(mmy.max)]
+            ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)]
+            ['right',  sx(mmx.max), sy(d[mmx.maxIdx][y])]
+            ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
+          ]
+        )
+
+      points.enter().append("circle")
+        .attr("r", 2)
+        .attr("class", (d) -> d[0])
+
+      points
+        .attr("cx", (d) -> d[1])
+        .attr("cy", (d) -> d[2])
+      return
+
+    f.depends = []
+    return f
+
+
+
+
+
+dvl_html_table = ({selector, classStr, rowClassGen, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit, htmlTitles}) ->
+  throw 'selector has to be a plain string.' if dvl.knows(selector)
+  throw 'columns has to be a plain array.' if dvl.knows(columns)
+  throw 'sort has to be a plain object.' if dvl.knows(sort)
+
+  visible = dvl.wrapConstIfNeeded(visible ? true)
+
+  showHeader = dvl.wrapConstIfNeeded(showHeader ? true)
+  onHeaderClick = dvl.wrapConstIfNeeded(onHeaderClick)
+  headerTooltip = dvl.wrapConstIfNeeded(headerTooltip or null)
+
+  rowLimit = dvl.wrapConstIfNeeded(rowLimit or null)
+
+  sort = sort or {}
+
+  sortOn = dvl.wrapVarIfNeeded(sort.on)
+  sortOnIndicator = dvl.wrapVarIfNeeded(sort.onIndicator ? sortOn)
+  sortOnClick = dvl.wrapConstIfNeeded(sort.autoOnClick ? true)
+  sortModes = dvl.wrapConstIfNeeded(sort.modes or ['asc', 'desc', 'none'])
+  modes = sortModes.get()
+  sortOrder = dvl.wrapVarIfNeeded(sort.order or (if modes.length > 0 then modes[0] else 'none'))
+
+  listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortOnIndicator, sortModes, sortOrder]
+  listenColumnVisible = []
+
+  sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
+  listen.push sortIndicator
+
+  numRows = dvl.def(null, 'num_rows')
+
+  goOrCall = (arg, id, that) ->
+    t = typeof(arg)
+    if t is 'function'
+      arg.call(that, id)
+    else if t is 'string'
+      window.location.href = arg
+    return
+
+  # flatten possible merge header columns
+  if columns.length and columns[0].columns
+    topHeader = []
+    newColumns = []
+    for tc in columns
+      continue unless tc.columns and tc.columns.length isnt 0
+      topHeader.push { title: dvl.wrapConstIfNeeded(tc.title), classStr: tc.classStr, span: tc.columns.length }
+      listen.push tc.title
+      for c in tc.columns
+        newColumns.push c
+    columns = newColumns
+
+  # process columns
+  for i, c of columns
+    c.title = dvl.wrapConstIfNeeded(c.title or '')
+    c.sortable = dvl.wrapConstIfNeeded(c.sortable ? true)
+    c.showIndicator = dvl.wrapConstIfNeeded(c.showIndicator ? true);
+    c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator or false);
+    c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip or null)
+    c.cellClick = dvl.wrapConstIfNeeded(c.cellClick or null)
+    c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
+    c.hideHeader = dvl.wrapConstIfNeeded(c.hideHeader)
+    c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'text']
+    c.cellClassGen = if c.cellClassGen then dvl.wrapConstIfNeeded(c.cellClassGen) else null
+    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen
+    listenColumnVisible.push c.visible, c.hideHeader
+    if c.renderer.depends
+      listen.push d for d in c.renderer.depends
+    c.uniquClass = 'column_' + i
+
+  t = d3.select(selector).append('table')
+  t.attr('class', classStr) if classStr
+
+  colClass = (c) -> (c.classStr or c.id) + ' ' + c.uniquClass + (if c.sorted then ' sorted' else '') + (if c.sortable.get() then ' sortable' else ' unsortable')
+
+  thead = t.append('thead')
+  th = thead.append('tr').attr('class', 'top_header') if topHeader
+  h = thead.append('tr')
+  b = t.append('tbody')
+
+  if topHeader
+    th.selectAll('th')
+      .data(topHeader)
+      .enter().append('th')
+        .attr('class', (d) -> d.classStr or null)
+        .attr('colspan', (d) -> d.span)
+          .append('div')
+            .text((d) -> d.title.get());
+
+  sel = h.selectAll('th')
+    .data(columns)
+    .enter().append('th')
+      .on('click', (c) ->
+        return unless c.id?
+
+        goOrCall(onHeaderClick.get(), c.id, this)
+
+        if sortOnClick.get() and c.sortable.get()
+          if sortOn.get() is c.id
+            modes = sortModes.get()
+            si = modes.indexOf(sortOrder.get())
+            sortOrder.set(modes[(si+1) % modes.length]).notify()
+          else
+            sortOn.set(c.id).notify()
+        )
+
+  sel.append('span') # title text container
+
+  si = sortIndicator.get();
+  if si
+    sel.append('div')
+      .attr('class', 'sort_indicator')
+      .style('display', (c) -> if c.sortable.get() then null else 'none')
+
+  tableLength = ->
+    length = +Infinity
+    for c in columns
+      l = c.gen.len()
+      length = l if l < length
+    length = 1 if length == Infinity
+
+    length
+
+  makeTable = ->
+    length = tableLength()
+    r = pv.range(length)
+
+    if visible.hasChanged()
+      t.style('display', if visible.get() then null else 'none')
+
+    if showHeader.hasChanged()
+      thead.style('display', if showHeader.get() then null else 'none')
+
+    if topHeader
+      th.selectAll('th > div')
+        .data(topHeader)
+          .text((d) -> d.title.get());
+
+    if headerTooltip.hasChanged()
+      h.attr('title', headerTooltip.get());
+
+    if sort
+      sortOnId = sortOn.get()
+      sortOnIndicatorId = sortOnIndicator.get()
+      sortCol = null
+      sortIndicatorCol = null
+      for c in columns
+        if c.sorted = (c.id is sortOnId)
+          sortCol = c
+          throw "sort on column marked unsortable (#{sortOnId})" unless sortCol.sortable.get()
+
+        if c.sortedIndicator = (c.id is sortOnIndicatorId)
+          sortIndicatorCol = c
+
+      _sortOrder = sortOrder.get()
+
+      if _sortOrder and sortCol
+        sortGen = (sortCol.sortGen or sortCol.gen).gen()
+        numeric = sortGen and typeof(sortGen(0)) is 'number'
+
+        dir = String(_sortOrder).toLowerCase()
+        if dir is 'desc'
+          if numeric
+            sortFn = (i,j) ->
+              si = sortGen(i)
+              sj = sortGen(j)
+              if isNaN(si)
+                if isNaN(sj)
+                  return 0
+                else
+                  return 1
+              else
+                if isNaN(sj)
+                  return -1
+                else
+                  return sj - si
+          else
+            sortFn = (i,j) ->
+              return sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase())
+          r.sort(sortFn)
+        else if dir is 'asc'
+          if numeric
+            sortFn = (i,j) ->
+              si = sortGen(j)
+              sj = sortGen(i)
+              if isNaN(si)
+                if isNaN(sj)
+                  return 0
+                else
+                  return 1
+              else
+                if isNaN(sj)
+                  return -1
+                else
+                  return sj - si
+          else
+            sortFn = (i,j) ->
+              return sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase())
+          r.sort(sortFn)
+        # else do nothing
+
+      if _sortOrder and sortIndicator.get()
+        dir = String(_sortOrder).toLowerCase()
+        h.selectAll('th').data(columns)
+          .select('div.sort_indicator')
+            .style('display', (c) -> if c.sortable.get() then null else 'none')
+            .attr('class', (c) ->
+              which = if c is sortIndicatorCol and dir isnt 'none'
+                if c.reverseIndicator.get() then (if dir is 'asc' then 'desc' else 'asc') else dir
+              else
+                'none'
+              return 'sort_indicator ' + which
+            )
+
+    h.selectAll('th').data(columns)
+      .attr('class', colClass)
+      .style('display', (c) -> if c.visible.get() and not c.hideHeader.get() then null else "none")
+      .attr('title', (c) -> c.headerTooltip.get())
+        .select('span')[if htmlTitles then 'html' else 'text']((c) -> c.title.get())
+
+    limit = rowLimit.get()
+    r = r.splice(0, Math.max(0, limit)) if limit?
+    numRows.update(r.length)
+
+    sel = b.selectAll('tr').data(r)
+    ent = sel.enter().append('tr')
+    if rowClassGen
+      gen = rowClassGen.gen()
+      ent.attr('class', gen)
+      sel.attr('class', gen)
+    sel.exit().remove()
+
+    sel = b.selectAll('tr')
+    row = sel.selectAll('td').data(columns)
+    row.enter().append('td')
+    row.attr('class', colClass)
+    row.exit().remove()
+
+    for col in columns
+      gen = col.gen.gen();
+      csel = sel.select('td.' + col.uniquClass)
+
+      csel
+        .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col, this))
+        .style('display', if col.visible.get() then null else 'none')
+
+      if col.hoverGen
+        csel.attr('title', col.hoverGen.gen())
+
+      if col.cellClassGen
+        cg = col.cellClassGen.gen()
+        csel.attr('class', (i) -> colClass(col) + if cg? then ' ' + cg(i))
+
+      col.renderer(csel, gen, col.sorted)
+
+    return
+
+  dvl.register {
+    name: 'table_maker'
+    fn: makeTable
+    listen: listen
+    change: [numRows]
+  }
+
+
+  columnVisible = ->
+    h.selectAll('th').data(columns)
+      .style('display', (c) -> if c.visible.get() and not c.hideHeader.get() then null else "none")
+
+    for col in columns
+      sel.select('td.' + col.uniquClass)
+        .style('display', if col.visible.get() then null else 'none')
+
+    return
+
+  dvl.register {
+    name: 'table_column_visible'
+    fn: columnVisible
+    listen: listenColumnVisible
+  }
+
+  return {
+    sortOn
+    sortOrder
+    numRows
+    node: t.node()
+  }
+
+
+
+
+
+
+
+
+
+
+
+
