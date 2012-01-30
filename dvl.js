@@ -2195,7 +2195,7 @@ dvl.scale = {};
     };
   };
 })();
-id_class_spliter = /(?=[#.])/;
+id_class_spliter = /(?=[#.:])/;
 dvl.bind = function(args) {
   var attrList, c, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, prependStatic, self, staticClass, styleList, text, trans, v, _i, _len, _ref2, _ref3, _ref4;
   if (!args.parent) {
@@ -2213,8 +2213,8 @@ dvl.bind = function(args) {
     c = part[0];
     if (c === '.') {
       staticClass.push(part.slice(1));
-    } else if (c === '#') {
-      throw "id currently not supported in 'self' (" + part + ")";
+    } else {
+      throw "not currently supported in 'self' (" + part + ")";
     }
   }
   staticClass = staticClass.join(' ');
@@ -4728,7 +4728,7 @@ dvl.compare = function(acc, reverse) {
   });
 };
 dvl.html.table2 = function(_arg) {
-  var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, parent, rowClass, rowLimit, sort, sortOn, sortOnIndicator, table, _i, _len, _ref2;
+  var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, parent, rowClass, rowLimit, sort, sortOn, sortOnIndicator, table, _i, _len, _ref2, _ref3;
   parent = _arg.parent, data = _arg.data, sort = _arg.sort, classStr = _arg.classStr, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
   table = dvl.valueOf(parent).append('table').attr('class', classStr);
   sort = sort || {};
@@ -4740,7 +4740,7 @@ dvl.html.table2 = function(_arg) {
   compareList = [sortOn];
   for (_i = 0, _len = columns.length; _i < _len; _i++) {
     c = columns[_i];
-    if (c.sortable) {
+    if ((_ref3 = c.sortable) != null ? _ref3 : true) {
       if (c.compare != null) {
         comp = dvl.wrapConstIfNeeded(c.compare);
       } else {
@@ -4759,7 +4759,7 @@ dvl.html.table2 = function(_arg) {
       id: c.id,
       "class": c.classStr,
       value: c.value,
-      renderer: c.renderer,
+      render: c.render,
       on: c.on
     });
   }
@@ -4768,10 +4768,10 @@ dvl.html.table2 = function(_arg) {
     listen: compareList,
     change: [compare],
     fn: function() {
-      var _ref3, _sortOn;
+      var _ref4, _sortOn;
       _sortOn = sortOn.get();
       if (_sortOn != null) {
-        compare.set((_ref3 = compareMap[_sortOn]) != null ? _ref3.get() : void 0);
+        compare.set((_ref4 = compareMap[_sortOn]) != null ? _ref4.get() : void 0);
       } else {
         compare.set(null);
       }
@@ -4830,7 +4830,7 @@ dvl.html.table2.header = function(_arg) {
   });
 };
 dvl.html.table2.body = function(_arg) {
-  var c, columns, compare, data, k, listen, parent, rowClass, rowLimit, tbody, v, _i, _len, _ref2;
+  var c, change, columns, compare, data, k, listen, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2;
   parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowLimit = _arg.rowLimit, columns = _arg.columns;
   if (!parent) {
     throw 'there needs to be a parent';
@@ -4845,6 +4845,7 @@ dvl.html.table2.body = function(_arg) {
   }
   rowLimit = dvl.wrapConstIfNeeded(rowLimit);
   listen = [data, compare, rowLimit];
+  change = [];
   for (_i = 0, _len = columns.length; _i < _len; _i++) {
     c = columns[_i];
     c["class"] = dvl.wrapConstIfNeeded(c["class"]);
@@ -4857,13 +4858,12 @@ dvl.html.table2.body = function(_arg) {
       listen.push(v);
       c.on[k] = v;
     }
-    if (typeof c.renderer !== 'function') {
-      c.renderer = dvl.html.table2.renderer[c.renderer || 'text'];
-    }
+    change.push(c.selection = dvl.def(null, "" + c.id + "_selection"));
   }
   dvl.register({
     name: 'body_render',
     listen: listen,
+    change: change,
     fn: function() {
       var c, colSel, dataSorted, i, k, rowSel, sel, v, _compare, _data, _len2, _ref3, _rowClass, _rowLimit;
       _data = data.get();
@@ -4898,30 +4898,58 @@ dvl.html.table2.body = function(_arg) {
           v = _ref3[k];
           sel.on(k, v.get());
         }
-        c.renderer(sel, c.value.get());
+        c.selection.set(sel).notify();
       }
     }
   });
+  for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
+    c = columns[_j];
+    render = typeof c.render !== 'function' ? dvl.html.table2.render[c.render || 'text'] : c.render;
+    render.call(c, c.selection, c.value);
+  }
 };
-dvl.html.table2.renderer = {
-  text: function(sel, value) {
-    sel.text(value);
+dvl.html.table2.render = {
+  text: function(selection, value) {
+    dvl.register({
+      listen: [selection, value],
+      fn: function() {
+        var _selection, _value;
+        _selection = selection.get();
+        _value = value.get();
+        if ((_selection != null) && _value) {
+          _selection.text(_value);
+        }
+      }
+    });
   },
   html: function(sel, value) {
-    sel.html(value);
+    dvl.register({
+      listen: [selection, value],
+      fn: function() {
+        var _selection, _value;
+        _selection = selection.get();
+        _value = value.get();
+        if ((_selection != null) && _value) {
+          _selection.html(_value);
+        }
+      }
+    });
   },
   aLink: function(_arg) {
-    var html, link, what;
-    link = _arg.link, html = _arg.html;
-    what = html ? 'html' : 'text';
-    link = dvl.wrapConstIfNeeded(link);
-    return function(sel, value) {
-      sel = sel.selectAll('a').data(function(d) {
-        return [d];
+    var href;
+    href = _arg.href;
+    return function(selection, value) {
+      dvl.bind({
+        parent: selection,
+        self: 'a.link',
+        data: function(d) {
+          return [d];
+        },
+        attr: {
+          href: href
+        },
+        text: value
       });
-      sel.enter().append('a');
-      sel.attr('href', link.get());
-      sel[what](value);
     };
   },
   spanLink: function(_arg) {
@@ -4936,12 +4964,17 @@ dvl.html.table2.renderer = {
       sel.html(value).on('click', click);
     };
   },
-  img: function(sel, value) {
-    sel = sel.selectAll('img').data(function(d) {
-      return [d];
+  img: function(selection, value) {
+    dvl.bind({
+      parent: selection,
+      self: 'img',
+      data: function(d) {
+        return [d];
+      },
+      attr: {
+        src: value
+      }
     });
-    sel.enter().append('img');
-    sel.attr('src', value);
   },
   imgDiv: function(sel, value) {
     sel = sel.selectAll('div').data(function(d) {
@@ -4950,59 +4983,65 @@ dvl.html.table2.renderer = {
     sel.enter().append('div');
     sel.attr('class', value);
   },
-  svgSparkline: function(_arg) {
-    var classStr, f, height, padding, width, x, y;
-    classStr = _arg.classStr, width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
-    f = function(sel, value) {
-      var line, points, svg;
-      svg = sel.selectAll('svg').data(function(d, i) {
-        return [value(d, i)];
+  sparkline: function(_arg) {
+    var height, padding, width, x, y;
+    width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
+        if (padding != null) {
+      padding;
+    } else {
+      padding = 0;
+    };
+    return function(selection, value) {
+      var dataFn, lineFn, svg;
+      lineFn = dvl.apply({
+        args: [x, y, padding],
+        fn: function(x, y, padding) {
+          return function(d) {
+            var mmx, mmy, sx, sy;
+            mmx = dvl.util.getMinMax(d, (function(d) {
+              return d[x];
+            }));
+            mmy = dvl.util.getMinMax(d, (function(d) {
+              return d[y];
+            }));
+            sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
+            sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
+            return d3.svg.line().x(function(dp) {
+              return sx(dp[x]);
+            }).y(function(dp) {
+              return sy(dp[y]);
+            })(d);
+          };
+        }
       });
-      line = function(d) {
-        var mmx, mmy, sx, sy;
-        mmx = dvl.util.getMinMax(d, (function(d) {
-          return d[x];
-        }));
-        mmy = dvl.util.getMinMax(d, (function(d) {
-          return d[y];
-        }));
-        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
-        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
-        return d3.svg.line().x(function(dp) {
-          return sx(dp[x]);
-        }).y(function(dp) {
-          return sy(dp[y]);
-        })(d);
-      };
-      svg.enter().append('svg').attr('class', classStr).attr('width', width).attr('height', height);
-      sel = svg.selectAll('path').data(function(d) {
-        return [d];
+      dataFn = dvl.apply({
+        args: value,
+        fn: function(value) {
+          return function(d, i) {
+            return [value(d, i)];
+          };
+        }
       });
-      sel.enter().append("path").attr("class", "line");
-      sel.attr("d", line);
-      points = svg.selectAll('circle').data(function(d) {
-        var mmx, mmy, sx, sy;
-        mmx = dvl.util.getMinMax(d, (function(d) {
-          return d[x];
-        }));
-        mmy = dvl.util.getMinMax(d, (function(d) {
-          return d[y];
-        }));
-        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
-        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
-        return [['top', sx(d[mmy.maxIdx][x]), sy(mmy.max)], ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)], ['right', sx(mmx.max), sy(d[mmx.maxIdx][y])], ['left', sx(mmx.min), sy(d[mmx.minIdx][y])]];
+      svg = dvl.bind({
+        parent: selection,
+        self: 'svg.sparkline',
+        data: dataFn,
+        attr: {
+          width: width,
+          height: height
+        }
       });
-      points.enter().append("circle").attr("r", 2).attr("class", function(d) {
-        return d[0];
-      });
-      points.attr("cx", function(d) {
-        return d[1];
-      }).attr("cy", function(d) {
-        return d[2];
+      dvl.bind({
+        parent: svg,
+        self: 'path',
+        data: function(d) {
+          return [d];
+        },
+        attr: {
+          d: lineFn
+        }
       });
     };
-    f.depends = [];
-    return f;
   }
 };
 dvl_html_table = function(_arg) {

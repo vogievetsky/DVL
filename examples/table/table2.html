@@ -96,10 +96,25 @@ svg.sparkline circle {
       indicator: true
     },
     columns: [
-      { id:'a', title:'A', headerTooltip: 'Apple',  value: dvl.acc('a'), compare: dvl.compare(dvl.acc('a')) },
-      { id:'b', title:'B', headerTooltip: 'Banana', value: dvl.acc('b'), compare: dvl.compare(dvl.acc('b')) },
-      { id:'c', title:'C', value: dvl.acc('c'), compare: dvl.compare(dvl.acc('c')), _renderer:dvl.html.table2.renderer.aLink({link: dvl.acc('b') }) },
-      { id:'s', title:'Sparkline', value: dvl.acc('sparkline'), renderer:dvl.html.table2.renderer.svgSparkline({width:100, height:14, x:"x", y:"y", classStr:"sparkline", padding:3}) },
+      { id:'a',
+        title:'A',
+        headerTooltip: 'Apple',
+        value: dvl.acc('a'),
+        compare: dvl.compare(dvl.acc('a'))
+      },
+      { id:'b',
+        title:'B',
+        headerTooltip: 'Banana',
+        value: dvl.acc('b'),
+        compare: dvl.compare(dvl.acc('b'))
+      },
+      { id:'c',
+        title:'C',
+        value: dvl.acc('c'),
+        compare: dvl.compare(dvl.acc('c')),
+        render: dvl.html.table2.render.aLink({href: 'http://www.google.com' })
+      },
+      { id:'s', title:'Sparkline', value: dvl.acc('sparkline'), render:dvl.html.table2.render.sparkline({width:100, height:14, x:"x", y:"y", classStr:"sparkline", padding:3}) },
     ],
     headerTooltip: 'table1'
   });

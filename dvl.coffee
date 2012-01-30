@@ -1697,7 +1697,7 @@ dvl.scale = {}
 # dvl.bind # --------------------------------------------------
 
 # {parent, self, data, join, attr, style, text, html, on, trans}
-id_class_spliter = /(?=[#.])/
+id_class_spliter = /(?=[#.:])/
 dvl.bind = (args) ->
   throw "'parent' not defiend" unless args.parent
   self = args.self
@@ -1709,8 +1709,8 @@ dvl.bind = (args) ->
     c = part[0]
     if c is '.'
       staticClass.push part.slice(1)
-    else if c is '#'
-      throw "id currently not supported in 'self' (#{part})"
+    else
+      throw "not currently supported in 'self' (#{part})"
 
   staticClass = staticClass.join(' ')
 
@@ -4039,13 +4039,14 @@ dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) 
   compareMap = {}
   compareList = [sortOn]
   for c in columns
-    if c.sortable
+    if c.sortable ? true
       if c.compare?
         comp = dvl.wrapConstIfNeeded(c.compare)
       else
         comp = dvl.compare(c.value)
       compareMap[c.id] = comp
       compareList.push comp
+
     headerCol.push {
       id:       c.id
       title:    c.title
@@ -4056,7 +4057,7 @@ dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) 
       id:       c.id
       class:    c.classStr
       value:    c.value
-      renderer: c.renderer
+      render:   c.render
       on:       c.on
     }
 
@@ -4157,6 +4158,7 @@ dvl.html.table2.body = ({parent, data, compare, rowLimit, columns}) ->
   rowClass = dvl.wrapConstIfNeeded(rowClass) if rowClass?
   rowLimit = dvl.wrapConstIfNeeded(rowLimit)
   listen = [data, compare, rowLimit]
+  change = []
   for c in columns
     c.class = dvl.wrapConstIfNeeded(c.class)
     c.value = dvl.wrapConstIfNeeded(c.value)
@@ -4167,12 +4169,13 @@ dvl.html.table2.body = ({parent, data, compare, rowLimit, columns}) ->
       listen.push v
       c.on[k] = v
 
-    c.renderer = dvl.html.table2.renderer[c.renderer or 'text'] if typeof c.renderer isnt 'function'
+    change.push(c.selection = dvl.def(null, "#{c.id}_selection"))
 
 
   dvl.register {
     name: 'body_render'
     listen
+    change
     fn: ->
       _data = data.get()
       if not _data
@@ -4205,33 +4208,59 @@ dvl.html.table2.body = ({parent, data, compare, rowLimit, columns}) ->
         for k,v of c.on
           sel.on(k, v.get())
 
-        c.renderer(sel, c.value.get())
+        c.selection.set(sel).notify()
 
       return
   }
 
+  for c in columns
+    render = if typeof c.render isnt 'function'
+      dvl.html.table2.render[c.render or 'text']
+    else
+      c.render
+
+    render.call(c, c.selection, c.value)
+
   return
 
 
-dvl.html.table2.renderer =
-  text: (sel, value) ->
-    sel.text(value)
+dvl.html.table2.render =
+  text: (selection, value) ->
+    dvl.register {
+      listen: [selection, value]
+      fn: ->
+        _selection = selection.get()
+        _value = value.get()
+        if _selection? and _value
+          _selection.text(_value)
+        return
+    }
     return
 
   html: (sel, value) ->
-    sel.html(value)
+    dvl.register {
+      listen: [selection, value]
+      fn: ->
+        _selection = selection.get()
+        _value = value.get()
+        if _selection? and _value
+          _selection.html(_value)
+        return
+    }
     return
 
 
-  aLink: ({link, html}) ->
-    what = if html then 'html' else 'text'
-    link = dvl.wrapConstIfNeeded(link)
-    return (sel, value) ->
-      sel = sel.selectAll('a').data((d) -> [d])
-      sel.enter().append('a')
-      sel.attr('href', link.get())
-      sel[what](value)
-      return
+  aLink: ({href}) -> (selection, value) ->
+    dvl.bind {
+      parent: selection
+      self: 'a.link'
+      data: (d) -> [d]
+      attr: {
+        href: href
+      }
+      text: value
+    }
+    return
 
   spanLink: ({click}) ->
     titleGen = dvl.wrapConstIfNeeded(titleGen)
@@ -4241,10 +4270,15 @@ dvl.html.table2.renderer =
       sel.html(value).on('click', click)
       return
 
-  img: (sel, value) ->
-    sel = sel.selectAll('img').data((d) -> [d])
-    sel.enter().append('img')
-    sel.attr('src', value)
+  img: (selection, value) ->
+    dvl.bind {
+      parent: selection
+      self: 'img'
+      data: (d) -> [d]
+      attr: {
+        src: value
+      }
+    }
     return
 
   imgDiv: (sel, value) ->
@@ -4253,51 +4287,44 @@ dvl.html.table2.renderer =
     sel.attr('class', value)
     return
 
-  svgSparkline: ({classStr, width, height, x, y, padding}) ->
-    f = (sel, value) ->
-      svg = sel.selectAll('svg').data((d,i) -> [value(d,i)])
-
-      line = (d) ->
-        mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
-        mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
-        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
-        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
-        return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
-
-
-      svg.enter().append('svg').attr('class', classStr).attr('width', width).attr('height', height)
-
-      sel = svg.selectAll('path').data((d) -> [d])
-
-      sel.enter().append("path").attr("class", "line")
-
-      sel.attr("d", line)
-
-      points = svg.selectAll('circle')
-        .data((d) ->
+  sparkline: ({width, height, x, y, padding}) ->
+    padding ?= 0
+    return (selection, value) ->
+      lineFn = dvl.apply {
+        args: [x, y, padding]
+        fn: (x, y, padding) -> (d) ->
           mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
           mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
           sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
           sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
-          return [
-            ['top',    sx(d[mmy.maxIdx][x]), sy(mmy.max)]
-            ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)]
-            ['right',  sx(mmx.max), sy(d[mmx.maxIdx][y])]
-            ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
-          ]
-        )
+          return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
+      }
 
-      points.enter().append("circle")
-        .attr("r", 2)
-        .attr("class", (d) -> d[0])
+      dataFn = dvl.apply {
+        args: value
+        fn: (value) -> (d,i) -> [value(d,i)]
+      }
 
-      points
-        .attr("cx", (d) -> d[1])
-        .attr("cy", (d) -> d[2])
+      svg = dvl.bind {
+        parent: selection
+        self: 'svg.sparkline'
+        data: dataFn
+        attr: {
+          width
+          height
+        }
+      }
+
+      dvl.bind {
+        parent: svg
+        self: 'path'
+        data: (d) -> [d]
+        attr: {
+          d: lineFn
+        }
+      }
       return
 
-    f.depends = []
-    return f
 
 
 
