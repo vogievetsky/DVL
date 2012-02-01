@@ -1253,7 +1253,7 @@ dvl.ajax.requester = {
 
           c.ajax = jQuery.ajax {
             url
-            data:        if method isnt 'GET' then dataFn(data) else null
+            data:        dataVal
             type:        method
             dataType
             contentType
@@ -1261,7 +1261,6 @@ dvl.ajax.requester = {
             success:     getData
             error:       getError
             complete:    -> outstanding.set(outstanding.get() - 1).notify()
-            context:     { url }
           }
 
           outstanding.set(outstanding.get() + 1).notify()
@@ -1765,7 +1764,7 @@ dvl.bind = (args) ->
       _parent = parent.get()
       return unless _parent
 
-      force = data.hasChanged() or join.hasChanged()
+      force = parent.hasChanged() or data.hasChanged() or join.hasChanged()
       _data = data.get()
       _join = join.get()
 
@@ -4006,7 +4005,8 @@ dvl.compare = (acc, reverse) ->
 ##     ~cellClick:        The generator of click handlers
 ##     ~value:            The value of the cell
 ##      sortable:         Toggles wheather the column is sortable or not. [true]
-##     -sortGen:          The generator that will drive the sorting, if not provided then gen will be used instead. [gen]
+##     ~compare:          The generator that will drive the sorting, if not provided then gen will be used instead. [gen]
+##     ~compareModes:        ['none', 'up', 'down']
 ##     ~hoverGen:         The generator for the (hover) title.
 ##     ~showIndicator:    Toggle the display of the sorting indicator for this column. [true]
 ##     ~reverseIndicator: Reverses the asc / desc directions of the indicator for this column. [false]
@@ -4025,6 +4025,7 @@ dvl.compare = (acc, reverse) ->
 ## ~headerTooltip:     The default herder tooltip (title element text).
 ## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
 ##
+default_compare_modes = ['up', 'down']
 dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) ->
   table = dvl.valueOf(parent)
     .append('table')
@@ -4032,20 +4033,25 @@ dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) 
 
   sort = sort or {}
   sortOn = dvl.wrapVarIfNeeded(sort.on)
+  sortDir = dvl.wrapVarIfNeeded(sort.dir)
   sortOnIndicator = dvl.wrapVarIfNeeded(sort.onIndicator ? sortOn)
 
   headerCol = []
   bodyCol = []
   compareMap = {}
-  compareList = [sortOn]
+  compareList = [sortOn, sortDir]
   for c in columns
-    if c.sortable ? true
+    c.sortable ?= true
+    if c.sortable
       if c.compare?
         comp = dvl.wrapConstIfNeeded(c.compare)
       else
         comp = dvl.compare(c.value)
       compareMap[c.id] = comp
       compareList.push comp
+
+      if not c.compareModes?[0]
+        c.compareModes = default_compare_modes
 
     headerCol.push {
       id:       c.id
@@ -4067,8 +4073,15 @@ dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) 
     change: [compare]
     fn: ->
       _sortOn = sortOn.get()
+      _sortDir = sortDir.get()
+      console.log _sortOn, _sortDir
+
       if _sortOn?
-        compare.set(compareMap[_sortOn]?.get())
+        cmp = compareMap[_sortOn]?.get()
+        if cmp and _sortDir is 'down'
+          oldCmp = cmp
+          cmp = (a,b) -> oldCmp(b,a)
+        compare.set(cmp)
       else
         compare.set(null)
       compare.notify()
@@ -4079,7 +4092,23 @@ dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) 
     parent: table
     columns: headerCol
     onClick: (id) ->
-      sortOn.update(id)
+      column = null
+      for c in columns
+        if c.id is id
+          column = c
+          break
+
+      return unless column and column.sortable
+
+      compareModes = column.compareModes
+      if id is sortOn.get()
+        sortDir.set(compareModes[(compareModes.indexOf(sortDir.get())+1) % compareModes.length])
+        dvl.notify(sortDir)
+      else
+        sortOn.set(id)
+        sortDir.set(compareModes[0])
+        dvl.notify(sortOn, sortDir)
+
       return
   }
 
@@ -4142,7 +4171,7 @@ dvl.html.table2.header = ({parent, columns, onClick}) ->
 ##
 ##  parent:      Where to append the table.
 ## ~data:        The data displayed.
-## ~compare:    The function to sort the data on
+## ~compare:        The function to sort the data on
 ## ~rowClass       The class of the row
 ## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
 ##  columns:
@@ -4162,7 +4191,7 @@ dvl.html.table2.body = ({parent, data, compare, rowLimit, columns}) ->
   for c in columns
     c.class = dvl.wrapConstIfNeeded(c.class)
     c.value = dvl.wrapConstIfNeeded(c.value)
-    listen.push c.title, c.class
+    listen.push c.class # not value
 
     for k,v of c.on
       v = dvl.wrapConstIfNeeded(v)

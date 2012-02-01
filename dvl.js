@@ -1,4 +1,4 @@
-"use strict";var clipId, debug, dvl_html_table, generator_maker_maker, id_class_spliter, _ref;
+"use strict";var clipId, debug, default_compare_modes, dvl_html_table, generator_maker_maker, id_class_spliter, _ref;
 var __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
@@ -1644,7 +1644,7 @@ dvl.ajax.requester = {
           };
           c.ajax = jQuery.ajax({
             url: url,
-            data: method !== 'GET' ? dataFn(data) : null,
+            data: dataVal,
             type: method,
             dataType: dataType,
             contentType: contentType,
@@ -1653,9 +1653,6 @@ dvl.ajax.requester = {
             error: getError,
             complete: function() {
               return outstanding.set(outstanding.get() - 1).notify();
-            },
-            context: {
-              url: url
             }
           });
           outstanding.set(outstanding.get() + 1).notify();
@@ -2281,7 +2278,7 @@ dvl.bind = function(args) {
       if (!_parent) {
         return;
       }
-      force = data.hasChanged() || join.hasChanged();
+      force = parent.hasChanged() || data.hasChanged() || join.hasChanged();
       _data = data.get();
       _join = join.get();
       if (_data) {
@@ -4727,20 +4724,27 @@ dvl.compare = function(acc, reverse) {
     }
   });
 };
+default_compare_modes = ['up', 'down'];
 dvl.html.table2 = function(_arg) {
-  var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, parent, rowClass, rowLimit, sort, sortOn, sortOnIndicator, table, _i, _len, _ref2, _ref3;
+  var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref2, _ref3, _ref4;
   parent = _arg.parent, data = _arg.data, sort = _arg.sort, classStr = _arg.classStr, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
   table = dvl.valueOf(parent).append('table').attr('class', classStr);
   sort = sort || {};
   sortOn = dvl.wrapVarIfNeeded(sort.on);
+  sortDir = dvl.wrapVarIfNeeded(sort.dir);
   sortOnIndicator = dvl.wrapVarIfNeeded((_ref2 = sort.onIndicator) != null ? _ref2 : sortOn);
   headerCol = [];
   bodyCol = [];
   compareMap = {};
-  compareList = [sortOn];
+  compareList = [sortOn, sortDir];
   for (_i = 0, _len = columns.length; _i < _len; _i++) {
     c = columns[_i];
-    if ((_ref3 = c.sortable) != null ? _ref3 : true) {
+        if ((_ref3 = c.sortable) != null) {
+      _ref3;
+    } else {
+      c.sortable = true;
+    };
+    if (c.sortable) {
       if (c.compare != null) {
         comp = dvl.wrapConstIfNeeded(c.compare);
       } else {
@@ -4748,6 +4752,9 @@ dvl.html.table2 = function(_arg) {
       }
       compareMap[c.id] = comp;
       compareList.push(comp);
+      if (!((_ref4 = c.compareModes) != null ? _ref4[0] : void 0)) {
+        c.compareModes = default_compare_modes;
+      }
     }
     headerCol.push({
       id: c.id,
@@ -4768,10 +4775,19 @@ dvl.html.table2 = function(_arg) {
     listen: compareList,
     change: [compare],
     fn: function() {
-      var _ref4, _sortOn;
+      var cmp, oldCmp, _ref5, _sortDir, _sortOn;
       _sortOn = sortOn.get();
+      _sortDir = sortDir.get();
+      console.log(_sortOn, _sortDir);
       if (_sortOn != null) {
-        compare.set((_ref4 = compareMap[_sortOn]) != null ? _ref4.get() : void 0);
+        cmp = (_ref5 = compareMap[_sortOn]) != null ? _ref5.get() : void 0;
+        if (cmp && _sortDir === 'down') {
+          oldCmp = cmp;
+          cmp = function(a, b) {
+            return oldCmp(b, a);
+          };
+        }
+        compare.set(cmp);
       } else {
         compare.set(null);
       }
@@ -4782,7 +4798,27 @@ dvl.html.table2 = function(_arg) {
     parent: table,
     columns: headerCol,
     onClick: function(id) {
-      sortOn.update(id);
+      var c, column, compareModes, _j, _len2;
+      column = null;
+      for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
+        c = columns[_j];
+        if (c.id === id) {
+          column = c;
+          break;
+        }
+      }
+      if (!(column && column.sortable)) {
+        return;
+      }
+      compareModes = column.compareModes;
+      if (id === sortOn.get()) {
+        sortDir.set(compareModes[(compareModes.indexOf(sortDir.get()) + 1) % compareModes.length]);
+        dvl.notify(sortDir);
+      } else {
+        sortOn.set(id);
+        sortDir.set(compareModes[0]);
+        dvl.notify(sortOn, sortDir);
+      }
     }
   });
   dvl.html.table2.body({
@@ -4850,7 +4886,7 @@ dvl.html.table2.body = function(_arg) {
     c = columns[_i];
     c["class"] = dvl.wrapConstIfNeeded(c["class"]);
     c.value = dvl.wrapConstIfNeeded(c.value);
-    listen.push(c.title, c["class"]);
+    listen.push(c["class"]);
     _ref2 = c.on;
     for (k in _ref2) {
       v = _ref2[k];

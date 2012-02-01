@@ -99,14 +99,13 @@ svg.sparkline circle {
       { id:'a',
         title:'A',
         headerTooltip: 'Apple',
-        value: dvl.acc('a'),
-        compare: dvl.compare(dvl.acc('a'))
+        value: dvl.acc('a')
       },
       { id:'b',
         title:'B',
         headerTooltip: 'Banana',
         value: dvl.acc('b'),
-        compare: dvl.compare(dvl.acc('b'))
+        sortModes: ['none', 'up', 'down']
       },
       { id:'c',
         title:'C',
