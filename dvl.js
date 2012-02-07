@@ -1,10 +1,42 @@
-"use strict";var clipId, debug, default_compare_modes, dvl_html_table, generator_maker_maker, id_class_spliter, _ref;
+"use strict";
+
+function lift(fn) {
+  var fn = arguments[0];
+  if ('function' !== typeof fn) throw new TypeError();
+
+  return function(/* args: to fn */) {
+    var args = Array.prototype.slice.call(arguments),
+        n = args.length,
+        i;
+
+    for (i = 0; i < n; i++) {
+      if ('function' === typeof args[i]) {
+        return function(/* args2 to function wrapper */) {
+          var args2 = Array.prototype.slice.call(arguments),
+              reduced = [],
+              i, v;
+
+          for (i = 0; i < n; i++) {
+            v = args[i];
+            reduced.push('function' === typeof v ? v.apply(this, args2) : v);
+          }
+
+          return fn.apply(null, reduced);
+        };
+      }
+    }
+
+    // Fell through so there are no functions in the arguments to fn -> call it!
+    return fn.apply(null, args);
+  };
+}
+;var clipId, debug, default_compare_modes, dvl_html_table, generator_maker_maker, id_class_spliter, _ref;
 var __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
   }
   return -1;
-};
+}, __slice = Array.prototype.slice;
 if (!d3) {
   throw 'd3 is needed for now.';
 }
@@ -2194,7 +2226,7 @@ dvl.scale = {};
 })();
 id_class_spliter = /(?=[#.:])/;
 dvl.bind = function(args) {
-  var attrList, c, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, prependStatic, self, staticClass, styleList, text, trans, v, _i, _len, _ref2, _ref3, _ref4;
+  var attrList, c, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, prependStatic, self, staticClass, styleList, text, transition, transitionExit, v, _i, _len, _ref2, _ref3, _ref4;
   if (!args.parent) {
     throw "'parent' not defiend";
   }
@@ -2215,13 +2247,14 @@ dvl.bind = function(args) {
     }
   }
   staticClass = staticClass.join(' ');
-  trans = args.trans || [];
   parent = dvl.wrapConstIfNeeded(args.parent);
   data = dvl.wrapConstIfNeeded(args.data || [void 0]);
   join = dvl.wrapConstIfNeeded(args.join);
   text = args.text ? dvl.wrapConstIfNeeded(args.text) : null;
   html = args.html ? dvl.wrapConstIfNeeded(args.html) : null;
-  listen = [parent, data, join, text, html];
+  transition = dvl.wrapConstIfNeeded(args.transition);
+  transitionExit = dvl.wrapConstIfNeeded(args.transitionExit);
+  listen = [parent, data, join, text, html, transition, transitionExit];
   prependStatic = function(c) {
     var t;
     t = typeof c;
@@ -2273,7 +2306,7 @@ dvl.bind = function(args) {
     listen: listen,
     change: [out],
     fn: function() {
-      var a, add1, add2, addO, e, enter, force, good, k, postTrans, preTrans, s, selTransition, t, v, _data, _j, _join, _k, _l, _len2, _len3, _len4, _len5, _len6, _len7, _m, _n, _o, _parent, _ref5, _ref6;
+      var a, add1, add2, addO, e, enter, force, k, postTrans, preTrans, s, t, v, _data, _j, _join, _k, _l, _len2, _len3, _len4, _parent, _transition, _transitionExit;
       _parent = parent.get();
       if (!_parent) {
         return;
@@ -2282,6 +2315,8 @@ dvl.bind = function(args) {
       _data = data.get();
       _join = join.get();
       if (_data) {
+        _transition = transition.get();
+        _transitionExit = transitionExit.get();
         enter = [];
         preTrans = [];
         postTrans = [];
@@ -2355,56 +2390,30 @@ dvl.bind = function(args) {
           v = onList[k];
           addO('on', k, v);
         }
-        selTransition = null;
-        for (_j = 0, _len2 = trans.length; _j < _len2; _j++) {
-          t = trans[_j];
-          good = true;
-          if (t.changed) {
-            _ref5 = t.changed;
-            for (_k = 0, _len3 = _ref5.length; _k < _len3; _k++) {
-              v = _ref5[_k];
-              if (!v.hasChanged()) {
-                good = false;
-                break;
-              }
-            }
-          }
-          if (t.same && good) {
-            _ref6 = t.same;
-            for (_l = 0, _len4 = _ref6.length; _l < _len4; _l++) {
-              v = _ref6[_l];
-              if (v.hasChanged()) {
-                good = false;
-                break;
-              }
-            }
-          }
-          if (good) {
-            selTransition = t;
-            break;
-          }
-        }
         s = _parent.selectAll(self).data(_data, _join);
         e = s.enter().append(nodeType);
-        for (_m = 0, _len5 = enter.length; _m < _len5; _m++) {
-          a = enter[_m];
+        for (_j = 0, _len2 = enter.length; _j < _len2; _j++) {
+          a = enter[_j];
           e[a.fn](a.a1, a.a2);
         }
-        for (_n = 0, _len6 = preTrans.length; _n < _len6; _n++) {
-          a = preTrans[_n];
+        for (_k = 0, _len3 = preTrans.length; _k < _len3; _k++) {
+          a = preTrans[_k];
           s[a.fn](a.a1, a.a2);
         }
-        if (selTransition && selTransition.duration !== 0) {
+        if (_transition && (_transition.duration != null)) {
           t = s.transition();
-          t.duration(selTransition.duration || 1000);
-          if (selTransition.ease) {
-            t.ease(dvl.valueOf(selTransition.ease));
+          t.duration(_transition.duration || 1000);
+          if (_transition.delay) {
+            t.delay(_transition.ease);
+          }
+          if (_transition.ease) {
+            t.ease(_transition.ease);
           }
         } else {
           t = s;
         }
-        for (_o = 0, _len7 = postTrans.length; _o < _len7; _o++) {
-          a = postTrans[_o];
+        for (_l = 0, _len4 = postTrans.length; _l < _len4; _l++) {
+          a = postTrans[_l];
           t[a.fn](a.a1, a.a2);
         }
         s.exit().remove();
@@ -2440,72 +2449,72 @@ dvl.chain = function(f, h) {
   });
   return out;
 };
-dvl.op = {
-  'or': function() {
-    var args, out;
-    args = Array.prototype.slice.call(arguments).map(dvl.wrapConstIfNeeded);
-    out = dvl.def(null, 'out');
-    dvl.register({
-      listen: args,
-      change: [out],
-      fn: function() {
-        var a, _a, _i, _len;
-        for (_i = 0, _len = args.length; _i < _len; _i++) {
-          a = args[_i];
-          _a = a.get();
-          if (_a) {
-            out.set(_a).notify();
-            return;
-          }
+(function() {
+  var dvl_get, fn, name, op_to_lift, _results;
+  op_to_lift = {
+    'or': function() {
+      var arg, _i, _len;
+      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+        arg = arguments[_i];
+        if (arg) {
+          return arg;
         }
-        out.set(null).notify();
       }
-    });
-    return out;
-  },
-  'add': function() {
-    var args, out;
-    args = Array.prototype.slice.call(arguments).map(dvl.wrapConstIfNeeded);
-    out = dvl.def(null, 'out');
-    dvl.register({
-      listen: args,
-      change: [out],
-      fn: function() {
-        var a, sum, _a, _i, _len;
-        sum = 0;
-        for (_i = 0, _len = args.length; _i < _len; _i++) {
-          a = args[_i];
-          _a = a.get();
-          if (_a === null) {
-            sum = null;
-            break;
-          } else {
-            sum += _a;
-          }
+      return false;
+    },
+    'add': function() {
+      var arg, sum, _i, _len;
+      sum = 0;
+      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+        arg = arguments[_i];
+        if (arg != null) {
+          sum += arg;
+        } else {
+          return null;
         }
-        out.set(sum).notify();
       }
-    });
-    return out;
-  },
-  'iff': function(cond, truthy, falsy) {
-    var out;
-    cond = dvl.wrapConstIfNeeded(cond);
-    truthy = dvl.wrapConstIfNeeded(truthy);
-    falsy = dvl.wrapConstIfNeeded(falsy);
-    out = dvl.def(null, 'out');
-    dvl.register({
-      listen: [cond, truthy, falsy],
-      change: [out],
-      fn: function() {
-        var res;
-        res = cond.get() ? truthy.get() : falsy.get();
-        out.set(res).notify();
+      return sum;
+    },
+    'iff': function(cond, truthy, falsy) {
+      if (cond) {
+        return truthy;
+      } else {
+        return falsy;
       }
-    });
-    return out;
+    },
+    'makeTranslate': function(x, y) {
+      return "translate(" + x + "," + y + ")";
+    }
+  };
+  dvl_get = function(v) {
+    return v.get();
+  };
+  dvl.op = {};
+  _results = [];
+  for (name in op_to_lift) {
+    fn = op_to_lift[name];
+    _results.push(dvl.op[name] = (function() {
+      var liftedFn;
+      liftedFn = lift(fn);
+      return function() {
+        var args, out;
+        args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+        args = args.map(dvl.wrapConstIfNeeded);
+        out = dvl.def(null, 'out');
+        dvl.register({
+          listen: args,
+          change: [out],
+          fn: function() {
+            out.set(liftedFn.apply(null, args.map(dvl_get)));
+            dvl.notify(out);
+          }
+        });
+        return out;
+      };
+    })());
   }
-};
+  return _results;
+})();
 clipId = 0;
 dvl.bind.clipPath = function(_arg) {
   var cp, height, myId, parent, width, x, y;
@@ -4703,7 +4712,7 @@ dvl.compare = function(acc, reverse) {
           } else if (t === 'number') {
             return vb - va;
           } else {
-            throw "bad type " + t;
+            throw "bad sorting type " + t;
           }
         };
       } else {
@@ -4717,7 +4726,7 @@ dvl.compare = function(acc, reverse) {
           } else if (t === 'number') {
             return va - vb;
           } else {
-            throw "bad type " + t;
+            throw "bad sorting type " + t;
           }
         };
       }
@@ -4778,7 +4787,6 @@ dvl.html.table2 = function(_arg) {
       var cmp, oldCmp, _ref5, _sortDir, _sortOn;
       _sortOn = sortOn.get();
       _sortDir = sortDir.get();
-      console.log(_sortOn, _sortDir);
       if (_sortOn != null) {
         cmp = (_ref5 = compareMap[_sortOn]) != null ? _ref5.get() : void 0;
         if (cmp && _sortDir === 'down') {
@@ -4824,6 +4832,7 @@ dvl.html.table2 = function(_arg) {
   dvl.html.table2.body({
     parent: table,
     data: data,
+    rowClass: rowClass,
     rowLimit: rowLimit,
     columns: bodyCol,
     compare: compare
@@ -4867,7 +4876,7 @@ dvl.html.table2.header = function(_arg) {
 };
 dvl.html.table2.body = function(_arg) {
   var c, change, columns, compare, data, k, listen, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2;
-  parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowLimit = _arg.rowLimit, columns = _arg.columns;
+  parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
   if (!parent) {
     throw 'there needs to be a parent';
   }
@@ -4876,11 +4885,11 @@ dvl.html.table2.body = function(_arg) {
   }
   tbody = dvl.valueOf(parent).append('tbody');
   compare = dvl.wrapConstIfNeeded(compare);
-  if (typeof rowClass !== "undefined" && rowClass !== null) {
+  if (rowClass != null) {
     rowClass = dvl.wrapConstIfNeeded(rowClass);
   }
   rowLimit = dvl.wrapConstIfNeeded(rowLimit);
-  listen = [data, compare, rowLimit];
+  listen = [data, compare, rowClass, rowLimit];
   change = [];
   for (_i = 0, _len = columns.length; _i < _len; _i++) {
     c = columns[_i];
@@ -4920,7 +4929,7 @@ dvl.html.table2.body = function(_arg) {
       rowSel.enter().append('tr');
       rowSel.exit().remove();
       if (rowClass) {
-        _rowClass = rowClass.gen();
+        _rowClass = rowClass.get();
         rowSel.attr('class', _rowClass);
       }
       colSel = rowSel.selectAll('td').data(columns);
@@ -4958,7 +4967,7 @@ dvl.html.table2.render = {
       }
     });
   },
-  html: function(sel, value) {
+  html: function(selection, value) {
     dvl.register({
       listen: [selection, value],
       fn: function() {

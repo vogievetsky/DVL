@@ -6,6 +6,41 @@
 
 # Check that we have everything we need.
 
+
+`
+function lift(fn) {
+  var fn = arguments[0];
+  if ('function' !== typeof fn) throw new TypeError();
+
+  return function(/* args: to fn */) {
+    var args = Array.prototype.slice.call(arguments),
+        n = args.length,
+        i;
+
+    for (i = 0; i < n; i++) {
+      if ('function' === typeof args[i]) {
+        return function(/* args2 to function wrapper */) {
+          var args2 = Array.prototype.slice.call(arguments),
+              reduced = [],
+              i, v;
+
+          for (i = 0; i < n; i++) {
+            v = args[i];
+            reduced.push('function' === typeof v ? v.apply(this, args2) : v);
+          }
+
+          return fn.apply(null, reduced);
+        };
+      }
+    }
+
+    // Fell through so there are no functions in the arguments to fn -> call it!
+    return fn.apply(null, args);
+  };
+}
+`
+
+
 throw 'd3 is needed for now.' unless d3
 throw 'protovis is needed for now.' unless pv
 throw 'jQuery is needed for now.' unless jQuery
@@ -1695,7 +1730,7 @@ dvl.scale = {}
 
 # dvl.bind # --------------------------------------------------
 
-# {parent, self, data, join, attr, style, text, html, on, trans}
+# {parent, self, data, join, attr, style, text, html, on, transition, transitionExit}
 id_class_spliter = /(?=[#.:])/
 dvl.bind = (args) ->
   throw "'parent' not defiend" unless args.parent
@@ -1713,15 +1748,15 @@ dvl.bind = (args) ->
 
   staticClass = staticClass.join(' ')
 
-  trans = args.trans or []
-
   parent = dvl.wrapConstIfNeeded(args.parent)
   data = dvl.wrapConstIfNeeded(args.data or [undefined])
   join = dvl.wrapConstIfNeeded(args.join)
   text = if args.text then dvl.wrapConstIfNeeded(args.text) else null
   html = if args.html then dvl.wrapConstIfNeeded(args.html) else null
+  transition = dvl.wrapConstIfNeeded(args.transition)
+  transitionExit = dvl.wrapConstIfNeeded(args.transitionExit)
 
-  listen = [parent, data, join, text, html]
+  listen = [parent, data, join, text, html, transition, transitionExit]
 
   prependStatic = (c) ->
     t = typeof c
@@ -1769,6 +1804,9 @@ dvl.bind = (args) ->
       _join = join.get()
 
       if _data
+        _transition = transition.get()
+        _transitionExit = transitionExit.get()
+
         # prep
         enter     = []
         preTrans  = []
@@ -1803,27 +1841,6 @@ dvl.bind = (args) ->
         add2('style', k, v) for k, v of styleList
         addO('on', k, v)    for k, v of onList
 
-        # trans
-        selTransition = null
-        for t in trans
-          good = true
-
-          if t.changed
-            for v in t.changed
-              if not v.hasChanged()
-                good = false
-                break
-
-          if t.same and good
-            for v in t.same
-              if v.hasChanged()
-                good = false
-                break
-
-          if good
-            selTransition = t
-            break
-
         # d3 stuff
         s = _parent.selectAll(self).data(_data, _join)
         e = s.enter().append(nodeType)
@@ -1832,10 +1849,12 @@ dvl.bind = (args) ->
 
         s[a.fn](a.a1, a.a2) for a in preTrans
 
-        if selTransition and selTransition.duration isnt 0
+
+        if _transition and _transition.duration?
           t = s.transition()
-          t.duration(selTransition.duration or 1000)
-          t.ease(dvl.valueOf(selTransition.ease)) if selTransition.ease
+          t.duration(_transition.duration or 1000)
+          t.delay(_transition.ease) if _transition.delay
+          t.ease(_transition.ease)  if _transition.ease
         else
           t = s
 
@@ -1875,69 +1894,52 @@ dvl.chain = (f, h) ->
 
   return out
 
+(->
+  op_to_lift = {
+    'or': ->
+      for arg in arguments
+        return arg if arg
+      return false
 
-dvl.op = {
-  'or': ->
-    args = Array::slice.call(arguments).map(dvl.wrapConstIfNeeded)
-    out = dvl.def(null, 'out')
+    'add': ->
+      sum = 0
+      for arg in arguments
+        if arg?
+          sum += arg
+        else
+          return null
+      return sum
 
-    dvl.register {
-      listen: args
-      change: [out]
-      fn: ->
-        for a in args
-          _a = a.get()
-          if _a
-            out.set(_a).notify()
+    'iff': (cond, truthy, falsy) ->
+      return if cond then truthy else falsy
+
+    'makeTranslate': (x, y) ->
+      return "translate(#{x},#{y})"
+  }
+
+  dvl_get = (v) -> v.get()
+
+  dvl.op = {}
+  for name, fn of op_to_lift
+    dvl.op[name] = (->
+      liftedFn = lift(fn)
+
+      return (args...) ->
+        args = args.map(dvl.wrapConstIfNeeded)
+        out = dvl.def(null, 'out')
+
+        dvl.register {
+          listen: args
+          change: [out]
+          fn: ->
+            out.set(liftedFn.apply(null, args.map(dvl_get)))
+            dvl.notify(out)
             return
+        }
 
-        out.set(null).notify()
-        return
-    }
-
-    return out
-
-  'add': ->
-    args = Array::slice.call(arguments).map(dvl.wrapConstIfNeeded)
-    out = dvl.def(null, 'out')
-
-    dvl.register {
-      listen: args
-      change: [out]
-      fn: ->
-        sum = 0
-        for a in args
-          _a = a.get()
-          if _a is null
-            sum = null
-            break
-          else
-            sum += _a
-
-        out.set(sum).notify()
-        return
-    }
-
-    return out
-
-  'iff': (cond, truthy, falsy) ->
-    cond   = dvl.wrapConstIfNeeded(cond)
-    truthy = dvl.wrapConstIfNeeded(truthy)
-    falsy  = dvl.wrapConstIfNeeded(falsy)
-    out = dvl.def(null, 'out')
-
-    dvl.register {
-      listen: [cond, truthy, falsy]
-      change: [out]
-      fn: ->
-        res = if cond.get() then truthy.get() else falsy.get()
-
-        out.set(res).notify()
-        return
-    }
-
-    return out
-}
+        return out
+    )()
+)()
 
 
 clipId = 0
@@ -3970,7 +3972,7 @@ dvl.compare = (acc, reverse) ->
           else if t is 'number'
             return vb - va
           else
-            throw "bad type #{t}"
+            throw "bad sorting type #{t}"
       else
         return (a,b) ->
           va = acc(a)
@@ -3981,7 +3983,7 @@ dvl.compare = (acc, reverse) ->
           else if t is 'number'
             return va - vb
           else
-            throw "bad type #{t}"  }
+            throw "bad sorting type #{t}"  }
 
 
 ##-------------------------------------------------------
@@ -4074,7 +4076,6 @@ dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) 
     fn: ->
       _sortOn = sortOn.get()
       _sortDir = sortDir.get()
-      console.log _sortOn, _sortDir
 
       if _sortOn?
         cmp = compareMap[_sortOn]?.get()
@@ -4115,6 +4116,7 @@ dvl.html.table2 = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) 
   dvl.html.table2.body {
     parent: table
     data
+    rowClass
     rowLimit
     columns: bodyCol
     compare
@@ -4178,7 +4180,7 @@ dvl.html.table2.header = ({parent, columns, onClick}) ->
 ##   ~value:       The value of the cell
 ##   ~class:    The class of the column
 ##
-dvl.html.table2.body = ({parent, data, compare, rowLimit, columns}) ->
+dvl.html.table2.body = ({parent, data, compare, rowClass, rowLimit, columns}) ->
   throw 'there needs to be a parent' unless parent
   throw 'there needs to be data' unless data
   tbody = dvl.valueOf(parent).append('tbody')
@@ -4186,7 +4188,7 @@ dvl.html.table2.body = ({parent, data, compare, rowLimit, columns}) ->
   compare = dvl.wrapConstIfNeeded(compare)
   rowClass = dvl.wrapConstIfNeeded(rowClass) if rowClass?
   rowLimit = dvl.wrapConstIfNeeded(rowLimit)
-  listen = [data, compare, rowLimit]
+  listen = [data, compare, rowClass, rowLimit]
   change = []
   for c in columns
     c.class = dvl.wrapConstIfNeeded(c.class)
@@ -4223,7 +4225,7 @@ dvl.html.table2.body = ({parent, data, compare, rowLimit, columns}) ->
       rowSel.enter().append('tr')
       rowSel.exit().remove()
       if rowClass
-        _rowClass = rowClass.gen()
+        _rowClass = rowClass.get()
         rowSel.attr('class', _rowClass)
 
       colSel = rowSel.selectAll('td').data(columns)
@@ -4266,7 +4268,7 @@ dvl.html.table2.render =
     }
     return
 
-  html: (sel, value) ->
+  html: (selection, value) ->
     dvl.register {
       listen: [selection, value]
       fn: ->
