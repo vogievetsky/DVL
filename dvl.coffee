@@ -7,6 +7,11 @@
 # Check that we have everything we need.
 
 
+throw 'd3 is needed for now.' unless d3
+throw 'protovis is needed for now.' unless pv
+throw 'jQuery is needed for now.' unless jQuery
+
+
 `
 function lift(fn) {
   var fn = arguments[0];
@@ -39,11 +44,6 @@ function lift(fn) {
   };
 }
 `
-
-
-throw 'd3 is needed for now.' unless d3
-throw 'protovis is needed for now.' unless pv
-throw 'jQuery is needed for now.' unless jQuery
 
 
 Array::filter ?= (fun, thisp) ->
@@ -1853,8 +1853,8 @@ dvl.bind = (args) ->
         if _transition and _transition.duration?
           t = s.transition()
           t.duration(_transition.duration or 1000)
-          t.delay(_transition.ease) if _transition.delay
-          t.ease(_transition.ease)  if _transition.ease
+          t.delay(_transition.delay) if _transition.delay
+          t.ease(_transition.ease)   if _transition.ease
         else
           t = s
 
@@ -1894,52 +1894,77 @@ dvl.chain = (f, h) ->
 
   return out
 
-(->
-  op_to_lift = {
-    'or': ->
-      for arg in arguments
-        return arg if arg
-      return false
 
-    'add': ->
-      sum = 0
-      for arg in arguments
-        if arg?
-          sum += arg
-        else
-          return null
-      return sum
 
-    'iff': (cond, truthy, falsy) ->
-      return if cond then truthy else falsy
+dvl_get = (v) -> v.get()
+dvl.op = dvl_op = (fn) ->
+  liftedFn = lift(fn)
+  return (args...) ->
+    args = args.map(dvl.wrapConstIfNeeded)
+    out = dvl.def(null, 'out')
 
-    'makeTranslate': (x, y) ->
-      return "translate(#{x},#{y})"
-  }
+    dvl.register {
+      listen: args
+      change: [out]
+      fn: ->
+        out.set(liftedFn.apply(null, args.map(dvl_get)))
+        dvl.notify(out)
+        return
+    }
 
-  dvl_get = (v) -> v.get()
+    return out
 
-  dvl.op = {}
-  for name, fn of op_to_lift
-    dvl.op[name] = (->
-      liftedFn = lift(fn)
+op_to_lift = {
+  'or': ->
+    for arg in arguments
+      return arg if arg
+    return false
 
-      return (args...) ->
-        args = args.map(dvl.wrapConstIfNeeded)
-        out = dvl.def(null, 'out')
+  'add': ->
+    sum = 0
+    for arg in arguments
+      if arg?
+        sum += arg
+      else
+        return null
+    return sum
 
-        dvl.register {
-          listen: args
-          change: [out]
-          fn: ->
-            out.set(liftedFn.apply(null, args.map(dvl_get)))
-            dvl.notify(out)
-            return
-        }
+  'sub': ->
+    sum = 0
+    mult = 1
+    for arg in arguments
+      if arg?
+        sum += arg * mult
+        mult = -1
+      else
+        return null
+    return sum
 
-        return out
-    )()
-)()
+  'list': (args...) ->
+    for arg in args
+      return null unless arg?
+    return args
+
+  'concat': (args...) ->
+    for arg in args
+      return null unless arg?
+    return args.join('')
+
+  'iff': (cond, truthy, falsy) ->
+    return if cond then truthy else falsy
+
+  'iffEq': (lhs, rhs, truthy, falsy) ->
+    return if lhs is rhs then truthy else falsy
+
+  'iffLt': (lhs, rhs, truthy, falsy) ->
+    return if lhs < rhs then truthy else falsy
+
+  'makeTranslate': (x, y) ->
+    return if x? and y? then "translate(#{x},#{y})" else null
+}
+
+dvl_op[k] = dvl_op(fn) for k, fn of op_to_lift
+
 
 
 clipId = 0

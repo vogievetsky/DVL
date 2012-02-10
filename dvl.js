@@ -1,4 +1,19 @@
-"use strict";
+"use strict";var clipId, debug, default_compare_modes, dvl_get, dvl_html_table, dvl_op, fn, generator_maker_maker, id_class_spliter, k, op_to_lift, _ref;
+var __indexOf = Array.prototype.indexOf || function(item) {
+  for (var i = 0, l = this.length; i < l; i++) {
+    if (this[i] === item) return i;
+  }
+  return -1;
+}, __slice = Array.prototype.slice;
+if (!d3) {
+  throw 'd3 is needed for now.';
+}
+if (!pv) {
+  throw 'protovis is needed for now.';
+}
+if (!jQuery) {
+  throw 'jQuery is needed for now.';
+}
 
 function lift(fn) {
   var fn = arguments[0];
@@ -30,22 +45,7 @@ function lift(fn) {
     return fn.apply(null, args);
   };
 }
-;var clipId, debug, default_compare_modes, dvl_html_table, generator_maker_maker, id_class_spliter, _ref;
-var __indexOf = Array.prototype.indexOf || function(item) {
-  for (var i = 0, l = this.length; i < l; i++) {
-    if (this[i] === item) return i;
-  }
-  return -1;
-}, __slice = Array.prototype.slice;
-if (!d3) {
-  throw 'd3 is needed for now.';
-}
-if (!pv) {
-  throw 'protovis is needed for now.';
-}
-if (!jQuery) {
-  throw 'jQuery is needed for now.';
-}
+;
 if ((_ref = Array.prototype.filter) != null) {
   _ref;
 } else {
@@ -2404,7 +2404,7 @@ dvl.bind = function(args) {
           t = s.transition();
           t.duration(_transition.duration || 1000);
           if (_transition.delay) {
-            t.delay(_transition.ease);
+            t.delay(_transition.delay);
           }
           if (_transition.ease) {
             t.ease(_transition.ease);
@@ -2449,72 +2449,122 @@ dvl.chain = function(f, h) {
   });
   return out;
 };
-(function() {
-  var dvl_get, fn, name, op_to_lift, _results;
-  op_to_lift = {
-    'or': function() {
-      var arg, _i, _len;
-      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
-        arg = arguments[_i];
-        if (arg) {
-          return arg;
-        }
+dvl_get = function(v) {
+  return v.get();
+};
+dvl.op = dvl_op = function(fn) {
+  var liftedFn;
+  liftedFn = lift(fn);
+  return function() {
+    var args, out;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    args = args.map(dvl.wrapConstIfNeeded);
+    out = dvl.def(null, 'out');
+    dvl.register({
+      listen: args,
+      change: [out],
+      fn: function() {
+        out.set(liftedFn.apply(null, args.map(dvl_get)));
+        dvl.notify(out);
       }
-      return false;
-    },
-    'add': function() {
-      var arg, sum, _i, _len;
-      sum = 0;
-      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
-        arg = arguments[_i];
-        if (arg != null) {
-          sum += arg;
-        } else {
-          return null;
-        }
+    });
+    return out;
+  };
+};
+op_to_lift = {
+  'or': function() {
+    var arg, _i, _len;
+    for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+      arg = arguments[_i];
+      if (arg) {
+        return arg;
       }
-      return sum;
-    },
-    'iff': function(cond, truthy, falsy) {
-      if (cond) {
-        return truthy;
-      } else {
-        return falsy;
-      }
-    },
-    'makeTranslate': function(x, y) {
-      return "translate(" + x + "," + y + ")";
     }
-  };
-  dvl_get = function(v) {
-    return v.get();
-  };
-  dvl.op = {};
-  _results = [];
-  for (name in op_to_lift) {
-    fn = op_to_lift[name];
-    _results.push(dvl.op[name] = (function() {
-      var liftedFn;
-      liftedFn = lift(fn);
-      return function() {
-        var args, out;
-        args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-        args = args.map(dvl.wrapConstIfNeeded);
-        out = dvl.def(null, 'out');
-        dvl.register({
-          listen: args,
-          change: [out],
-          fn: function() {
-            out.set(liftedFn.apply(null, args.map(dvl_get)));
-            dvl.notify(out);
-          }
-        });
-        return out;
-      };
-    })());
+    return false;
+  },
+  'add': function() {
+    var arg, sum, _i, _len;
+    sum = 0;
+    for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+      arg = arguments[_i];
+      if (arg != null) {
+        sum += arg;
+      } else {
+        return null;
+      }
+    }
+    return sum;
+  },
+  'sub': function() {
+    var arg, mult, sum, _i, _len;
+    sum = 0;
+    mult = 1;
+    for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+      arg = arguments[_i];
+      if (arg != null) {
+        sum += arg * mult;
+        mult = -1;
+      } else {
+        return null;
+      }
+    }
+    return sum;
+  },
+  'list': function() {
+    var arg, args, _i, _len;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    for (_i = 0, _len = args.length; _i < _len; _i++) {
+      arg = args[_i];
+      if (arg == null) {
+        return null;
+      }
+    }
+    return args;
+  },
+  'concat': function() {
+    var arg, args, _i, _len;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    for (_i = 0, _len = args.length; _i < _len; _i++) {
+      arg = args[_i];
+      if (arg == null) {
+        return null;
+      }
+    }
+    return args.join('');
+  },
+  'iff': function(cond, truthy, falsy) {
+    if (cond) {
+      return truthy;
+    } else {
+      return falsy;
+    }
+  },
+  'iffEq': function(lhs, rhs, truthy, falsy) {
+    if (lhs === rhs) {
+      return truthy;
+    } else {
+      return falsy;
+    }
+  },
+  'iffLt': function(lhs, rhs, truthy, falsy) {
+    if (lhs < rhs) {
+      return truthy;
+    } else {
+      return falsy;
+    }
+  },
+  'makeTranslate': function(x, y) {
+    if ((x != null) && (y != null)) {
+      return "translate(" + x + "," + y + ")";
+    } else {
+      return null;
+    }
   }
-  return _results;
-})();
+};
+for (k in op_to_lift) {
+  fn = op_to_lift[k];
+  dvl_op[k] = dvl_op(fn);
+}
 clipId = 0;
 dvl.bind.clipPath = function(_arg) {
   var cp, height, myId, parent, width, x, y;
