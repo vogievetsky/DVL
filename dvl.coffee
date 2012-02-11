@@ -827,8 +827,6 @@ dvl.debug = () ->
   return obj
 
 
-dvl.debug.find = dvl.debugFind
-
 ######################################################
 ##
 ##  A DVL object invarient maintainer
@@ -1446,24 +1444,6 @@ dvl.snap = ({data, acc, value, trim, name}) ->
   return out
 
 
-dvl.orDefs = ({args, name}) ->
-  args = [args] if dvl.typeOf(args) isnt 'array'
-  args = args.map(dvl.wrapConstIfNeeded)
-  out = dvl.def(null, name or 'or_defs')
-
-  update = ->
-    for a in args
-      if a.get() isnt null or a.len() isnt 0
-        out.set(a.get()).setGen(a.gen(), a.len()).notify()
-        return
-
-    out.set(null).setGen(null).notify()
-    return
-
-  dvl.register({fn:update, listen:args, change:[out]})
-  return out
-
-
 dvl.hasher = (obj) ->
   updateHash = ->
     h = obj.get()
@@ -1968,7 +1948,8 @@ dvl_op[k] = dvl_op(fn) for k, fn of op_to_lift
 
 
 clipId = 0
-dvl.bind.clipPath = ({parent, x, y, width, height}) ->
+dvl.svg or= {}
+dvl.svg.clipPath = ({parent, x, y, width, height}) ->
   x = dvl.wrapConstIfNeeded(x or 0)
   y = dvl.wrapConstIfNeeded(y or 0)
 
@@ -1993,6 +1974,50 @@ dvl.bind.clipPath = ({parent, x, y, width, height}) ->
   return "url(##{myId})"
 
 
+dvl.svg.mouse = ({parent, width, height, outX, outY, fnX, fnY}) ->
+  parent = dvl.wrapConstIfNeeded(parent)
+  width  = dvl.wrapConstIfNeeded(width)
+  height = dvl.wrapConstIfNeeded(height)
+  x     = dvl.wrapVarIfNeeded(outX, 'mouse_x')
+  y     = dvl.wrapVarIfNeeded(outY, 'mouse_y')
+  fnX   = dvl.wrapConstIfNeeded(fnX or dvl.identity)
+  fnY   = dvl.wrapConstIfNeeded(fnY or dvl.identity)
+  flipX = dvl.wrapConstIfNeeded(flipX or false)
+  flipY = dvl.wrapConstIfNeeded(flipY or false)
+
+  mouse = [-1, -1]
+  recorder = ->
+    _parent = parent.get()
+    _width  = width.get()
+    _height = height.get()
+
+    mouse = if _parent and d3.event then d3.svg.mouse(_parent.node()) else mouse
+    fx = fnX.get()
+    fy = fnY.get()
+    mx = mouse[0]
+    my = mouse[1]
+    if 0 <= mx <= _width and 0 <= my <= _height
+      x.set(fx(mx)) if fx
+      y.set(fy(my)) if fy
+    else
+      x.set(null)
+      y.set(null)
+
+    dvl.notify(x, y)
+    return
+
+  dvl.valueOf(parent)
+    .on('mousemove', recorder)
+    .on('mouseout', recorder)
+
+  dvl.register {
+    listen: [parent, fnX, fnY, flipX, flipY]
+    change: [x, y]
+    name: 'mouse_recorder'
+    fn: recorder
+  }
+
+  return { x, y }
 
 
 
@@ -2181,7 +2206,7 @@ dvl.gen.sub = generator_maker_maker(((a,b,c) -> a-b-(c||0)), 'sub')
 
 # SVG # ---------------------------------------------------
 
-dvl.svg = {}
+dvl.svg or= {}
 
 (->
   processOptions = (options, mySvg, myClass) ->
@@ -2452,39 +2477,6 @@ dvl.svg = {}
       width:  canvasWidth
       height: canvasHeight
     }
-
-
-  dvl.svg.mouse = ({panel, outX, outY, fnX, fnY, flipX, flipY}) ->
-    x     = dvl.wrapVarIfNeeded(outX, 'mouse_x')
-    y     = dvl.wrapVarIfNeeded(outY, 'mouse_y')
-    fnX   = dvl.wrapConstIfNeeded(fnX or dvl.identity)
-    fnY   = dvl.wrapConstIfNeeded(fnY or dvl.identity)
-    flipX = dvl.wrapConstIfNeeded(flipX or false)
-    flipY = dvl.wrapConstIfNeeded(flipY or false)
-
-    lastMouse = [-1, -1]
-    recorder = ->
-      m = lastMouse = if d3.event then d3.svg.mouse(panel.g.node()) else lastMouse
-      w = panel.width.get()
-      h = panel.height.get()
-      fx = fnX.get()
-      fy = fnY.get()
-      mx = m[0]
-      my = m[1]
-      if 0 <= mx <= w and 0 <= my <= h
-        mx = w-mx if flipX.get()
-        my = h-my if flipY.get()
-        x.set(fx(mx)) if fx
-        y.set(fy(my)) if fy
-      else
-        x.set(null)
-        y.set(null)
-
-      dvl.notify(x, y)
-
-    panel.g.on('mousemove', recorder).on('mouseout', recorder)
-    dvl.register({ fn:recorder, listen:[fnX, fnY, flipX, flipY], change:[x, y], name:'mouse_recorder' })
-    return { x, y }
 
 
   listen_attr = {}

@@ -1119,7 +1119,6 @@ dvl.debug = function() {
   });
   return obj;
 };
-dvl.debug.find = dvl.debugFind;
 dvl.assert = function(_arg) {
   var allowNull, data, fn, msg;
   data = _arg.data, fn = _arg.fn, msg = _arg.msg, allowNull = _arg.allowNull;
@@ -1869,32 +1868,6 @@ dvl.snap = function(_arg) {
   });
   return out;
 };
-dvl.orDefs = function(_arg) {
-  var args, name, out, update;
-  args = _arg.args, name = _arg.name;
-  if (dvl.typeOf(args) !== 'array') {
-    args = [args];
-  }
-  args = args.map(dvl.wrapConstIfNeeded);
-  out = dvl.def(null, name || 'or_defs');
-  update = function() {
-    var a, _i, _len;
-    for (_i = 0, _len = args.length; _i < _len; _i++) {
-      a = args[_i];
-      if (a.get() !== null || a.len() !== 0) {
-        out.set(a.get()).setGen(a.gen(), a.len()).notify();
-        return;
-      }
-    }
-    out.set(null).setGen(null).notify();
-  };
-  dvl.register({
-    fn: update,
-    listen: args,
-    change: [out]
-  });
-  return out;
-};
 dvl.hasher = function(obj) {
   var updateHash;
   updateHash = function() {
@@ -2566,7 +2539,8 @@ for (k in op_to_lift) {
   dvl_op[k] = dvl_op(fn);
 }
 clipId = 0;
-dvl.bind.clipPath = function(_arg) {
+dvl.svg || (dvl.svg = {});
+dvl.svg.clipPath = function(_arg) {
   var cp, height, myId, parent, width, x, y;
   parent = _arg.parent, x = _arg.x, y = _arg.y, width = _arg.width, height = _arg.height;
   x = dvl.wrapConstIfNeeded(x || 0);
@@ -2585,6 +2559,54 @@ dvl.bind.clipPath = function(_arg) {
     }
   });
   return "url(#" + myId + ")";
+};
+dvl.svg.mouse = function(_arg) {
+  var flipX, flipY, fnX, fnY, height, mouse, outX, outY, parent, recorder, width, x, y;
+  parent = _arg.parent, width = _arg.width, height = _arg.height, outX = _arg.outX, outY = _arg.outY, fnX = _arg.fnX, fnY = _arg.fnY;
+  parent = dvl.wrapConstIfNeeded(parent);
+  width = dvl.wrapConstIfNeeded(width);
+  height = dvl.wrapConstIfNeeded(height);
+  x = dvl.wrapVarIfNeeded(outX, 'mouse_x');
+  y = dvl.wrapVarIfNeeded(outY, 'mouse_y');
+  fnX = dvl.wrapConstIfNeeded(fnX || dvl.identity);
+  fnY = dvl.wrapConstIfNeeded(fnY || dvl.identity);
+  flipX = dvl.wrapConstIfNeeded(flipX || false);
+  flipY = dvl.wrapConstIfNeeded(flipY || false);
+  mouse = [-1, -1];
+  recorder = function() {
+    var fx, fy, mx, my, _height, _parent, _width;
+    _parent = parent.get();
+    _width = width.get();
+    _height = height.get();
+    mouse = _parent && d3.event ? d3.svg.mouse(_parent.node()) : mouse;
+    fx = fnX.get();
+    fy = fnY.get();
+    mx = mouse[0];
+    my = mouse[1];
+    if ((0 <= mx && mx <= _width) && (0 <= my && my <= _height)) {
+      if (fx) {
+        x.set(fx(mx));
+      }
+      if (fy) {
+        y.set(fy(my));
+      }
+    } else {
+      x.set(null);
+      y.set(null);
+    }
+    dvl.notify(x, y);
+  };
+  dvl.valueOf(parent).on('mousemove', recorder).on('mouseout', recorder);
+  dvl.register({
+    listen: [parent, fnX, fnY, flipX, flipY],
+    change: [x, y],
+    name: 'mouse_recorder',
+    fn: recorder
+  });
+  return {
+    x: x,
+    y: y
+  };
 };
 dvl.gen = {};
 dvl.gen.fromFn = function(fn) {
@@ -2811,7 +2833,7 @@ dvl.gen.add = generator_maker_maker((function(a, b, c) {
 dvl.gen.sub = generator_maker_maker((function(a, b, c) {
   return a - b - (c || 0);
 }), 'sub');
-dvl.svg = {};
+dvl.svg || (dvl.svg = {});
 (function() {
   var calcLength, gen_subDouble, gen_subHalf, getNextClipPathId, initClip, initGroup, listen_attr, makeAnchors, nextClipPathId, proc_attr, processDim2, processDim3, processDim4, processOptions, processProps, removeUndefined, reselectUpdate, selectEnterExit, selectUpdate, update_attr;
   processOptions = function(options, mySvg, myClass) {
@@ -3118,56 +3140,6 @@ dvl.svg = {};
       g: vis,
       width: canvasWidth,
       height: canvasHeight
-    };
-  };
-  dvl.svg.mouse = function(_arg) {
-    var flipX, flipY, fnX, fnY, lastMouse, outX, outY, panel, recorder, x, y;
-    panel = _arg.panel, outX = _arg.outX, outY = _arg.outY, fnX = _arg.fnX, fnY = _arg.fnY, flipX = _arg.flipX, flipY = _arg.flipY;
-    x = dvl.wrapVarIfNeeded(outX, 'mouse_x');
-    y = dvl.wrapVarIfNeeded(outY, 'mouse_y');
-    fnX = dvl.wrapConstIfNeeded(fnX || dvl.identity);
-    fnY = dvl.wrapConstIfNeeded(fnY || dvl.identity);
-    flipX = dvl.wrapConstIfNeeded(flipX || false);
-    flipY = dvl.wrapConstIfNeeded(flipY || false);
-    lastMouse = [-1, -1];
-    recorder = function() {
-      var fx, fy, h, m, mx, my, w;
-      m = lastMouse = d3.event ? d3.svg.mouse(panel.g.node()) : lastMouse;
-      w = panel.width.get();
-      h = panel.height.get();
-      fx = fnX.get();
-      fy = fnY.get();
-      mx = m[0];
-      my = m[1];
-      if ((0 <= mx && mx <= w) && (0 <= my && my <= h)) {
-        if (flipX.get()) {
-          mx = w - mx;
-        }
-        if (flipY.get()) {
-          my = h - my;
-        }
-        if (fx) {
-          x.set(fx(mx));
-        }
-        if (fy) {
-          y.set(fy(my));
-        }
-      } else {
-        x.set(null);
-        y.set(null);
-      }
-      return dvl.notify(x, y);
-    };
-    panel.g.on('mousemove', recorder).on('mouseout', recorder);
-    dvl.register({
-      fn: recorder,
-      listen: [fnX, fnY, flipX, flipY],
-      change: [x, y],
-      name: 'mouse_recorder'
-    });
-    return {
-      x: x,
-      y: y
     };
   };
   listen_attr = {};
