@@ -1,15 +1,7 @@
-"use strict"
-# DVL by Vadim Ogievetsky
-#
+# Vadim Ogievetsky
+
 # DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
-
-# Check that we have everything we need.
-
-
-throw 'd3 is needed for now.' unless d3
-throw 'protovis is needed for now.' unless pv
-throw 'jQuery is needed for now.' unless jQuery
 
 
 `
@@ -45,7 +37,6 @@ function lift(fn) {
 }
 `
 
-
 Array::filter ?= (fun, thisp) ->
   throw new TypeError() if typeof fun isnt 'function'
 
@@ -61,10 +52,15 @@ debug = ->
   console.log.apply(console, arguments)
   return arguments[0]
 
-window.dvl =
-  version: '0.98'
 
-(->
+dvl = { version: '1.0.0' }
+this.dvl = dvl
+if typeof module isnt 'undefined' and module.exports
+  module.exports = dvl
+  dvl.dvl = dvl
+
+
+do ->
   array_ctor = (new Array).constructor
   date_ctor  = (new Date).constructor
   regex_ctor = (new RegExp).constructor
@@ -77,7 +73,7 @@ window.dvl =
     else
       return 'regex' if v?.constructor == regex_ctor
       return typeof(v)
-)()
+
 
 dvl.util = {
   strObj: (obj) ->
@@ -222,15 +218,17 @@ dvl.util = {
   curRecording = null
 
   class DVLConst
-    constructor: (@value, @name) ->
-      @name or= 'obj'
-      @id = @name + '_const' + nextObjId
+    constructor: (val) ->
+      @value = val ? null
+      @id = nextObjId
       @changed = false
       constants[@id] = this
       nextObjId += 1
       return this
 
-    toString: -> "|#{@id}:#{@value}|"
+    toString: ->
+      tag = if @n then @n + ':' else ''
+      return "[#{@tag}#{@value}]"
     set: -> this
     setLazy: -> this
     update: -> this
@@ -240,8 +238,6 @@ dvl.util = {
     resetChanged: -> null
     notify: -> null
     remove: -> null
-    push: (value) -> this
-    shift: -> undefined
     gen: ->
       that = this
       if dvl.typeOf(@value) == 'array'
@@ -254,13 +250,20 @@ dvl.util = {
         @value.length
       else
         Infinity
+    name: ->
+      if arguments.length is 0
+        return @n ? '<anon_const>'
+      else
+        @n = arguments[0]
+        return this
 
-  dvl.const = (value, name) -> new DVLConst(value, name)
+
+  dvl.const = (value) -> new DVLConst(value)
 
   class DVLDef
-    constructor: (@value, @name) ->
-      @name or= 'obj'
-      @id = @name + '_' + nextObjId
+    constructor: (val) ->
+      @value = val ? null
+      @id = nextObjId
       @prev = null
       @changed = false
       @vgen = undefined
@@ -283,12 +286,15 @@ dvl.util = {
         @lazy = null
       return
 
-    toString: -> "|#{@id}:#{@value}|"
+    toString: ->
+      tag = if @n then @n + ':' else ''
+      return "[#{@tag}#{@value}]"
     hasChanged: -> @changed
     resetChanged: ->
       @changed = false
       return this
     set: (val) ->
+      val = val ? null
       @prev = @value unless @changed
       @value = val
       @vgen = undefined
@@ -313,16 +319,6 @@ dvl.util = {
       return if dvl.util.isEqual(val, @value)
       this.set(val)
       dvl.notify(this)
-    push: (val) ->
-      @value.push val
-      @changed = true
-      # TODO: make prev work
-      this
-    shift: ->
-      # TODO: make prev work
-      val = @value.shift()
-      @changed = true
-      return val
     get: ->
       @resolveLazy()
       return @value
@@ -357,8 +353,14 @@ dvl.util = {
         throw "Cannot remove variable #{@id} because it has changers."
       delete variables[@id]
       return null
+    name: ->
+      if arguments.length is 0
+        return @n ? '<anon>'
+      else
+        @n = arguments[0]
+        return this
 
-  dvl.def = (value, name) -> new DVLDef(value, name)
+  dvl.def = (value) -> new DVLDef(value)
 
   dvl.knows = (v) ->
     return v and v.id and (variables[v.id] or constants[v.id])
@@ -1738,19 +1740,11 @@ dvl.bind = (args) ->
 
   listen = [parent, data, join, text, html, transition, transitionExit]
 
-  prependStatic = (c) ->
-    t = typeof c
-    if t is 'string'
-      return c + ' ' + staticClass
-    if t is 'function'
-      return (d,i) -> c.call(this,d,i) + ' ' + staticClass
-    return null
-
   attrList = {}
   for k, v of args.attr
     v = dvl.wrapConstIfNeeded(v)
     if k is 'class' and staticClass
-      v = dvl.apply { args: v, fn: prependStatic }
+      v = dvl.op.concat(v, ' ' + staticClass)
 
     listen.push(v)
     attrList[k] = v
@@ -1770,7 +1764,7 @@ dvl.bind = (args) ->
     listen.push(v)
     onList[k] = v
 
-  out = dvl.def(null, 'out')
+  out = dvl.def(null, 'selection')
 
   dvl.register {
     listen
@@ -1829,7 +1823,6 @@ dvl.bind = (args) ->
 
         s[a.fn](a.a1, a.a2) for a in preTrans
 
-
         if _transition and _transition.duration?
           t = s.transition()
           t.duration(_transition.duration or 1000)
@@ -1840,11 +1833,12 @@ dvl.bind = (args) ->
 
         t[a.fn](a.a1, a.a2) for a in postTrans
 
-        s.exit().remove()
+        ex = s.exit().remove()
+        out.set(s).notify() unless e.empty() and ex.empty()
       else
         s = _parent.selectAll(self).remove()
+        out.set(s).notify()
 
-      out.set(s).notify()
       return
   }
 
@@ -2022,1060 +2016,6 @@ dvl.svg.mouse = ({parent, width, height, outX, outY, fnX, fnY}) ->
 
 
 
-# Gens # --------------------------------------------------
-
-dvl.gen = {}
-
-dvl.gen.fromFn = (fn) ->
-  gen = dvl.def(null, 'fn_generator')
-  gen.setGen(fn, Infinity)
-  return gen
-
-
-dvl.gen.fromValue = (value, acc, fn, name) ->
-  value = dvl.wrapConstIfNeeded(value)
-  acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
-  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
-
-  gen = dvl.def(null, name or 'value_generator')
-
-  makeGen = ->
-    a = acc.get()
-    f = fn.get()
-    v = value.get()
-    if a? and f? and v?
-      rv = f(a(v))
-      g = -> rv
-
-      gen.setGen(g)
-    else
-      gen.setGen(null)
-
-    dvl.notify(gen)
-
-  dvl.register({fn:makeGen, listen:[value, acc, fn], change:[gen], name:'value_make_gen'})
-  return gen
-
-
-dvl.gen.fromGen = (generator, fn, name) ->
-  generator = dvl.wrapConstIfNeeded(generator)
-  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
-
-  gen = dvl.def(null, name or 'generator_generator')
-
-  makeGen = ->
-    _generator = generator.gen()
-    _fn = fn.get()
-    if _generator? and _fn?
-      g = (i) -> _fn(_generator(i))
-
-      gen.setGen(g, generator.len)
-    else
-      gen.setGen(null)
-
-    dvl.notify(gen)
-
-  dvl.register({fn:makeGen, listen:[generator, fn], change:[gen], name:'generator_make_gen'})
-  return gen
-
-
-dvl.gen.fromArray = (data, acc, fn, name) ->
-  data = dvl.wrapConstIfNeeded(data)
-  acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
-  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
-
-  gen = dvl.def(null, name or 'array_generator')
-
-  d = []
-  makeGen = ->
-    _acc = acc.get()
-    _fn = fn.get()
-    _data = data.get()
-    if _acc? and _fn? and _data? and _data.length > 0
-      d = _data
-      g = (i) ->
-        i = i % d.length
-        _fn(_acc(d[i], i))
-
-      gen.setGen(g, _data.length)
-    else
-      gen.setGen(null)
-
-    dvl.notify(gen)
-
-  dvl.register({fn:makeGen, listen:[data, acc, fn], change:[gen], name:'array_make_gen'})
-  return gen
-
-
-dvl.gen.fromRowData = dvl.gen.fromArray
-dvl.gen.fromColumnData = (data, acc, fn, name) ->
-  data = dvl.wrapConstIfNeeded(data)
-  acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
-  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
-
-  gen = dvl.def(null, name or 'column_generator')
-
-  d = []
-  makeGen = ->
-    a = acc.get()
-    f = fn.get()
-    dObj = data.get()
-    if a? and f? and dObj? and d = a(dObj)
-      g = (i) ->
-        i = i % d.length
-        f(d[i])
-
-      gen.setGen(g, d.length)
-    else
-      gen.setGen(null)
-
-    dvl.notify(gen)
-
-  dvl.register({fn:makeGen, listen:[data, acc, fn], change:[gen], name:'array_make_gen'})
-  return gen
-
-
-dvl.gen.equal = (genA, genB, retTrue, retFalse) ->
-  retTrue  = true  if retTrue  is undefined
-  retFalse = false if retFalse is undefined
-  retTrue  = dvl.wrapConstIfNeeded(retTrue)
-  retFalse = dvl.wrapConstIfNeeded(retFalse)
-
-  gen = dvl.def(null, 'equal_generator')
-
-  makeGen = ->
-    a = genA.gen()
-    b = genB.gen()
-    ha = a?
-    hb = b?
-    rtg = retTrue.gen()
-    rfg = retFalse.gen()
-    rtl = retTrue.len()
-    rfl = retFalse.len()
-    if ha and ha
-      lenA = genA.len() || Infinity
-      lenB = genB.len() || Infinity
-      gen.setGen(((i) -> if a(i) == b(i) then rtg(i) else rfg(i)), Math.min(lenA, lenB, rtl, rfl))
-    else if not ha and not hb
-      gen.setGen(rtg, rtl)
-    else
-      gen.setGen(rfg, rfl)
-
-    dvl.notify(gen)
-
-  dvl.register({fn:makeGen, listen:[genA, genB, retTrue, retFalse], change:[gen], name:'equal_make_gen'})
-  return gen
-
-
-generator_maker_maker = (combiner, name) ->
-  return () ->
-    args = Array.prototype.slice.apply(arguments)
-    gen = dvl.def(null, name + '_generator')
-
-    makeGen = ->
-      valid = (args.length > 0)
-      gens = []
-      lens = []
-      for arg in args
-        arg_gen = arg.gen()
-        if arg_gen is null
-          valid = false
-          break
-        gens.push arg_gen
-        lens.push arg.len()
-
-      if valid
-        g = (i) ->
-          gis = []
-          gis.push cgen(i) for cgen in gens
-          return combiner.apply(null, gis)
-
-        gen.setGen(g, Math.min.apply(null, lens))
-      else
-        gen.setGen(null)
-
-      dvl.notify(gen)
-      return
-
-    dvl.register({fn:makeGen, listen:args, change:[gen], name:name + '_make_gen'})
-    return gen
-
-
-dvl.gen.add = generator_maker_maker(((a,b,c) -> a+b+(c||0)), 'add')
-dvl.gen.sub = generator_maker_maker(((a,b,c) -> a-b-(c||0)), 'sub')
-
-# SVG # ---------------------------------------------------
-
-dvl.svg or= {}
-
-(->
-  processOptions = (options, mySvg, myClass) ->
-    throw 'No panel defined.' unless options.panel
-    out =
-      mySvg: mySvg
-      myClass: myClass
-
-    if options
-      out.duration = dvl.wrapConstIfNeeded(options.duration or dvl.zero)
-      out.classStr = options.classStr
-      out.clip = options.clip
-
-      if options.on
-        out.on = {}
-        eventData = options.eventData or dvl.identity
-        for k, f of options.on
-          do (f) ->
-            out.on[k] = (i) ->
-              f(eventData.gen()(i))
-
-      out.visible = dvl.wrapConstIfNeeded(options.visible ? true)
-
-    return out
-
-
-  processProps = (props) ->
-    throw 'No props defined.' unless props
-    p = {}
-    for k, v of props
-      p[k] = dvl.wrapConstIfNeeded(v)
-    return p
-
-
-  gen_subHalf   = generator_maker_maker(((a,b) -> a-b/2), 'sub_half')
-  gen_subDouble = generator_maker_maker(((a,b) -> (a-b)*2), 'sub_double')
-
-  processDim2 = (props, panelWidth, left, right) ->
-    if not props[left]
-      if props[right]
-        props[left] = dvl.gen.sub(panelWidth, props[right])
-      else
-        props[left] = dvl.zero
-    #else
-    #  We have everything we need to know
-
-    return
-
-
-  processDim3 = (props, panelWidth, left, width, right) ->
-    if props[left]
-      if not props[width]
-        props[width] = dvl.gen.sub(panelWidth, props[left], props[right])
-      #else
-      #  We have everything we need to know
-    else
-      if props[width]
-        props[left] = dvl.gen.sub(panelWidth, props[width], props[right])
-      else
-        props[left] = dvl.zero
-        props[width] = panelWidth
-
-    return
-
-
-  processDim4 = (props, panelWidth, left, width, right, center) ->
-    if props[left]
-      if not props[width]
-        if props[center]
-          props[width] = gen_subDouble(props[canter], props[left])
-        else
-          props[width] = dvl.gen.sub(panelWidth, props[left], props[right])
-      #else
-      #  We have everything we need to know
-    else
-      if props[width]
-        if props[center]
-          props[left] = gen_subHalf(props[center], props[width])
-        else
-          props[left] = dvl.gen.sub(panelWidth, props[width], props[right])
-      else
-        if props[center]
-          props[left] = dvl.gen.sub(props[center], dvl.const(10))
-          props[width] = dvl.const(20)
-        else
-          props[left] = dvl.zero
-          props[width] = panelWidth
-
-    return
-
-
-  removeUndefined = (obj) ->
-    for k,p of obj
-      delete obj[k] if p is undefined
-    obj
-
-
-  initGroup = (panel, options) ->
-    g = panel.g.append('svg:g')
-    g.attr('class', options.classStr) is options.classStr
-    #g.attr('transform', 'translate(0,0)')
-    #g.attr('width', panel.width.get())
-    #g.attr('height', panel.height.get())
-
-    return g
-
-
-  initClip = (panel, g, options) ->
-    if options.clip
-      cpid = getNextClipPathId()
-      cp = g.append('svg:clipPath')
-        .attr('id', cpid)
-        .append('svg:rect')
-        .attr('x', 0)
-        .attr('y', 0)
-
-      dvl.register {
-        name: 'clip_rect'
-        listen: [panel.width, panel.height]
-        fn: ->
-          cp
-            .attr('width', panel.width.get())
-            .attr('height', panel.height.get())
-          return
-      }
-
-      g.attr('clip-path', 'url(#' + cpid + ')')
-      return cp
-    else
-      return null
-
-  calcLength = (props) ->
-    length = +Infinity
-    for what, gen of props
-      l = gen.len()
-      length = l if l < length
-    return if length == Infinity then 1 else length
-
-
-  nextClipPathId = 0
-  getNextClipPathId = ->
-    nextClipPathId += 1
-    return 'cp_' + nextClipPathId
-
-
-  selectEnterExit = (g, options, props, numMarks) ->
-    if props.key and props.key.gen()
-      key_gen = props.key.gen()
-      id_gen = (i) -> 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '')
-      join = (i) -> if this.getAttribute then this.getAttribute('id') else key_gen(i)
-
-    sel = g.selectAll("#{options.mySvg}.#{options.myClass}").data(pv.range(0, numMarks), join)
-
-    sel.exit().remove()
-
-    m = sel.enter().append("svg:#{options.mySvg}")
-    m.attr('id', id_gen) if props.key and props.key.gen()
-    m.attr('class', options.myClass)
-
-    if options.on
-      m.on(what, onFn) for what, onFn of options.on
-
-    return m
-
-
-  reselectUpdate = (g, options, duration) ->
-    m = g.selectAll("#{options.mySvg}.#{options.myClass}")
-    m = m.transition().duration(duration) if duration > 0
-    return m
-
-
-
-  selectUpdate = (g, options, props, numMarks, duration) ->
-    if props.key and props.key.gen()
-      key_gen = props.key.gen()
-      id_gen = (i) -> 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '')
-      join = (i) -> if this.getAttribute then this.getAttribute('id') else key_gen(i)
-
-    sel = g.selectAll("#{options.mySvg}.#{options.myClass}").data(pv.range(0, numMarks), join)
-
-    sel.exit().remove()
-
-    m = sel.enter().append("svg:#{options.mySvg}")
-    m.attr('id', id_gen) if props.key and props.key.gen()
-    m.attr('class', options.myClass)
-
-    if options.on
-      m.on(what, onFn) for what, onFn of options.on
-
-    proc = proc_attr[options.myClass]
-
-    proc.tran(m, props, true)
-
-    proc.imm(sel, props)
-    sel = sel.transition().duration(duration) if duration > 0
-
-    proc.tran(sel, props)
-    return
-
-
-  makeAnchors = (anchors, options) ->
-    anchor = []
-    for a, info of anchors
-      av = dvl.def(null, "#{options.myClass}_anchor_#{a}")
-      anchor[a] = av
-      lazy = dvl.alwaysLazy(av, info.calc)
-      dvl.register({fn:lazy, listen:info.dep, change:[av], name:"lazy_anchor_#{a}"})
-
-    return anchor
-
-
-  dvl.svg.canvas = ({selector, classStr, width, height, margin, onEvent}) ->
-    throw 'no selector' unless selector
-    width = dvl.wrapConstIfNeeded(width ? 600)
-    height = dvl.wrapConstIfNeeded(height ? 400)
-    margin = dvl.wrapConstIfNeeded(margin or { top: 0, bottom: 0, left: 0, right: 0 })
-
-    canvasWidth  = dvl.def(null, 'svg_panel_width')
-    canvasHeight = dvl.def(null, 'svg_panel_height')
-
-    svg = d3.select(selector).append('svg:svg')
-    svg.attr('class', classStr) if classStr
-    vis = svg.append('svg:g').attr('class', 'main')
-    bg  = vis.append('svg:rect').attr('class', 'background')
-
-    if onEvent
-      bg.on(what, onFn) for what, onFn of onEvent
-
-    resize = ->
-      _width  = width.get()
-      _height = height.get()
-      _margin = margin.get()
-      if _width and _height and _margin
-        w = _width  - _margin.left - _margin.right
-        h = _height - _margin.top  - _margin.bottom
-
-        canvasWidth.update(w)
-        canvasHeight.update(h)
-
-        svg
-          .attr('width',  _width)
-          .attr('height', _height)
-
-        vis
-          .attr('transform', "translate(#{_margin.left},#{_margin.top})")
-          .attr('width', w)
-          .attr('height', h)
-
-        bg
-          .attr('width', w)
-          .attr('height', h)
-      else
-        canvasWidth.update(null)
-        canvasHeight.update(null)
-
-      return
-
-    dvl.register {
-      name: 'canvas_resize'
-      listen: [width, height, margin]
-      change: [canvasWidth, canvasHeight]
-      fn: resize
-    }
-
-    return {
-      svg
-      g: vis
-      width:  canvasWidth
-      height: canvasHeight
-    }
-
-
-  listen_attr = {}
-  update_attr = {}
-  proc_attr = {}
-
-
-  listen_attr.panels = ['left', 'top', 'width', 'height']
-  update_attr.panels = (m, p, prev) ->
-    gen = if prev then 'genPrev' else 'gen'
-
-    left = p.left
-    top  = p.top
-    if prev or left.hasChanged() or top.hasChanged()
-      left_gen = left[gen]()
-      top_gen  = top[gen]()
-      m.attr('transform', ((i) -> "translate(#{left_gen(i)},#{top_gen(i)})"))
-
-    width = p.width
-    m.attr('width',  width[gen]())  if width and (prev or width.hasChanged())
-
-    height = p.height
-    m.attr('height', height[gen]()) if height and (prev or height.hasChanged())
-    return
-
-  dvl.svg.panels = (options) ->
-    o = processOptions(options, 'g', 'panels')
-    o.clip = false unless o.clip?
-    p = processProps(options.props)
-    panel = options.panel
-    processDim3(p, panel.width, 'left', 'width', 'right')
-    processDim3(p, panel.height, 'top', 'height', 'bottom')
-    g = initGroup(panel, o)
-    clip = initClip(panel, g, o)
-
-    content = options.content
-
-    widths = []
-    heights = []
-
-    render = ->
-      len = calcLength(p)
-
-      if len > 0
-        m = selectEnterExit(g, o, p, len)
-        update_attr[o.myClass](m, p, true)
-
-        dimChange = panel.width.hasChanged() or panel.height.hasChanged()
-        if dimChange
-          dur = 0
-        else
-          dur = o.duration.get()
-
-        m = g.selectAll('g')
-        update_attr[o.myClass](m, p)
-
-        ms = m[0]
-        msLen = ms.length
-        i = 0
-        wg = p.width.gen()
-        hg = p.height.gen()
-        while i < msLen
-          if not widths[i]
-            widths[i]  = dvl.def(wg(i), 'width_'  + i)
-            heights[i] = dvl.def(hg(i), 'height_' + i)
-
-          content(i, {
-            g: d3.select(ms[i])
-            width: widths[i]
-            height: heights[i]
-          })
-          i++
-
-        g.style('display', null)
-      else
-        g.style('display', 'none')
-
-      return
-
-    listen = [panel.width, panel.height]
-    listen.push p[k] for k in listen_attr[o.myClass]
-    dvl.register({fn:render, listen:listen, name:'panels_render'})
-    return
-
-
-  listen_attr.line = ['left', 'top', 'stroke']
-  update_attr.line = (m, p, prev) ->
-    gen = if prev then 'genPrev' else 'gen'
-
-    left = p.left
-    if (prev or left.hasChanged())
-      left_gen = left[gen]()
-      m.attr('x1', left_gen)
-      m.attr('x2', (i) -> left_gen(i+1))
-      #m.style('display', ((i) -> left_gen(i+1)))
-
-    top = p.top
-    if (prev or top.hasChanged())
-      top_gen = top[gen]()
-      m.attr('y1', top_gen)
-      m.attr('y2', (i) -> top_gen(i+1))
-
-    stroke = p.stroke
-    m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-    return
-
-  dvl.svg.line = (options) ->
-    o = processOptions(options, 'line', 'line')
-    o.clip = true unless o.clip?
-    p = processProps(options.props)
-    panel = options.panel
-    processDim2(p, panel.width, 'left', 'right')
-    processDim2(p, panel.height, 'top', 'bottom')
-    g = initGroup(panel, o)
-    clip = initClip(panel, g, o)
-
-    anchors =
-      midpoint:
-        dep: [p.left, p.top]
-        calc: ->
-          length = calcLength(p)
-          x = p.left.gen()
-          y = p.top.gen()
-          as = []
-          i = 0
-          while i < length-1
-            as.push { x:(x(i) + x(i+1)) / 2, y:(y(i) + y(i+1)) / 2 }
-            i += 1
-          return as
-
-    render = ->
-      len = Math.max(0, calcLength(p) - 1)
-
-      if o.visible.get()
-        m = selectEnterExit(g, o, p, len)
-        update_attr[o.myClass](m, p, true)
-
-        if panel.width.hasChanged() or panel.height.hasChanged()
-          dur = 0
-        else
-          dur = o.duration.get()
-
-        m = reselectUpdate(g, o, dur)
-        update_attr[o.myClass](m, p)
-
-        g.style('display', null)
-      else
-        g.style('display', 'none')
-
-      return
-
-    listen = [panel.width, panel.height, o.visible]
-    listen.push p[k] for k in listen_attr[o.myClass]
-    dvl.register({fn:render, listen:listen, name:'render_line'})
-    makeAnchors(anchors, o)
-
-
-  dvl.svg.area = (options) ->
-    o = processOptions(options, 'path', 'area')
-    o.clip = false unless o.clip?
-    p = processProps(options.props)
-    processDim3(p, panel.width, 'left', 'width', 'right')
-    processDim3(p, panel.height, 'top', 'height', 'bottom')
-    panel = options.panel
-    g = initGroup(panel, o)
-    clip = initClip(panel, g, o)
-
-    anchors =
-      midpoint:
-        dep: [p.x, p.y]
-        calc: ->
-          length = calcLength(p)
-          x = p.x.gen()
-          y = p.y.gen()
-          as = []
-          i = 0
-          while i < length-1
-            as.push { x:(x(i) + x(i+1)) / 2, y:(y(i) + y(i+1)) / 2 }
-            i += 1
-          return as
-
-    a = g.append('svg:path')
-      .attr('fill', "#ff0000")
-
-    render = ->
-      len = calcLength(p)
-      x = p.x.gen()
-      y = p.y.gen()
-
-      if len > 0 and x and y and o.visible.get()
-        dimChange = panel.width.hasChanged() or panel.height.hasChanged()
-        dur = if dimChange then 0 else o.duration.get()
-
-        af = d3.svg.area()
-            .x(x)
-            .y1(y)
-            .y0(panel.height.gen())
-
-        a.attr('d', af(d3.range(len)));
-
-        g.style('display', null)
-      else
-        g.style('display', 'none')
-
-      return
-
-    dvl.register({fn:render, listen:[panel.width, panel.height, o.visible, p.x, p.y], name:'render_area'})
-    makeAnchors(anchors, o)
-
-
-  listen_attr.lines = ['left1', 'left2', 'top1', 'top2', 'stroke']
-  update_attr.lines = (m, p, prev) ->
-    gen = if prev then 'genPrev' else 'gen'
-
-    left1 = p.left1
-    m.attr('x1', left1[gen]()) if (prev or left1.hasChanged())
-
-    left2 = p.left2
-    m.attr('x2', left2[gen]()) if (prev or left2.hasChanged())
-
-    top1 = p.top1
-    m.attr('y1', top1[gen]()) if (prev or top1.hasChanged())
-
-    top2 = p.top2
-    m.attr('y2', top2[gen]()) if (prev or top2.hasChanged())
-
-    stroke = p.stroke
-    m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-    return
-
-  dvl.svg.lines = (options) ->
-    o = processOptions(options, 'line', 'lines')
-    o.clip = true unless o.clip?
-    p = processProps(options.props)
-    panel = options.panel
-    p.left1 or= p.left
-    p.left2 or= p.left
-    p.right1 or= p.right
-    p.right2 or= p.right
-    p.top1 or= p.top
-    p.top2 or= p.top
-    p.bottom1 or= p.bottom
-    p.bottom2 or= p.bottom
-    removeUndefined(p)
-    processDim2(p, panel.width, 'left1', 'right1')
-    processDim2(p, panel.width, 'left2', 'right2')
-    processDim2(p, panel.height, 'top1', 'bottom1')
-    processDim2(p, panel.height, 'top2', 'bottom2')
-    g = initGroup(panel, o)
-    clip = initClip(panel, g, o)
-
-    anchors =
-      midpoint1:
-        dep: [p.left1, p.top1]
-        calc: ->
-          length = calcLength(p)
-          x = p.left1.gen()
-          y = p.top1.gen()
-          as = []
-          i = 0
-          while i < length-1
-            as.push { x:(x(i) + x(i+1)) / 2, y:(y(i) + y(i+1)) / 2 }
-            i += 1
-          return as
-
-      midpoint2:
-        dep: [p.left2, p.top2]
-        calc: ->
-          length = calcLength(p)
-          x = p.left2.gen()
-          y = p.top2.gen()
-          as = []
-          i = 0
-          while i < length-1
-            as.push { x:(x(i) + x(i+1)) / 2, y:(y(i) + y(i+1)) / 2 }
-            i += 1
-          return as
-
-      center:
-        dep: [p.left1, p.left2, p.top1, p.top2]
-        calc: ->
-          length = calcLength(p)
-          x1 = p.left1.gen()
-          y1 = p.top1.gen()
-          x2 = p.left2.gen()
-          y2 = p.top2.gen()
-          as = []
-          i = 0
-          while i < length
-            as.push { x:(x1(i) + x2(i)) / 2, y:(y1(i) + y2(i)) / 2 }
-            i += 1
-          return as
-
-    render = ->
-      len = calcLength(p)
-
-      if o.visible.get()
-        m = selectEnterExit(g, o, p, len)
-        update_attr[o.myClass](m, p, true)
-
-        if panel.width.hasChanged() or panel.height.hasChanged()
-          dur = 0
-        else
-          dur = o.duration.get()
-
-        m = reselectUpdate(g, o, dur)
-        update_attr[o.myClass](m, p)
-
-        g.style('display', null)
-      else
-        g.style('display', 'none')
-
-      return
-
-    listen = [panel.width, panel.height, o.visible]
-    listen.push p[k] for k in listen_attr[o.myClass]
-    dvl.register({fn:render, listen:listen, name:'lines_render'})
-    makeAnchors(anchors, o)
-
-
-  listen_attr.bars = ['left', 'top', 'width', 'height', 'fill', 'stroke']
-  update_attr.bars = (m, p, prev) ->
-    gen = if prev then 'genPrev' else 'gen'
-
-    left = p.left
-    top  = p.top
-    if prev or left.hasChanged() or top.hasChanged()
-      left_gen = left[gen]()
-      top_gen  = top[gen]()
-      m.attr('transform', ((i) -> "translate(#{left_gen(i)},#{top_gen(i)})"))
-
-    width = p.width
-    m.attr('width',  width[gen]()) if width and (prev or width.hasChanged())
-
-    height = p.height
-    m.attr('height', height[gen]()) if height and (prev or height.hasChanged())
-
-    fill = p.fill
-    m.attr('fill', fill[gen]()) if fill and (prev or fill.hasChanged())
-
-    stroke = p.stroke
-    m.attr('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-    return
-
-  dvl.svg.bars = (options) ->
-    o = processOptions(options, 'rect', 'bars')
-    o.clip = true unless o.clip?
-    p = processProps(options.props)
-    panel = options.panel
-    processDim4(p, panel.width, 'left', 'width', 'right', 'centerX')
-    processDim4(p, panel.height, 'top', 'height', 'bottom', 'centerY')
-    g = initGroup(panel, o)
-    clip = initClip(panel, g, o)
-
-    anchors =
-      center:
-        dep: [p.left, p.top, p.width, p.height]
-        calc: ->
-          length = calcLength(p)
-          x = p.left.gen()
-          y = p.top.gen()
-          w = p.width.gen()
-          h = p.height.gen()
-          as = []
-          i = 0
-          while i < length
-            as.push { x:x(i) + w(i) / 2, y: y(i) + h(i) / 2 }
-            i += 1
-          return as
-
-    render = ->
-      len = calcLength(p)
-
-      if len > 0 and o.visible.get()
-        m = selectEnterExit(g, o, p, len)
-        update_attr[o.myClass](m, p, true)
-
-        dimChange = panel.width.hasChanged() or panel.height.hasChanged()
-        if dimChange
-          dur = 0
-        else
-          dur = o.duration.get()
-
-        m = reselectUpdate(g, o, dur)
-        update_attr[o.myClass](m, p)
-
-        g.style('display', null)
-      else
-        g.style('display', 'none')
-
-      return
-
-    listen = [panel.width, panel.height, o.visible]
-    listen.push p[k] for k in listen_attr[o.myClass]
-    dvl.register({fn:render, listen:listen, name:'bars_render'})
-    makeAnchors(anchors, o)
-
-
-  listen_attr.labels = ['left', 'top', 'baseline', 'align', 'text', 'color']
-  update_attr.labels = (m, p, prev) ->
-    gen = if prev then 'genPrev' else 'gen'
-
-    left = p.left
-    top  = p.top
-    angle = p.angle
-    if prev or left.hasChanged() or top.hasChanged() or (angle and angle.hasChanged())
-      left_gen = left[gen]()
-      top_gen  = top[gen]()
-      if angle
-        angle_gen = angle[gen]()
-        m.attr('transform', ((i) -> "translate(#{left_gen(i)},#{top_gen(i)}) rotate(#{angle_gen(i)})"))
-      else
-        m.attr('transform', ((i) -> "translate(#{left_gen(i)},#{top_gen(i)})"))
-
-    baseline = p.baseline
-    if baseline and (prev or baseline.hasChanged())
-      baseline_gen = baseline[gen]()
-      m.attr('dy', ((i) ->
-                    pi = baseline_gen(i)
-                    if pi is 'top' then '.71em' else if pi is 'middle' then '.35em' else null))
-
-    align = p.align
-    m.attr('text-anchor', align[gen]()) if align and (prev or align.hasChanged())
-
-    color = p.color
-    m.style('fill', color[gen]()) if color and (prev or color.hasChanged())
-    return
-
-  dvl.svg.labels = (options) ->
-    o = processOptions(options, 'text', 'labels')
-    o.clip = false unless o.clip?
-    p = processProps(options.props)
-    panel = options.panel
-    processDim2(p, panel.width, 'left', 'right')
-    processDim2(p, panel.height, 'top', 'bottom')
-    g = initGroup(panel, o)
-    clip = initClip(panel, g, o)
-
-    anchors = {}
-
-    render = ->
-      len = calcLength(p)
-
-      if len > 0 and o.visible.get()
-        text = p.text.gen()
-        m = selectEnterExit(g, o, p, len)
-        update_attr[o.myClass](m, p, true)
-        m.text(text)
-
-        if panel.width.hasChanged() or panel.height.hasChanged()
-          dur = 0
-        else
-          dur = o.duration.get()
-
-        #m = reselectUpdate(g, o, dur)
-        m = g.selectAll("#{o.mySvg}.#{o.myClass}")
-        m.text(text) if p.text.hasChanged()
-        m = m.transition().duration(dur) if dur > 0
-        update_attr[o.myClass](m, p)
-
-        g.style('display', null)
-      else
-        g.style('display', 'none')
-
-      return
-
-    listen = [panel.width, panel.height, o.visible]
-    listen.push p[k] for k in listen_attr[o.myClass]
-    dvl.register({fn:render, listen:listen, name:'labels_render'})
-    makeAnchors(anchors, o)
-
-
-  listen_attr.dots = ['left', 'top', 'radius', 'fill', 'stroke']
-  proc_attr.dots = {
-    imm: (m, p) ->
-      fill = p.fill
-      m.style('fill', fill.gen()) if fill and fill.hasChanged()
-
-      stroke = p.stroke
-      m.style('stroke', stroke.gen()) if stroke and stroke.hasChanged()
-      return
-
-    tran: (m, p, prev) ->
-      gen = if prev then 'genPrev' else 'gen'
-
-      left = p.left
-      m.attr('cx',  left[gen]()) if left and (prev or left.hasChanged())
-
-      top = p.top
-      m.attr('cy',  top[gen]()) if top and (prev or top.hasChanged())
-
-      radius = p.radius
-      m.attr('r',  radius[gen]()) if radius and (prev or radius.hasChanged())
-
-      fill = p.fill
-      m.style('fill', fill[gen]()) if fill and (prev or fill.hasChanged())
-
-      stroke = p.stroke
-      m.style('stroke', stroke[gen]()) if stroke and (prev or stroke.hasChanged())
-      return
-  }
-
-  dvl.svg.dots = (options) ->
-    o = processOptions(options, 'circle', 'dots')
-    o.clip = true unless o.clip?
-    p = processProps(options.props)
-    panel = options.panel
-    processDim2(p, panel.width, 'left', 'right')
-    processDim2(p, panel.height, 'top', 'bottom')
-    g = initGroup(panel, o)
-    clip = initClip(panel, g, o)
-
-    anchors =
-      left:
-        dep: [p.left, p.top, p.radius]
-        calc: ->
-          length = calcLength(p)
-          x = p.left.gen()
-          y = p.top.gen()
-          r = p.radius.gen()
-          as = []
-          i = 0
-          while i < length
-            as.push { x:x(i) - r(i), y:y(i) }
-            i += 1
-          return as
-
-      right:
-        dep: [p.left, p.top, p.radius]
-        calc: ->
-          length = calcLength(p)
-          x = p.left.gen()
-          y = p.top.gen()
-          r = p.radius.gen()
-          as = []
-          i = 0
-          while i < length
-            as.push { x:x(i) + r(i), y:y(i) }
-            i += 1
-          return as
-
-      top:
-        dep: [p.left, p.top, p.radius]
-        calc: ->
-          length = calcLength(p)
-          x = p.left.gen()
-          y = p.top.gen()
-          r = p.radius.gen()
-          as = []
-          i = 0
-          while i < length-1
-            as.push { x:x(i), y:y(i) - r(i) }
-            i += 1
-          return as
-
-      bottom:
-        dep: [p.left, p.top, p.radius]
-        calc: ->
-          length = calcLength(p)
-          x = p.left.gen()
-          y = p.top.gen()
-          r = p.radius.gen()
-          as = []
-          i = 0
-          while i < length-1
-            as.push { x:x(i), y:y(i) + r(i) }
-            i += 1
-          return as
-
-    render = ->
-      len = calcLength(p)
-
-      if len > 0 and o.visible.get()
-        if panel.width.hasChanged() or panel.height.hasChanged()
-          dur = 0
-        else
-          dur = o.duration.get()
-
-        selectUpdate(g, o, p, len, dur)
-
-        # m = selectEnterExit(g, o, p, len)
-        # update_attr[o.myClass](m, p, true)
-
-        # m = reselectUpdate(g, o, dur)
-        # update_attr[o.myClass](m, p)
-
-
-
-        g.style('display', null)
-      else
-        g.style('display', 'none')
-
-      return
-
-    listen = [panel.width, panel.height, o.visible]
-    listen.push p[k] for k in listen_attr[o.myClass]
-    dvl.register({fn:render, listen:listen, name:'dots_renderer'})
-    makeAnchors(anchors, o)
-)()
 
 
 # HTML # --------------------------------------------------
@@ -3472,504 +2412,6 @@ dvl.html.select = ({selector, values, names, selection, onChange, classStr}) ->
   selChange()
   #dvl.register({fn: updateSelection, listen:[], change:[selection]})
   return selection
-
-
-##-------------------------------------------------------
-##
-##  Table made with HTML
-##
-##  This module draws an HTML table that can be sorted
-##
-##  selector:    Where to append the table.
-##  classStr:    The class to add to the table.
-## ~rowClassGen: The generator for row classes
-## ~visible:     Toggles the visibility of the table. [true]
-##  columns:     A list of columns to drive the table.
-##    column:
-##      id:               The id by which the column will be identified.
-##     ~title:            The title of the column header.
-##     ~headerTooltip:    The popup tool tip (title element text) of the column header.
-##      classStr:         The class given to the 'th' and 'td' elements in this column, if not specified will default to the id.
-##      cellClassGen:     The class generator for the cell
-##     ~cellClick:        The generator of click handlers
-##     -gen:              The generator that drives the column data.
-##     ~sortable:         Toggles wheather the column is sortable or not. [true]
-##     -sortGen:          The generator that will drive the sorting, if not provided then gen will be used instead. [gen]
-##     ~hoverGen:         The generator for the (hover) title.
-##     ~showIndicator:    Toggle the display of the sorting indicator for this column. [true]
-##     ~reverseIndicator: Reverses the asc / desc directions of the indicator for this column. [false]
-##     ~visible:          Toggles the visibility of the column
-##
-##  sort:
-##   ~on:              The id of the column on which to sort.
-##   ~onIndicator:     The id of the column on which the indicator is palced (defaults to sort.on)
-##   ~order:           The order of the sort. Must be one of {'asc', 'desc', 'none'}.
-##   ~modes:           The order rotation that is allowed. Must be an array of [{'asc', 'desc', 'none'}].
-##   ~autoOnClick:     Toggle wheather the table will be sorted (updating sort.on and/or possibly sort.order) automaticaly when clicked. [true]
-##   ~indicator:       [true / false]
-##
-## ~showHeader:        Toggle showing the header [true]
-## ~onHeaderClick:     Callback or url when the header of a column is clicked.
-## ~headerTooltip:     The default herder tooltip (title element text).
-## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
-##
-dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit, htmlTitles}) ->
-  throw 'selector has to be a plain string.' if dvl.knows(selector)
-  throw 'columns has to be a plain array.' if dvl.knows(columns)
-  throw 'sort has to be a plain object.' if dvl.knows(sort)
-
-  visible = dvl.wrapConstIfNeeded(visible ? true)
-
-  showHeader = dvl.wrapConstIfNeeded(showHeader ? true)
-  onHeaderClick = dvl.wrapConstIfNeeded(onHeaderClick)
-  headerTooltip = dvl.wrapConstIfNeeded(headerTooltip or null)
-
-  rowLimit = dvl.wrapConstIfNeeded(rowLimit or null)
-
-  sort = sort or {}
-
-  sortOn = dvl.wrapVarIfNeeded(sort.on)
-  sortOnIndicator = dvl.wrapVarIfNeeded(sort.onIndicator ? sortOn)
-  sortOnClick = dvl.wrapConstIfNeeded(sort.autoOnClick ? true)
-  sortModes = dvl.wrapConstIfNeeded(sort.modes or ['asc', 'desc', 'none'])
-  modes = sortModes.get()
-  sortOrder = dvl.wrapVarIfNeeded(sort.order or (if modes.length > 0 then modes[0] else 'none'))
-
-  listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortOnIndicator, sortModes, sortOrder]
-  listenColumnVisible = []
-
-  sortIndicator = dvl.wrapConstIfNeeded(sort.indicator)
-  listen.push sortIndicator
-
-  numRows = dvl.def(null, 'num_rows')
-
-  goOrCall = (arg, id, that) ->
-    t = typeof(arg)
-    if t is 'function'
-      arg.call(that, id)
-    else if t is 'string'
-      window.location.href = arg
-    return
-
-  # flatten possible merge header columns
-  if columns.length and columns[0].columns
-    topHeader = []
-    newColumns = []
-    for tc in columns
-      continue unless tc.columns and tc.columns.length isnt 0
-      topHeader.push { title: dvl.wrapConstIfNeeded(tc.title), classStr: tc.classStr, span: tc.columns.length }
-      listen.push tc.title
-      for c in tc.columns
-        newColumns.push c
-    columns = newColumns
-
-  # process columns
-  for i, c of columns
-    c.title = dvl.wrapConstIfNeeded(c.title or '')
-    c.sortable = dvl.wrapConstIfNeeded(c.sortable ? true)
-    c.showIndicator = dvl.wrapConstIfNeeded(c.showIndicator ? true);
-    c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator or false);
-    c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip or null)
-    c.cellClick = dvl.wrapConstIfNeeded(c.cellClick or null)
-    c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
-    c.hideHeader = dvl.wrapConstIfNeeded(c.hideHeader)
-    c.renderer = if typeof(c.renderer) is 'function' then c.renderer else dvl.html.table.renderer[c.renderer or 'text']
-    c.cellClassGen = if c.cellClassGen then dvl.wrapConstIfNeeded(c.cellClassGen) else null
-    listen.push c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen
-    listenColumnVisible.push c.visible, c.hideHeader
-    if c.renderer.depends
-      listen.push d for d in c.renderer.depends
-    c.uniquClass = 'column_' + i
-
-  t = d3.select(selector).append('table')
-  t.attr('class', classStr) if classStr
-
-  colClass = (c) -> (c.classStr or c.id) + ' ' + c.uniquClass + (if c.sorted then ' sorted' else '') + (if c.sortable.get() then ' sortable' else ' unsortable')
-
-  thead = t.append('thead')
-  th = thead.append('tr').attr('class', 'top_header') if topHeader
-  h = thead.append('tr')
-  b = t.append('tbody')
-
-  if topHeader
-    th.selectAll('th')
-      .data(topHeader)
-      .enter().append('th')
-        .attr('class', (d) -> d.classStr or null)
-        .attr('colspan', (d) -> d.span)
-          .append('div')
-            .text((d) -> d.title.get());
-
-  sel = h.selectAll('th')
-    .data(columns)
-    .enter().append('th')
-      .on('click', (c) ->
-        return unless c.id?
-
-        goOrCall(onHeaderClick.get(), c.id, this)
-
-        if sortOnClick.get() and c.sortable.get()
-          if sortOn.get() is c.id
-            modes = sortModes.get()
-            si = modes.indexOf(sortOrder.get())
-            sortOrder.set(modes[(si+1) % modes.length]).notify()
-          else
-            sortOn.set(c.id).notify()
-        )
-
-  sel.append('span') # title text container
-
-  si = sortIndicator.get();
-  if si
-    sel.append('div')
-      .attr('class', 'sort_indicator')
-      .style('display', (c) -> if c.sortable.get() then null else 'none')
-
-  tableLength = ->
-    length = +Infinity
-    for c in columns
-      l = c.gen.len()
-      length = l if l < length
-    length = 1 if length == Infinity
-
-    length
-
-  makeTable = ->
-    length = tableLength()
-    r = pv.range(length)
-
-    if visible.hasChanged()
-      t.style('display', if visible.get() then null else 'none')
-
-    if showHeader.hasChanged()
-      thead.style('display', if showHeader.get() then null else 'none')
-
-    if topHeader
-      th.selectAll('th > div')
-        .data(topHeader)
-          .text((d) -> d.title.get());
-
-    if headerTooltip.hasChanged()
-      h.attr('title', headerTooltip.get());
-
-    if sort
-      sortOnId = sortOn.get()
-      sortOnIndicatorId = sortOnIndicator.get()
-      sortCol = null
-      sortIndicatorCol = null
-      for c in columns
-        if c.sorted = (c.id is sortOnId)
-          sortCol = c
-          throw "sort on column marked unsortable (#{sortOnId})" unless sortCol.sortable.get()
-
-        if c.sortedIndicator = (c.id is sortOnIndicatorId)
-          sortIndicatorCol = c
-
-      _sortOrder = sortOrder.get()
-
-      if _sortOrder and sortCol
-        sortGen = (sortCol.sortGen or sortCol.gen).gen()
-        numeric = sortGen and typeof(sortGen(0)) is 'number'
-
-        dir = String(_sortOrder).toLowerCase()
-        if dir is 'desc'
-          if numeric
-            sortFn = (i,j) ->
-              si = sortGen(i)
-              sj = sortGen(j)
-              if isNaN(si)
-                if isNaN(sj)
-                  return 0
-                else
-                  return 1
-              else
-                if isNaN(sj)
-                  return -1
-                else
-                  return sj - si
-          else
-            sortFn = (i,j) ->
-              return sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase())
-          r.sort(sortFn)
-        else if dir is 'asc'
-          if numeric
-            sortFn = (i,j) ->
-              si = sortGen(j)
-              sj = sortGen(i)
-              if isNaN(si)
-                if isNaN(sj)
-                  return 0
-                else
-                  return 1
-              else
-                if isNaN(sj)
-                  return -1
-                else
-                  return sj - si
-          else
-            sortFn = (i,j) ->
-              return sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase())
-          r.sort(sortFn)
-        # else do nothing
-
-      if _sortOrder and sortIndicator.get()
-        dir = String(_sortOrder).toLowerCase()
-        h.selectAll('th').data(columns)
-          .select('div.sort_indicator')
-            .style('display', (c) -> if c.sortable.get() then null else 'none')
-            .attr('class', (c) ->
-              which = if c is sortIndicatorCol and dir isnt 'none'
-                if c.reverseIndicator.get() then (if dir is 'asc' then 'desc' else 'asc') else dir
-              else
-                'none'
-              return 'sort_indicator ' + which
-            )
-
-    h.selectAll('th').data(columns)
-      .attr('class', colClass)
-      .style('display', (c) -> if c.visible.get() and not c.hideHeader.get() then null else "none")
-      .attr('title', (c) -> c.headerTooltip.get())
-        .select('span')[if htmlTitles then 'html' else 'text']((c) -> c.title.get())
-
-    limit = rowLimit.get()
-    r = r.splice(0, Math.max(0, limit)) if limit?
-    numRows.update(r.length)
-
-    sel = b.selectAll('tr').data(r)
-    ent = sel.enter().append('tr')
-    if rowClassGen
-      gen = rowClassGen.gen()
-      ent.attr('class', gen)
-      sel.attr('class', gen)
-    sel.exit().remove()
-
-    sel = b.selectAll('tr')
-    row = sel.selectAll('td').data(columns)
-    row.enter().append('td')
-    row.attr('class', colClass)
-    row.exit().remove()
-
-    for col in columns
-      gen = col.gen.gen();
-      csel = sel.select('td.' + col.uniquClass)
-
-      csel
-        .on('click', (i) -> goOrCall(col.cellClick.gen()(i), col, this))
-        .style('display', if col.visible.get() then null else 'none')
-
-      if col.hoverGen
-        csel.attr('title', col.hoverGen.gen())
-
-      if col.cellClassGen
-        cg = col.cellClassGen.gen()
-        csel.attr('class', (i) -> colClass(col) + if cg? then ' ' + cg(i))
-
-      col.renderer(csel, gen, col.sorted)
-
-    return
-
-  dvl.register {
-    name: 'table_maker'
-    fn: makeTable
-    listen: listen
-    change: [numRows]
-  }
-
-
-  columnVisible = ->
-    h.selectAll('th').data(columns)
-      .style('display', (c) -> if c.visible.get() and not c.hideHeader.get() then null else "none")
-
-    for col in columns
-      sel.select('td.' + col.uniquClass)
-        .style('display', if col.visible.get() then null else 'none')
-
-    return
-
-  dvl.register {
-    name: 'table_column_visible'
-    fn: columnVisible
-    listen: listenColumnVisible
-  }
-
-  return {
-    sortOn
-    sortOrder
-    numRows
-    node: t.node()
-  }
-
-dvl.html.table.renderer =
-  text: (col, dataFn) ->
-    col.text(dataFn)
-    return
-  html: (col, dataFn) ->
-    col.html(dataFn)
-    return
-  aLink: ({linkGen, html, poo}) ->
-    what = if html then 'html' else 'text'
-    linkGen = dvl.wrapConstIfNeeded(linkGen)
-    f = (col, dataFn) ->
-      sel = col.selectAll('a').data((d) -> [d])
-      sel.enter().append('a')
-      sel.attr('href', linkGen.gen())[what](dataFn)
-      return
-    f.depends = [linkGen]
-    return f
-  spanLink: ({click}) ->
-    titleGen = dvl.wrapConstIfNeeded(titleGen)
-    f = (col, dataFn) ->
-      sel = col.selectAll('span').data((d) -> [d])
-      sel.enter().append('span').attr('class', 'span_link')
-      sel.html(dataFn).on('click', click)
-      return
-    return f
-  barDiv: (col, dataFn) ->
-    sel = col.selectAll('div').data((d) -> [d])
-    sel.enter().append('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
-    sel.style('width', ((d) -> dataFn(d) + 'px'))
-    return
-  img: (col, dataFn) ->
-    sel = col.selectAll('img').data((d) -> [d])
-    sel.enter().append('img').attr('src', dataFn)
-    sel.attr('src', dataFn)
-    return
-  imgDiv: (col, dataFn) ->
-    sel = col.selectAll('div').data((d) -> [d])
-    sel.enter().append('div').attr('class', dataFn)
-    sel.attr('class', dataFn)
-    return
-  svgSparkline: ({classStr, width, height, x, y, padding}) ->
-    f = (col, dataFn) ->
-      svg = col.selectAll('svg').data((i) -> [dataFn(i)])
-
-      line = (d) ->
-        mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
-        mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
-        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
-        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
-        return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
-
-
-      svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height)
-
-      sel = svg.selectAll('path').data((d) -> [d])
-
-      sel.enter().append("svg:path").attr("class", "line")
-
-      sel.attr("d", line)
-
-      points = svg.selectAll('circle')
-        .data((d) ->
-          mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
-          mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
-          sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
-          sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
-          return [
-            ['top',    sx(d[mmy.maxIdx][x]), sy(mmy.max)]
-            ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)]
-            ['right',  sx(mmx.max), sy(d[mmx.maxIdx][y])]
-            ['left',   sx(mmx.min), sy(d[mmx.minIdx][y])]
-          ]
-        )
-
-      points.enter().append("svg:circle")
-        .attr("r", 2)
-        .attr("class", (d) -> d[0])
-
-      points
-        .attr("cx", (d) -> d[1])
-        .attr("cy", (d) -> d[2])
-      return
-
-    f.depends = []
-    return f
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Lolz
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -4374,11 +2816,49 @@ dvl.html.table2.render =
       return
 
 
+# Orig table
 
 
-
-
-dvl_html_table = ({selector, classStr, rowClassGen, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit, htmlTitles}) ->
+##-------------------------------------------------------
+##
+##  Table made with HTML
+##
+##  This module draws an HTML table that can be sorted
+##
+##  selector:    Where to append the table.
+##  classStr:    The class to add to the table.
+## ~rowClassGen: The generator for row classes
+## ~visible:     Toggles the visibility of the table. [true]
+##  columns:     A list of columns to drive the table.
+##    column:
+##      id:               The id by which the column will be identified.
+##     ~title:            The title of the column header.
+##     ~headerTooltip:    The popup tool tip (title element text) of the column header.
+##      classStr:         The class given to the 'th' and 'td' elements in this column, if not specified will default to the id.
+##      cellClassGen:     The class generator for the cell
+##     ~cellClick:        The generator of click handlers
+##     -gen:              The generator that drives the column data.
+##     ~sortable:         Toggles wheather the column is sortable or not. [true]
+##     -sortGen:          The generator that will drive the sorting, if not provided then gen will be used instead. [gen]
+##     ~hoverGen:         The generator for the (hover) title.
+##     ~showIndicator:    Toggle the display of the sorting indicator for this column. [true]
+##     ~reverseIndicator: Reverses the asc / desc directions of the indicator for this column. [false]
+##     ~visible:          Toggles the visibility of the column
+##
+##  sort:
+##   ~on:              The id of the column on which to sort.
+##   ~onIndicator:     The id of the column on which the indicator is palced (defaults to sort.on)
+##   ~order:           The order of the sort. Must be one of {'asc', 'desc', 'none'}.
+##   ~modes:           The order rotation that is allowed. Must be an array of [{'asc', 'desc', 'none'}].
+##   ~autoOnClick:     Toggle wheather the table will be sorted (updating sort.on and/or possibly sort.order) automaticaly when clicked. [true]
+##   ~indicator:       [true / false]
+##
+## ~showHeader:        Toggle showing the header [true]
+## ~onHeaderClick:     Callback or url when the header of a column is clicked.
+## ~headerTooltip:     The default herder tooltip (title element text).
+## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
+##
+dvl.html.table = ({selector, classStr, rowClassGen, visible, columns, showHeader, sort, onHeaderClick, headerTooltip, rowLimit, htmlTitles}) ->
   throw 'selector has to be a plain string.' if dvl.knows(selector)
   throw 'columns has to be a plain array.' if dvl.knows(columns)
   throw 'sort has to be a plain object.' if dvl.knows(sort)
@@ -4501,7 +2981,7 @@ dvl_html_table = ({selector, classStr, rowClassGen, visible, columns, showHeader
 
   makeTable = ->
     length = tableLength()
-    r = pv.range(length)
+    r = d3.range(length)
 
     if visible.hasChanged()
       t.style('display', if visible.get() then null else 'none')
@@ -4664,14 +3144,228 @@ dvl_html_table = ({selector, classStr, rowClassGen, visible, columns, showHeader
     node: t.node()
   }
 
+dvl.html.table.renderer =
+  text: (col, dataFn) ->
+    col.text(dataFn)
+    return
+  html: (col, dataFn) ->
+    col.html(dataFn)
+    return
+  aLink: ({linkGen, html, poo}) ->
+    what = if html then 'html' else 'text'
+    linkGen = dvl.wrapConstIfNeeded(linkGen)
+    f = (col, dataFn) ->
+      sel = col.selectAll('a').data((d) -> [d])
+      sel.enter().append('a')
+      sel.attr('href', linkGen.gen())[what](dataFn)
+      return
+    f.depends = [linkGen]
+    return f
+  spanLink: ({click}) ->
+    titleGen = dvl.wrapConstIfNeeded(titleGen)
+    f = (col, dataFn) ->
+      sel = col.selectAll('span').data((d) -> [d])
+      sel.enter().append('span').attr('class', 'span_link')
+      sel.html(dataFn).on('click', click)
+      return
+    return f
+  barDiv: (col, dataFn) ->
+    sel = col.selectAll('div').data((d) -> [d])
+    sel.enter().append('div').attr('class', 'bar_div').style('width', ((d) -> dataFn(d) + 'px'))
+    sel.style('width', ((d) -> dataFn(d) + 'px'))
+    return
+  img: (col, dataFn) ->
+    sel = col.selectAll('img').data((d) -> [d])
+    sel.enter().append('img').attr('src', dataFn)
+    sel.attr('src', dataFn)
+    return
+  imgDiv: (col, dataFn) ->
+    sel = col.selectAll('div').data((d) -> [d])
+    sel.enter().append('div').attr('class', dataFn)
+    sel.attr('class', dataFn)
+    return
 
 
 
 
+# Gens # --------------------------------------------------
+
+dvl.gen = {}
+
+dvl.gen.fromFn = (fn) ->
+  gen = dvl.def(null, 'fn_generator')
+  gen.setGen(fn, Infinity)
+  return gen
 
 
+dvl.gen.fromValue = (value, acc, fn, name) ->
+  value = dvl.wrapConstIfNeeded(value)
+  acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
+  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
+
+  gen = dvl.def(null, name or 'value_generator')
+
+  makeGen = ->
+    a = acc.get()
+    f = fn.get()
+    v = value.get()
+    if a? and f? and v?
+      rv = f(a(v))
+      g = -> rv
+
+      gen.setGen(g)
+    else
+      gen.setGen(null)
+
+    dvl.notify(gen)
+
+  dvl.register({fn:makeGen, listen:[value, acc, fn], change:[gen], name:'value_make_gen'})
+  return gen
 
 
+dvl.gen.fromGen = (generator, fn, name) ->
+  generator = dvl.wrapConstIfNeeded(generator)
+  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
+
+  gen = dvl.def(null, name or 'generator_generator')
+
+  makeGen = ->
+    _generator = generator.gen()
+    _fn = fn.get()
+    if _generator? and _fn?
+      g = (i) -> _fn(_generator(i))
+
+      gen.setGen(g, generator.len)
+    else
+      gen.setGen(null)
+
+    dvl.notify(gen)
+
+  dvl.register({fn:makeGen, listen:[generator, fn], change:[gen], name:'generator_make_gen'})
+  return gen
 
 
+dvl.gen.fromArray = (data, acc, fn, name) ->
+  data = dvl.wrapConstIfNeeded(data)
+  acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
+  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
 
+  gen = dvl.def(null, name or 'array_generator')
+
+  d = []
+  makeGen = ->
+    _acc = acc.get()
+    _fn = fn.get()
+    _data = data.get()
+    if _acc? and _fn? and _data? and _data.length > 0
+      d = _data
+      g = (i) ->
+        i = i % d.length
+        _fn(_acc(d[i], i))
+
+      gen.setGen(g, _data.length)
+    else
+      gen.setGen(null)
+
+    dvl.notify(gen)
+
+  dvl.register({fn:makeGen, listen:[data, acc, fn], change:[gen], name:'array_make_gen'})
+  return gen
+
+
+dvl.gen.fromRowData = dvl.gen.fromArray
+dvl.gen.fromColumnData = (data, acc, fn, name) ->
+  data = dvl.wrapConstIfNeeded(data)
+  acc  = dvl.wrapConstIfNeeded(acc or dvl.identity)
+  fn   = dvl.wrapConstIfNeeded(fn or dvl.identity)
+
+  gen = dvl.def(null, name or 'column_generator')
+
+  d = []
+  makeGen = ->
+    a = acc.get()
+    f = fn.get()
+    dObj = data.get()
+    if a? and f? and dObj? and d = a(dObj)
+      g = (i) ->
+        i = i % d.length
+        f(d[i])
+
+      gen.setGen(g, d.length)
+    else
+      gen.setGen(null)
+
+    dvl.notify(gen)
+
+  dvl.register({fn:makeGen, listen:[data, acc, fn], change:[gen], name:'array_make_gen'})
+  return gen
+
+
+dvl.gen.equal = (genA, genB, retTrue, retFalse) ->
+  retTrue  = true  if retTrue  is undefined
+  retFalse = false if retFalse is undefined
+  retTrue  = dvl.wrapConstIfNeeded(retTrue)
+  retFalse = dvl.wrapConstIfNeeded(retFalse)
+
+  gen = dvl.def(null, 'equal_generator')
+
+  makeGen = ->
+    a = genA.gen()
+    b = genB.gen()
+    ha = a?
+    hb = b?
+    rtg = retTrue.gen()
+    rfg = retFalse.gen()
+    rtl = retTrue.len()
+    rfl = retFalse.len()
+    if ha and ha
+      lenA = genA.len() || Infinity
+      lenB = genB.len() || Infinity
+      gen.setGen(((i) -> if a(i) == b(i) then rtg(i) else rfg(i)), Math.min(lenA, lenB, rtl, rfl))
+    else if not ha and not hb
+      gen.setGen(rtg, rtl)
+    else
+      gen.setGen(rfg, rfl)
+
+    dvl.notify(gen)
+
+  dvl.register({fn:makeGen, listen:[genA, genB, retTrue, retFalse], change:[gen], name:'equal_make_gen'})
+  return gen
+
+
+generator_maker_maker = (combiner, name) ->
+  return () ->
+    args = Array.prototype.slice.apply(arguments)
+    gen = dvl.def(null, name + '_generator')
+
+    makeGen = ->
+      valid = (args.length > 0)
+      gens = []
+      lens = []
+      for arg in args
+        arg_gen = arg.gen()
+        if arg_gen is null
+          valid = false
+          break
+        gens.push arg_gen
+        lens.push arg.len()
+
+      if valid
+        g = (i) ->
+          gis = []
+          gis.push cgen(i) for cgen in gens
+          return combiner.apply(null, gis)
+
+        gen.setGen(g, Math.min.apply(null, lens))
+      else
+        gen.setGen(null)
+
+      dvl.notify(gen)
+      return
+
+    dvl.register({fn:makeGen, listen:args, change:[gen], name:name + '_make_gen'})
+    return gen
+
+
+dvl.gen.add = generator_maker_maker(((a,b,c) -> a+b+(c||0)), 'add')
+dvl.gen.sub = generator_maker_maker(((a,b,c) -> a-b-(c||0)), 'sub')

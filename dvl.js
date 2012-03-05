@@ -1,19 +1,3 @@
-"use strict";var clipId, debug, default_compare_modes, dvl_get, dvl_html_table, dvl_op, fn, generator_maker_maker, id_class_spliter, k, op_to_lift, _ref;
-var __indexOf = Array.prototype.indexOf || function(item) {
-  for (var i = 0, l = this.length; i < l; i++) {
-    if (this[i] === item) return i;
-  }
-  return -1;
-}, __slice = Array.prototype.slice;
-if (!d3) {
-  throw 'd3 is needed for now.';
-}
-if (!pv) {
-  throw 'protovis is needed for now.';
-}
-if (!jQuery) {
-  throw 'jQuery is needed for now.';
-}
 
 function lift(fn) {
   var fn = arguments[0];
@@ -45,7 +29,13 @@ function lift(fn) {
     return fn.apply(null, args);
   };
 }
-;
+;var clipId, debug, default_compare_modes, dvl, dvl_get, dvl_op, fn, generator_maker_maker, id_class_spliter, k, op_to_lift, _ref;
+var __indexOf = Array.prototype.indexOf || function(item) {
+  for (var i = 0, l = this.length; i < l; i++) {
+    if (this[i] === item) return i;
+  }
+  return -1;
+}, __slice = Array.prototype.slice;
 if ((_ref = Array.prototype.filter) != null) {
   _ref;
 } else {
@@ -71,9 +61,14 @@ debug = function() {
   console.log.apply(console, arguments);
   return arguments[0];
 };
-window.dvl = {
-  version: '0.98'
+dvl = {
+  version: '1.0.0'
 };
+this.dvl = dvl;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = dvl;
+  dvl.dvl = dvl;
+}
 (function() {
   var array_ctor, date_ctor, regex_ctor;
   array_ctor = (new Array).constructor;
@@ -294,18 +289,18 @@ dvl.util = {
   variables = {};
   curRecording = null;
   DVLConst = (function() {
-    function DVLConst(value, name) {
-      this.value = value;
-      this.name = name;
-      this.name || (this.name = 'obj');
-      this.id = this.name + '_const' + nextObjId;
+    function DVLConst(val) {
+      this.value = val != null ? val : null;
+      this.id = nextObjId;
       this.changed = false;
       constants[this.id] = this;
       nextObjId += 1;
       return this;
     }
     DVLConst.prototype.toString = function() {
-      return "|" + this.id + ":" + this.value + "|";
+      var tag;
+      tag = this.n ? this.n + ':' : '';
+      return "[" + this.tag + this.value + "]";
     };
     DVLConst.prototype.set = function() {
       return this;
@@ -334,12 +329,6 @@ dvl.util = {
     DVLConst.prototype.remove = function() {
       return null;
     };
-    DVLConst.prototype.push = function(value) {
-      return this;
-    };
-    DVLConst.prototype.shift = function() {
-      return;
-    };
     DVLConst.prototype.gen = function() {
       var that;
       that = this;
@@ -363,17 +352,24 @@ dvl.util = {
         return Infinity;
       }
     };
+    DVLConst.prototype.name = function() {
+      var _ref2;
+      if (arguments.length === 0) {
+        return (_ref2 = this.n) != null ? _ref2 : '<anon_const>';
+      } else {
+        this.n = arguments[0];
+        return this;
+      }
+    };
     return DVLConst;
   })();
-  dvl["const"] = function(value, name) {
-    return new DVLConst(value, name);
+  dvl["const"] = function(value) {
+    return new DVLConst(value);
   };
   DVLDef = (function() {
-    function DVLDef(value, name) {
-      this.value = value;
-      this.name = name;
-      this.name || (this.name = 'obj');
-      this.id = this.name + '_' + nextObjId;
+    function DVLDef(val) {
+      this.value = val != null ? val : null;
+      this.id = nextObjId;
       this.prev = null;
       this.changed = false;
       this.vgen = void 0;
@@ -399,7 +395,9 @@ dvl.util = {
       }
     };
     DVLDef.prototype.toString = function() {
-      return "|" + this.id + ":" + this.value + "|";
+      var tag;
+      tag = this.n ? this.n + ':' : '';
+      return "[" + this.tag + this.value + "]";
     };
     DVLDef.prototype.hasChanged = function() {
       return this.changed;
@@ -409,6 +407,7 @@ dvl.util = {
       return this;
     };
     DVLDef.prototype.set = function(val) {
+      val = val != null ? val : null;
       if (!this.changed) {
         this.prev = this.value;
       }
@@ -445,17 +444,6 @@ dvl.util = {
       }
       this.set(val);
       return dvl.notify(this);
-    };
-    DVLDef.prototype.push = function(val) {
-      this.value.push(val);
-      this.changed = true;
-      return this;
-    };
-    DVLDef.prototype.shift = function() {
-      var val;
-      val = this.value.shift();
-      this.changed = true;
-      return val;
     };
     DVLDef.prototype.get = function() {
       this.resolveLazy();
@@ -521,10 +509,19 @@ dvl.util = {
       delete variables[this.id];
       return null;
     };
+    DVLDef.prototype.name = function() {
+      var _ref2;
+      if (arguments.length === 0) {
+        return (_ref2 = this.n) != null ? _ref2 : '<anon>';
+      } else {
+        this.n = arguments[0];
+        return this;
+      }
+    };
     return DVLDef;
   })();
-  dvl.def = function(value, name) {
-    return new DVLDef(value, name);
+  dvl.def = function(value) {
+    return new DVLDef(value);
   };
   dvl.knows = function(v) {
     return v && v.id && (variables[v.id] || constants[v.id]);
@@ -2199,7 +2196,7 @@ dvl.scale = {};
 })();
 id_class_spliter = /(?=[#.:])/;
 dvl.bind = function(args) {
-  var attrList, c, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, prependStatic, self, staticClass, styleList, text, transition, transitionExit, v, _i, _len, _ref2, _ref3, _ref4;
+  var attrList, c, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, self, staticClass, styleList, text, transition, transitionExit, v, _i, _len, _ref2, _ref3, _ref4;
   if (!args.parent) {
     throw "'parent' not defiend";
   }
@@ -2228,29 +2225,13 @@ dvl.bind = function(args) {
   transition = dvl.wrapConstIfNeeded(args.transition);
   transitionExit = dvl.wrapConstIfNeeded(args.transitionExit);
   listen = [parent, data, join, text, html, transition, transitionExit];
-  prependStatic = function(c) {
-    var t;
-    t = typeof c;
-    if (t === 'string') {
-      return c + ' ' + staticClass;
-    }
-    if (t === 'function') {
-      return function(d, i) {
-        return c.call(this, d, i) + ' ' + staticClass;
-      };
-    }
-    return null;
-  };
   attrList = {};
   _ref2 = args.attr;
   for (k in _ref2) {
     v = _ref2[k];
     v = dvl.wrapConstIfNeeded(v);
     if (k === 'class' && staticClass) {
-      v = dvl.apply({
-        args: v,
-        fn: prependStatic
-      });
+      v = dvl.op.concat(v, ' ' + staticClass);
     }
     listen.push(v);
     attrList[k] = v;
@@ -2274,12 +2255,12 @@ dvl.bind = function(args) {
     listen.push(v);
     onList[k] = v;
   }
-  out = dvl.def(null, 'out');
+  out = dvl.def(null, 'selection');
   dvl.register({
     listen: listen,
     change: [out],
     fn: function() {
-      var a, add1, add2, addO, e, enter, force, k, postTrans, preTrans, s, t, v, _data, _j, _join, _k, _l, _len2, _len3, _len4, _parent, _transition, _transitionExit;
+      var a, add1, add2, addO, e, enter, ex, force, k, postTrans, preTrans, s, t, v, _data, _j, _join, _k, _l, _len2, _len3, _len4, _parent, _transition, _transitionExit;
       _parent = parent.get();
       if (!_parent) {
         return;
@@ -2389,11 +2370,14 @@ dvl.bind = function(args) {
           a = postTrans[_l];
           t[a.fn](a.a1, a.a2);
         }
-        s.exit().remove();
+        ex = s.exit().remove();
+        if (!(e.empty() && ex.empty())) {
+          out.set(s).notify();
+        }
       } else {
         s = _parent.selectAll(self).remove();
+        out.set(s).notify();
       }
-      out.set(s).notify();
     }
   });
   return out;
@@ -2608,1268 +2592,6 @@ dvl.svg.mouse = function(_arg) {
     y: y
   };
 };
-dvl.gen = {};
-dvl.gen.fromFn = function(fn) {
-  var gen;
-  gen = dvl.def(null, 'fn_generator');
-  gen.setGen(fn, Infinity);
-  return gen;
-};
-dvl.gen.fromValue = function(value, acc, fn, name) {
-  var gen, makeGen;
-  value = dvl.wrapConstIfNeeded(value);
-  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, name || 'value_generator');
-  makeGen = function() {
-    var a, f, g, rv, v;
-    a = acc.get();
-    f = fn.get();
-    v = value.get();
-    if ((a != null) && (f != null) && (v != null)) {
-      rv = f(a(v));
-      g = function() {
-        return rv;
-      };
-      gen.setGen(g);
-    } else {
-      gen.setGen(null);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [value, acc, fn],
-    change: [gen],
-    name: 'value_make_gen'
-  });
-  return gen;
-};
-dvl.gen.fromGen = function(generator, fn, name) {
-  var gen, makeGen;
-  generator = dvl.wrapConstIfNeeded(generator);
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, name || 'generator_generator');
-  makeGen = function() {
-    var g, _fn, _generator;
-    _generator = generator.gen();
-    _fn = fn.get();
-    if ((_generator != null) && (_fn != null)) {
-      g = function(i) {
-        return _fn(_generator(i));
-      };
-      gen.setGen(g, generator.len);
-    } else {
-      gen.setGen(null);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [generator, fn],
-    change: [gen],
-    name: 'generator_make_gen'
-  });
-  return gen;
-};
-dvl.gen.fromArray = function(data, acc, fn, name) {
-  var d, gen, makeGen;
-  data = dvl.wrapConstIfNeeded(data);
-  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, name || 'array_generator');
-  d = [];
-  makeGen = function() {
-    var g, _acc, _data, _fn;
-    _acc = acc.get();
-    _fn = fn.get();
-    _data = data.get();
-    if ((_acc != null) && (_fn != null) && (_data != null) && _data.length > 0) {
-      d = _data;
-      g = function(i) {
-        i = i % d.length;
-        return _fn(_acc(d[i], i));
-      };
-      gen.setGen(g, _data.length);
-    } else {
-      gen.setGen(null);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [data, acc, fn],
-    change: [gen],
-    name: 'array_make_gen'
-  });
-  return gen;
-};
-dvl.gen.fromRowData = dvl.gen.fromArray;
-dvl.gen.fromColumnData = function(data, acc, fn, name) {
-  var d, gen, makeGen;
-  data = dvl.wrapConstIfNeeded(data);
-  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, name || 'column_generator');
-  d = [];
-  makeGen = function() {
-    var a, dObj, f, g;
-    a = acc.get();
-    f = fn.get();
-    dObj = data.get();
-    if ((a != null) && (f != null) && (dObj != null) && (d = a(dObj))) {
-      g = function(i) {
-        i = i % d.length;
-        return f(d[i]);
-      };
-      gen.setGen(g, d.length);
-    } else {
-      gen.setGen(null);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [data, acc, fn],
-    change: [gen],
-    name: 'array_make_gen'
-  });
-  return gen;
-};
-dvl.gen.equal = function(genA, genB, retTrue, retFalse) {
-  var gen, makeGen;
-  if (retTrue === void 0) {
-    retTrue = true;
-  }
-  if (retFalse === void 0) {
-    retFalse = false;
-  }
-  retTrue = dvl.wrapConstIfNeeded(retTrue);
-  retFalse = dvl.wrapConstIfNeeded(retFalse);
-  gen = dvl.def(null, 'equal_generator');
-  makeGen = function() {
-    var a, b, ha, hb, lenA, lenB, rfg, rfl, rtg, rtl;
-    a = genA.gen();
-    b = genB.gen();
-    ha = a != null;
-    hb = b != null;
-    rtg = retTrue.gen();
-    rfg = retFalse.gen();
-    rtl = retTrue.len();
-    rfl = retFalse.len();
-    if (ha && ha) {
-      lenA = genA.len() || Infinity;
-      lenB = genB.len() || Infinity;
-      gen.setGen((function(i) {
-        if (a(i) === b(i)) {
-          return rtg(i);
-        } else {
-          return rfg(i);
-        }
-      }), Math.min(lenA, lenB, rtl, rfl));
-    } else if (!ha && !hb) {
-      gen.setGen(rtg, rtl);
-    } else {
-      gen.setGen(rfg, rfl);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [genA, genB, retTrue, retFalse],
-    change: [gen],
-    name: 'equal_make_gen'
-  });
-  return gen;
-};
-generator_maker_maker = function(combiner, name) {
-  return function() {
-    var args, gen, makeGen;
-    args = Array.prototype.slice.apply(arguments);
-    gen = dvl.def(null, name + '_generator');
-    makeGen = function() {
-      var arg, arg_gen, g, gens, lens, valid, _i, _len;
-      valid = args.length > 0;
-      gens = [];
-      lens = [];
-      for (_i = 0, _len = args.length; _i < _len; _i++) {
-        arg = args[_i];
-        arg_gen = arg.gen();
-        if (arg_gen === null) {
-          valid = false;
-          break;
-        }
-        gens.push(arg_gen);
-        lens.push(arg.len());
-      }
-      if (valid) {
-        g = function(i) {
-          var cgen, gis, _j, _len2;
-          gis = [];
-          for (_j = 0, _len2 = gens.length; _j < _len2; _j++) {
-            cgen = gens[_j];
-            gis.push(cgen(i));
-          }
-          return combiner.apply(null, gis);
-        };
-        gen.setGen(g, Math.min.apply(null, lens));
-      } else {
-        gen.setGen(null);
-      }
-      dvl.notify(gen);
-    };
-    dvl.register({
-      fn: makeGen,
-      listen: args,
-      change: [gen],
-      name: name + '_make_gen'
-    });
-    return gen;
-  };
-};
-dvl.gen.add = generator_maker_maker((function(a, b, c) {
-  return a + b + (c || 0);
-}), 'add');
-dvl.gen.sub = generator_maker_maker((function(a, b, c) {
-  return a - b - (c || 0);
-}), 'sub');
-dvl.svg || (dvl.svg = {});
-(function() {
-  var calcLength, gen_subDouble, gen_subHalf, getNextClipPathId, initClip, initGroup, listen_attr, makeAnchors, nextClipPathId, proc_attr, processDim2, processDim3, processDim4, processOptions, processProps, removeUndefined, reselectUpdate, selectEnterExit, selectUpdate, update_attr;
-  processOptions = function(options, mySvg, myClass) {
-    var eventData, f, k, out, _fn, _ref2, _ref3;
-    if (!options.panel) {
-      throw 'No panel defined.';
-    }
-    out = {
-      mySvg: mySvg,
-      myClass: myClass
-    };
-    if (options) {
-      out.duration = dvl.wrapConstIfNeeded(options.duration || dvl.zero);
-      out.classStr = options.classStr;
-      out.clip = options.clip;
-      if (options.on) {
-        out.on = {};
-        eventData = options.eventData || dvl.identity;
-        _ref2 = options.on;
-        _fn = function(f) {
-          return out.on[k] = function(i) {
-            return f(eventData.gen()(i));
-          };
-        };
-        for (k in _ref2) {
-          f = _ref2[k];
-          _fn(f);
-        }
-      }
-      out.visible = dvl.wrapConstIfNeeded((_ref3 = options.visible) != null ? _ref3 : true);
-    }
-    return out;
-  };
-  processProps = function(props) {
-    var k, p, v;
-    if (!props) {
-      throw 'No props defined.';
-    }
-    p = {};
-    for (k in props) {
-      v = props[k];
-      p[k] = dvl.wrapConstIfNeeded(v);
-    }
-    return p;
-  };
-  gen_subHalf = generator_maker_maker((function(a, b) {
-    return a - b / 2;
-  }), 'sub_half');
-  gen_subDouble = generator_maker_maker((function(a, b) {
-    return (a - b) * 2;
-  }), 'sub_double');
-  processDim2 = function(props, panelWidth, left, right) {
-    if (!props[left]) {
-      if (props[right]) {
-        props[left] = dvl.gen.sub(panelWidth, props[right]);
-      } else {
-        props[left] = dvl.zero;
-      }
-    }
-  };
-  processDim3 = function(props, panelWidth, left, width, right) {
-    if (props[left]) {
-      if (!props[width]) {
-        props[width] = dvl.gen.sub(panelWidth, props[left], props[right]);
-      }
-    } else {
-      if (props[width]) {
-        props[left] = dvl.gen.sub(panelWidth, props[width], props[right]);
-      } else {
-        props[left] = dvl.zero;
-        props[width] = panelWidth;
-      }
-    }
-  };
-  processDim4 = function(props, panelWidth, left, width, right, center) {
-    if (props[left]) {
-      if (!props[width]) {
-        if (props[center]) {
-          props[width] = gen_subDouble(props[canter], props[left]);
-        } else {
-          props[width] = dvl.gen.sub(panelWidth, props[left], props[right]);
-        }
-      }
-    } else {
-      if (props[width]) {
-        if (props[center]) {
-          props[left] = gen_subHalf(props[center], props[width]);
-        } else {
-          props[left] = dvl.gen.sub(panelWidth, props[width], props[right]);
-        }
-      } else {
-        if (props[center]) {
-          props[left] = dvl.gen.sub(props[center], dvl["const"](10));
-          props[width] = dvl["const"](20);
-        } else {
-          props[left] = dvl.zero;
-          props[width] = panelWidth;
-        }
-      }
-    }
-  };
-  removeUndefined = function(obj) {
-    var k, p;
-    for (k in obj) {
-      p = obj[k];
-      if (p === void 0) {
-        delete obj[k];
-      }
-    }
-    return obj;
-  };
-  initGroup = function(panel, options) {
-    var g;
-    g = panel.g.append('svg:g');
-    g.attr('class', options.classStr) === options.classStr;
-    return g;
-  };
-  initClip = function(panel, g, options) {
-    var cp, cpid;
-    if (options.clip) {
-      cpid = getNextClipPathId();
-      cp = g.append('svg:clipPath').attr('id', cpid).append('svg:rect').attr('x', 0).attr('y', 0);
-      dvl.register({
-        name: 'clip_rect',
-        listen: [panel.width, panel.height],
-        fn: function() {
-          cp.attr('width', panel.width.get()).attr('height', panel.height.get());
-        }
-      });
-      g.attr('clip-path', 'url(#' + cpid + ')');
-      return cp;
-    } else {
-      return null;
-    }
-  };
-  calcLength = function(props) {
-    var gen, l, length, what;
-    length = +Infinity;
-    for (what in props) {
-      gen = props[what];
-      l = gen.len();
-      if (l < length) {
-        length = l;
-      }
-    }
-    if (length === Infinity) {
-      return 1;
-    } else {
-      return length;
-    }
-  };
-  nextClipPathId = 0;
-  getNextClipPathId = function() {
-    nextClipPathId += 1;
-    return 'cp_' + nextClipPathId;
-  };
-  selectEnterExit = function(g, options, props, numMarks) {
-    var id_gen, join, key_gen, m, onFn, sel, what, _ref2;
-    if (props.key && props.key.gen()) {
-      key_gen = props.key.gen();
-      id_gen = function(i) {
-        return 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '');
-      };
-      join = function(i) {
-        if (this.getAttribute) {
-          return this.getAttribute('id');
-        } else {
-          return key_gen(i);
-        }
-      };
-    }
-    sel = g.selectAll("" + options.mySvg + "." + options.myClass).data(pv.range(0, numMarks), join);
-    sel.exit().remove();
-    m = sel.enter().append("svg:" + options.mySvg);
-    if (props.key && props.key.gen()) {
-      m.attr('id', id_gen);
-    }
-    m.attr('class', options.myClass);
-    if (options.on) {
-      _ref2 = options.on;
-      for (what in _ref2) {
-        onFn = _ref2[what];
-        m.on(what, onFn);
-      }
-    }
-    return m;
-  };
-  reselectUpdate = function(g, options, duration) {
-    var m;
-    m = g.selectAll("" + options.mySvg + "." + options.myClass);
-    if (duration > 0) {
-      m = m.transition().duration(duration);
-    }
-    return m;
-  };
-  selectUpdate = function(g, options, props, numMarks, duration) {
-    var id_gen, join, key_gen, m, onFn, proc, sel, what, _ref2;
-    if (props.key && props.key.gen()) {
-      key_gen = props.key.gen();
-      id_gen = function(i) {
-        return 'i_' + String(key_gen(i)).replace(/[^\w-:.]/g, '');
-      };
-      join = function(i) {
-        if (this.getAttribute) {
-          return this.getAttribute('id');
-        } else {
-          return key_gen(i);
-        }
-      };
-    }
-    sel = g.selectAll("" + options.mySvg + "." + options.myClass).data(pv.range(0, numMarks), join);
-    sel.exit().remove();
-    m = sel.enter().append("svg:" + options.mySvg);
-    if (props.key && props.key.gen()) {
-      m.attr('id', id_gen);
-    }
-    m.attr('class', options.myClass);
-    if (options.on) {
-      _ref2 = options.on;
-      for (what in _ref2) {
-        onFn = _ref2[what];
-        m.on(what, onFn);
-      }
-    }
-    proc = proc_attr[options.myClass];
-    proc.tran(m, props, true);
-    proc.imm(sel, props);
-    if (duration > 0) {
-      sel = sel.transition().duration(duration);
-    }
-    proc.tran(sel, props);
-  };
-  makeAnchors = function(anchors, options) {
-    var a, anchor, av, info, lazy;
-    anchor = [];
-    for (a in anchors) {
-      info = anchors[a];
-      av = dvl.def(null, "" + options.myClass + "_anchor_" + a);
-      anchor[a] = av;
-      lazy = dvl.alwaysLazy(av, info.calc);
-      dvl.register({
-        fn: lazy,
-        listen: info.dep,
-        change: [av],
-        name: "lazy_anchor_" + a
-      });
-    }
-    return anchor;
-  };
-  dvl.svg.canvas = function(_arg) {
-    var bg, canvasHeight, canvasWidth, classStr, height, margin, onEvent, onFn, resize, selector, svg, vis, what, width;
-    selector = _arg.selector, classStr = _arg.classStr, width = _arg.width, height = _arg.height, margin = _arg.margin, onEvent = _arg.onEvent;
-    if (!selector) {
-      throw 'no selector';
-    }
-    width = dvl.wrapConstIfNeeded(width != null ? width : 600);
-    height = dvl.wrapConstIfNeeded(height != null ? height : 400);
-    margin = dvl.wrapConstIfNeeded(margin || {
-      top: 0,
-      bottom: 0,
-      left: 0,
-      right: 0
-    });
-    canvasWidth = dvl.def(null, 'svg_panel_width');
-    canvasHeight = dvl.def(null, 'svg_panel_height');
-    svg = d3.select(selector).append('svg:svg');
-    if (classStr) {
-      svg.attr('class', classStr);
-    }
-    vis = svg.append('svg:g').attr('class', 'main');
-    bg = vis.append('svg:rect').attr('class', 'background');
-    if (onEvent) {
-      for (what in onEvent) {
-        onFn = onEvent[what];
-        bg.on(what, onFn);
-      }
-    }
-    resize = function() {
-      var h, w, _height, _margin, _width;
-      _width = width.get();
-      _height = height.get();
-      _margin = margin.get();
-      if (_width && _height && _margin) {
-        w = _width - _margin.left - _margin.right;
-        h = _height - _margin.top - _margin.bottom;
-        canvasWidth.update(w);
-        canvasHeight.update(h);
-        svg.attr('width', _width).attr('height', _height);
-        vis.attr('transform', "translate(" + _margin.left + "," + _margin.top + ")").attr('width', w).attr('height', h);
-        bg.attr('width', w).attr('height', h);
-      } else {
-        canvasWidth.update(null);
-        canvasHeight.update(null);
-      }
-    };
-    dvl.register({
-      name: 'canvas_resize',
-      listen: [width, height, margin],
-      change: [canvasWidth, canvasHeight],
-      fn: resize
-    });
-    return {
-      svg: svg,
-      g: vis,
-      width: canvasWidth,
-      height: canvasHeight
-    };
-  };
-  listen_attr = {};
-  update_attr = {};
-  proc_attr = {};
-  listen_attr.panels = ['left', 'top', 'width', 'height'];
-  update_attr.panels = function(m, p, prev) {
-    var gen, height, left, left_gen, top, top_gen, width;
-    gen = prev ? 'genPrev' : 'gen';
-    left = p.left;
-    top = p.top;
-    if (prev || left.hasChanged() || top.hasChanged()) {
-      left_gen = left[gen]();
-      top_gen = top[gen]();
-      m.attr('transform', (function(i) {
-        return "translate(" + (left_gen(i)) + "," + (top_gen(i)) + ")";
-      }));
-    }
-    width = p.width;
-    if (width && (prev || width.hasChanged())) {
-      m.attr('width', width[gen]());
-    }
-    height = p.height;
-    if (height && (prev || height.hasChanged())) {
-      m.attr('height', height[gen]());
-    }
-  };
-  dvl.svg.panels = function(options) {
-    var clip, content, g, heights, k, listen, o, p, panel, render, widths, _i, _len, _ref2;
-    o = processOptions(options, 'g', 'panels');
-    if (o.clip == null) {
-      o.clip = false;
-    }
-    p = processProps(options.props);
-    panel = options.panel;
-    processDim3(p, panel.width, 'left', 'width', 'right');
-    processDim3(p, panel.height, 'top', 'height', 'bottom');
-    g = initGroup(panel, o);
-    clip = initClip(panel, g, o);
-    content = options.content;
-    widths = [];
-    heights = [];
-    render = function() {
-      var dimChange, dur, hg, i, len, m, ms, msLen, wg;
-      len = calcLength(p);
-      if (len > 0) {
-        m = selectEnterExit(g, o, p, len);
-        update_attr[o.myClass](m, p, true);
-        dimChange = panel.width.hasChanged() || panel.height.hasChanged();
-        if (dimChange) {
-          dur = 0;
-        } else {
-          dur = o.duration.get();
-        }
-        m = g.selectAll('g');
-        update_attr[o.myClass](m, p);
-        ms = m[0];
-        msLen = ms.length;
-        i = 0;
-        wg = p.width.gen();
-        hg = p.height.gen();
-        while (i < msLen) {
-          if (!widths[i]) {
-            widths[i] = dvl.def(wg(i), 'width_' + i);
-            heights[i] = dvl.def(hg(i), 'height_' + i);
-          }
-          content(i, {
-            g: d3.select(ms[i]),
-            width: widths[i],
-            height: heights[i]
-          });
-          i++;
-        }
-        g.style('display', null);
-      } else {
-        g.style('display', 'none');
-      }
-    };
-    listen = [panel.width, panel.height];
-    _ref2 = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-      k = _ref2[_i];
-      listen.push(p[k]);
-    }
-    dvl.register({
-      fn: render,
-      listen: listen,
-      name: 'panels_render'
-    });
-  };
-  listen_attr.line = ['left', 'top', 'stroke'];
-  update_attr.line = function(m, p, prev) {
-    var gen, left, left_gen, stroke, top, top_gen;
-    gen = prev ? 'genPrev' : 'gen';
-    left = p.left;
-    if (prev || left.hasChanged()) {
-      left_gen = left[gen]();
-      m.attr('x1', left_gen);
-      m.attr('x2', function(i) {
-        return left_gen(i + 1);
-      });
-    }
-    top = p.top;
-    if (prev || top.hasChanged()) {
-      top_gen = top[gen]();
-      m.attr('y1', top_gen);
-      m.attr('y2', function(i) {
-        return top_gen(i + 1);
-      });
-    }
-    stroke = p.stroke;
-    if (stroke && (prev || stroke.hasChanged())) {
-      m.style('stroke', stroke[gen]());
-    }
-  };
-  dvl.svg.line = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
-    o = processOptions(options, 'line', 'line');
-    if (o.clip == null) {
-      o.clip = true;
-    }
-    p = processProps(options.props);
-    panel = options.panel;
-    processDim2(p, panel.width, 'left', 'right');
-    processDim2(p, panel.height, 'top', 'bottom');
-    g = initGroup(panel, o);
-    clip = initClip(panel, g, o);
-    anchors = {
-      midpoint: {
-        dep: [p.left, p.top],
-        calc: function() {
-          var as, i, length, x, y;
-          length = calcLength(p);
-          x = p.left.gen();
-          y = p.top.gen();
-          as = [];
-          i = 0;
-          while (i < length - 1) {
-            as.push({
-              x: (x(i) + x(i + 1)) / 2,
-              y: (y(i) + y(i + 1)) / 2
-            });
-            i += 1;
-          }
-          return as;
-        }
-      }
-    };
-    render = function() {
-      var dur, len, m;
-      len = Math.max(0, calcLength(p) - 1);
-      if (o.visible.get()) {
-        m = selectEnterExit(g, o, p, len);
-        update_attr[o.myClass](m, p, true);
-        if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          dur = 0;
-        } else {
-          dur = o.duration.get();
-        }
-        m = reselectUpdate(g, o, dur);
-        update_attr[o.myClass](m, p);
-        g.style('display', null);
-      } else {
-        g.style('display', 'none');
-      }
-    };
-    listen = [panel.width, panel.height, o.visible];
-    _ref2 = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-      k = _ref2[_i];
-      listen.push(p[k]);
-    }
-    dvl.register({
-      fn: render,
-      listen: listen,
-      name: 'render_line'
-    });
-    return makeAnchors(anchors, o);
-  };
-  dvl.svg.area = function(options) {
-    var a, anchors, clip, g, o, p, panel, render;
-    o = processOptions(options, 'path', 'area');
-    if (o.clip == null) {
-      o.clip = false;
-    }
-    p = processProps(options.props);
-    processDim3(p, panel.width, 'left', 'width', 'right');
-    processDim3(p, panel.height, 'top', 'height', 'bottom');
-    panel = options.panel;
-    g = initGroup(panel, o);
-    clip = initClip(panel, g, o);
-    anchors = {
-      midpoint: {
-        dep: [p.x, p.y],
-        calc: function() {
-          var as, i, length, x, y;
-          length = calcLength(p);
-          x = p.x.gen();
-          y = p.y.gen();
-          as = [];
-          i = 0;
-          while (i < length - 1) {
-            as.push({
-              x: (x(i) + x(i + 1)) / 2,
-              y: (y(i) + y(i + 1)) / 2
-            });
-            i += 1;
-          }
-          return as;
-        }
-      }
-    };
-    a = g.append('svg:path').attr('fill', "#ff0000");
-    render = function() {
-      var af, dimChange, dur, len, x, y;
-      len = calcLength(p);
-      x = p.x.gen();
-      y = p.y.gen();
-      if (len > 0 && x && y && o.visible.get()) {
-        dimChange = panel.width.hasChanged() || panel.height.hasChanged();
-        dur = dimChange ? 0 : o.duration.get();
-        af = d3.svg.area().x(x).y1(y).y0(panel.height.gen());
-        a.attr('d', af(d3.range(len)));
-        g.style('display', null);
-      } else {
-        g.style('display', 'none');
-      }
-    };
-    dvl.register({
-      fn: render,
-      listen: [panel.width, panel.height, o.visible, p.x, p.y],
-      name: 'render_area'
-    });
-    return makeAnchors(anchors, o);
-  };
-  listen_attr.lines = ['left1', 'left2', 'top1', 'top2', 'stroke'];
-  update_attr.lines = function(m, p, prev) {
-    var gen, left1, left2, stroke, top1, top2;
-    gen = prev ? 'genPrev' : 'gen';
-    left1 = p.left1;
-    if (prev || left1.hasChanged()) {
-      m.attr('x1', left1[gen]());
-    }
-    left2 = p.left2;
-    if (prev || left2.hasChanged()) {
-      m.attr('x2', left2[gen]());
-    }
-    top1 = p.top1;
-    if (prev || top1.hasChanged()) {
-      m.attr('y1', top1[gen]());
-    }
-    top2 = p.top2;
-    if (prev || top2.hasChanged()) {
-      m.attr('y2', top2[gen]());
-    }
-    stroke = p.stroke;
-    if (stroke && (prev || stroke.hasChanged())) {
-      m.style('stroke', stroke[gen]());
-    }
-  };
-  dvl.svg.lines = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
-    o = processOptions(options, 'line', 'lines');
-    if (o.clip == null) {
-      o.clip = true;
-    }
-    p = processProps(options.props);
-    panel = options.panel;
-    p.left1 || (p.left1 = p.left);
-    p.left2 || (p.left2 = p.left);
-    p.right1 || (p.right1 = p.right);
-    p.right2 || (p.right2 = p.right);
-    p.top1 || (p.top1 = p.top);
-    p.top2 || (p.top2 = p.top);
-    p.bottom1 || (p.bottom1 = p.bottom);
-    p.bottom2 || (p.bottom2 = p.bottom);
-    removeUndefined(p);
-    processDim2(p, panel.width, 'left1', 'right1');
-    processDim2(p, panel.width, 'left2', 'right2');
-    processDim2(p, panel.height, 'top1', 'bottom1');
-    processDim2(p, panel.height, 'top2', 'bottom2');
-    g = initGroup(panel, o);
-    clip = initClip(panel, g, o);
-    anchors = {
-      midpoint1: {
-        dep: [p.left1, p.top1],
-        calc: function() {
-          var as, i, length, x, y;
-          length = calcLength(p);
-          x = p.left1.gen();
-          y = p.top1.gen();
-          as = [];
-          i = 0;
-          while (i < length - 1) {
-            as.push({
-              x: (x(i) + x(i + 1)) / 2,
-              y: (y(i) + y(i + 1)) / 2
-            });
-            i += 1;
-          }
-          return as;
-        }
-      },
-      midpoint2: {
-        dep: [p.left2, p.top2],
-        calc: function() {
-          var as, i, length, x, y;
-          length = calcLength(p);
-          x = p.left2.gen();
-          y = p.top2.gen();
-          as = [];
-          i = 0;
-          while (i < length - 1) {
-            as.push({
-              x: (x(i) + x(i + 1)) / 2,
-              y: (y(i) + y(i + 1)) / 2
-            });
-            i += 1;
-          }
-          return as;
-        }
-      },
-      center: {
-        dep: [p.left1, p.left2, p.top1, p.top2],
-        calc: function() {
-          var as, i, length, x1, x2, y1, y2;
-          length = calcLength(p);
-          x1 = p.left1.gen();
-          y1 = p.top1.gen();
-          x2 = p.left2.gen();
-          y2 = p.top2.gen();
-          as = [];
-          i = 0;
-          while (i < length) {
-            as.push({
-              x: (x1(i) + x2(i)) / 2,
-              y: (y1(i) + y2(i)) / 2
-            });
-            i += 1;
-          }
-          return as;
-        }
-      }
-    };
-    render = function() {
-      var dur, len, m;
-      len = calcLength(p);
-      if (o.visible.get()) {
-        m = selectEnterExit(g, o, p, len);
-        update_attr[o.myClass](m, p, true);
-        if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          dur = 0;
-        } else {
-          dur = o.duration.get();
-        }
-        m = reselectUpdate(g, o, dur);
-        update_attr[o.myClass](m, p);
-        g.style('display', null);
-      } else {
-        g.style('display', 'none');
-      }
-    };
-    listen = [panel.width, panel.height, o.visible];
-    _ref2 = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-      k = _ref2[_i];
-      listen.push(p[k]);
-    }
-    dvl.register({
-      fn: render,
-      listen: listen,
-      name: 'lines_render'
-    });
-    return makeAnchors(anchors, o);
-  };
-  listen_attr.bars = ['left', 'top', 'width', 'height', 'fill', 'stroke'];
-  update_attr.bars = function(m, p, prev) {
-    var fill, gen, height, left, left_gen, stroke, top, top_gen, width;
-    gen = prev ? 'genPrev' : 'gen';
-    left = p.left;
-    top = p.top;
-    if (prev || left.hasChanged() || top.hasChanged()) {
-      left_gen = left[gen]();
-      top_gen = top[gen]();
-      m.attr('transform', (function(i) {
-        return "translate(" + (left_gen(i)) + "," + (top_gen(i)) + ")";
-      }));
-    }
-    width = p.width;
-    if (width && (prev || width.hasChanged())) {
-      m.attr('width', width[gen]());
-    }
-    height = p.height;
-    if (height && (prev || height.hasChanged())) {
-      m.attr('height', height[gen]());
-    }
-    fill = p.fill;
-    if (fill && (prev || fill.hasChanged())) {
-      m.attr('fill', fill[gen]());
-    }
-    stroke = p.stroke;
-    if (stroke && (prev || stroke.hasChanged())) {
-      m.attr('stroke', stroke[gen]());
-    }
-  };
-  dvl.svg.bars = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
-    o = processOptions(options, 'rect', 'bars');
-    if (o.clip == null) {
-      o.clip = true;
-    }
-    p = processProps(options.props);
-    panel = options.panel;
-    processDim4(p, panel.width, 'left', 'width', 'right', 'centerX');
-    processDim4(p, panel.height, 'top', 'height', 'bottom', 'centerY');
-    g = initGroup(panel, o);
-    clip = initClip(panel, g, o);
-    anchors = {
-      center: {
-        dep: [p.left, p.top, p.width, p.height],
-        calc: function() {
-          var as, h, i, length, w, x, y;
-          length = calcLength(p);
-          x = p.left.gen();
-          y = p.top.gen();
-          w = p.width.gen();
-          h = p.height.gen();
-          as = [];
-          i = 0;
-          while (i < length) {
-            as.push({
-              x: x(i) + w(i) / 2,
-              y: y(i) + h(i) / 2
-            });
-            i += 1;
-          }
-          return as;
-        }
-      }
-    };
-    render = function() {
-      var dimChange, dur, len, m;
-      len = calcLength(p);
-      if (len > 0 && o.visible.get()) {
-        m = selectEnterExit(g, o, p, len);
-        update_attr[o.myClass](m, p, true);
-        dimChange = panel.width.hasChanged() || panel.height.hasChanged();
-        if (dimChange) {
-          dur = 0;
-        } else {
-          dur = o.duration.get();
-        }
-        m = reselectUpdate(g, o, dur);
-        update_attr[o.myClass](m, p);
-        g.style('display', null);
-      } else {
-        g.style('display', 'none');
-      }
-    };
-    listen = [panel.width, panel.height, o.visible];
-    _ref2 = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-      k = _ref2[_i];
-      listen.push(p[k]);
-    }
-    dvl.register({
-      fn: render,
-      listen: listen,
-      name: 'bars_render'
-    });
-    return makeAnchors(anchors, o);
-  };
-  listen_attr.labels = ['left', 'top', 'baseline', 'align', 'text', 'color'];
-  update_attr.labels = function(m, p, prev) {
-    var align, angle, angle_gen, baseline, baseline_gen, color, gen, left, left_gen, top, top_gen;
-    gen = prev ? 'genPrev' : 'gen';
-    left = p.left;
-    top = p.top;
-    angle = p.angle;
-    if (prev || left.hasChanged() || top.hasChanged() || (angle && angle.hasChanged())) {
-      left_gen = left[gen]();
-      top_gen = top[gen]();
-      if (angle) {
-        angle_gen = angle[gen]();
-        m.attr('transform', (function(i) {
-          return "translate(" + (left_gen(i)) + "," + (top_gen(i)) + ") rotate(" + (angle_gen(i)) + ")";
-        }));
-      } else {
-        m.attr('transform', (function(i) {
-          return "translate(" + (left_gen(i)) + "," + (top_gen(i)) + ")";
-        }));
-      }
-    }
-    baseline = p.baseline;
-    if (baseline && (prev || baseline.hasChanged())) {
-      baseline_gen = baseline[gen]();
-      m.attr('dy', (function(i) {
-        var pi;
-        pi = baseline_gen(i);
-        if (pi === 'top') {
-          return '.71em';
-        } else if (pi === 'middle') {
-          return '.35em';
-        } else {
-          return null;
-        }
-      }));
-    }
-    align = p.align;
-    if (align && (prev || align.hasChanged())) {
-      m.attr('text-anchor', align[gen]());
-    }
-    color = p.color;
-    if (color && (prev || color.hasChanged())) {
-      m.style('fill', color[gen]());
-    }
-  };
-  dvl.svg.labels = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
-    o = processOptions(options, 'text', 'labels');
-    if (o.clip == null) {
-      o.clip = false;
-    }
-    p = processProps(options.props);
-    panel = options.panel;
-    processDim2(p, panel.width, 'left', 'right');
-    processDim2(p, panel.height, 'top', 'bottom');
-    g = initGroup(panel, o);
-    clip = initClip(panel, g, o);
-    anchors = {};
-    render = function() {
-      var dur, len, m, text;
-      len = calcLength(p);
-      if (len > 0 && o.visible.get()) {
-        text = p.text.gen();
-        m = selectEnterExit(g, o, p, len);
-        update_attr[o.myClass](m, p, true);
-        m.text(text);
-        if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          dur = 0;
-        } else {
-          dur = o.duration.get();
-        }
-        m = g.selectAll("" + o.mySvg + "." + o.myClass);
-        if (p.text.hasChanged()) {
-          m.text(text);
-        }
-        if (dur > 0) {
-          m = m.transition().duration(dur);
-        }
-        update_attr[o.myClass](m, p);
-        g.style('display', null);
-      } else {
-        g.style('display', 'none');
-      }
-    };
-    listen = [panel.width, panel.height, o.visible];
-    _ref2 = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-      k = _ref2[_i];
-      listen.push(p[k]);
-    }
-    dvl.register({
-      fn: render,
-      listen: listen,
-      name: 'labels_render'
-    });
-    return makeAnchors(anchors, o);
-  };
-  listen_attr.dots = ['left', 'top', 'radius', 'fill', 'stroke'];
-  proc_attr.dots = {
-    imm: function(m, p) {
-      var fill, stroke;
-      fill = p.fill;
-      if (fill && fill.hasChanged()) {
-        m.style('fill', fill.gen());
-      }
-      stroke = p.stroke;
-      if (stroke && stroke.hasChanged()) {
-        m.style('stroke', stroke.gen());
-      }
-    },
-    tran: function(m, p, prev) {
-      var fill, gen, left, radius, stroke, top;
-      gen = prev ? 'genPrev' : 'gen';
-      left = p.left;
-      if (left && (prev || left.hasChanged())) {
-        m.attr('cx', left[gen]());
-      }
-      top = p.top;
-      if (top && (prev || top.hasChanged())) {
-        m.attr('cy', top[gen]());
-      }
-      radius = p.radius;
-      if (radius && (prev || radius.hasChanged())) {
-        m.attr('r', radius[gen]());
-      }
-      fill = p.fill;
-      if (fill && (prev || fill.hasChanged())) {
-        m.style('fill', fill[gen]());
-      }
-      stroke = p.stroke;
-      if (stroke && (prev || stroke.hasChanged())) {
-        m.style('stroke', stroke[gen]());
-      }
-    }
-  };
-  return dvl.svg.dots = function(options) {
-    var anchors, clip, g, k, listen, o, p, panel, render, _i, _len, _ref2;
-    o = processOptions(options, 'circle', 'dots');
-    if (o.clip == null) {
-      o.clip = true;
-    }
-    p = processProps(options.props);
-    panel = options.panel;
-    processDim2(p, panel.width, 'left', 'right');
-    processDim2(p, panel.height, 'top', 'bottom');
-    g = initGroup(panel, o);
-    clip = initClip(panel, g, o);
-    anchors = {
-      left: {
-        dep: [p.left, p.top, p.radius],
-        calc: function() {
-          var as, i, length, r, x, y;
-          length = calcLength(p);
-          x = p.left.gen();
-          y = p.top.gen();
-          r = p.radius.gen();
-          as = [];
-          i = 0;
-          while (i < length) {
-            as.push({
-              x: x(i) - r(i),
-              y: y(i)
-            });
-            i += 1;
-          }
-          return as;
-        }
-      },
-      right: {
-        dep: [p.left, p.top, p.radius],
-        calc: function() {
-          var as, i, length, r, x, y;
-          length = calcLength(p);
-          x = p.left.gen();
-          y = p.top.gen();
-          r = p.radius.gen();
-          as = [];
-          i = 0;
-          while (i < length) {
-            as.push({
-              x: x(i) + r(i),
-              y: y(i)
-            });
-            i += 1;
-          }
-          return as;
-        }
-      },
-      top: {
-        dep: [p.left, p.top, p.radius],
-        calc: function() {
-          var as, i, length, r, x, y;
-          length = calcLength(p);
-          x = p.left.gen();
-          y = p.top.gen();
-          r = p.radius.gen();
-          as = [];
-          i = 0;
-          while (i < length - 1) {
-            as.push({
-              x: x(i),
-              y: y(i) - r(i)
-            });
-            i += 1;
-          }
-          return as;
-        }
-      },
-      bottom: {
-        dep: [p.left, p.top, p.radius],
-        calc: function() {
-          var as, i, length, r, x, y;
-          length = calcLength(p);
-          x = p.left.gen();
-          y = p.top.gen();
-          r = p.radius.gen();
-          as = [];
-          i = 0;
-          while (i < length - 1) {
-            as.push({
-              x: x(i),
-              y: y(i) + r(i)
-            });
-            i += 1;
-          }
-          return as;
-        }
-      }
-    };
-    render = function() {
-      var dur, len;
-      len = calcLength(p);
-      if (len > 0 && o.visible.get()) {
-        if (panel.width.hasChanged() || panel.height.hasChanged()) {
-          dur = 0;
-        } else {
-          dur = o.duration.get();
-        }
-        selectUpdate(g, o, p, len, dur);
-        g.style('display', null);
-      } else {
-        g.style('display', 'none');
-      }
-    };
-    listen = [panel.width, panel.height, o.visible];
-    _ref2 = listen_attr[o.myClass];
-    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-      k = _ref2[_i];
-      listen.push(p[k]);
-    }
-    dvl.register({
-      fn: render,
-      listen: listen,
-      name: 'dots_renderer'
-    });
-    return makeAnchors(anchors, o);
-  };
-})();
 dvl.html = {};
 dvl.html.out = function(_arg) {
   var attr, data, fn, format, hideInvalid, invalid, out, selector, style, text, updateHtml, what;
@@ -4260,462 +2982,6 @@ dvl.html.select = function(_arg) {
   });
   selChange();
   return selection;
-};
-dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columnVisible, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, listenColumnVisible, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOnIndicator, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8;
-  selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit, htmlTitles = _arg.htmlTitles;
-  if (dvl.knows(selector)) {
-    throw 'selector has to be a plain string.';
-  }
-  if (dvl.knows(columns)) {
-    throw 'columns has to be a plain array.';
-  }
-  if (dvl.knows(sort)) {
-    throw 'sort has to be a plain object.';
-  }
-  visible = dvl.wrapConstIfNeeded(visible != null ? visible : true);
-  showHeader = dvl.wrapConstIfNeeded(showHeader != null ? showHeader : true);
-  onHeaderClick = dvl.wrapConstIfNeeded(onHeaderClick);
-  headerTooltip = dvl.wrapConstIfNeeded(headerTooltip || null);
-  rowLimit = dvl.wrapConstIfNeeded(rowLimit || null);
-  sort = sort || {};
-  sortOn = dvl.wrapVarIfNeeded(sort.on);
-  sortOnIndicator = dvl.wrapVarIfNeeded((_ref2 = sort.onIndicator) != null ? _ref2 : sortOn);
-  sortOnClick = dvl.wrapConstIfNeeded((_ref3 = sort.autoOnClick) != null ? _ref3 : true);
-  sortModes = dvl.wrapConstIfNeeded(sort.modes || ['asc', 'desc', 'none']);
-  modes = sortModes.get();
-  sortOrder = dvl.wrapVarIfNeeded(sort.order || (modes.length > 0 ? modes[0] : 'none'));
-  listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortOnIndicator, sortModes, sortOrder];
-  listenColumnVisible = [];
-  sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
-  listen.push(sortIndicator);
-  numRows = dvl.def(null, 'num_rows');
-  goOrCall = function(arg, id, that) {
-    var t;
-    t = typeof arg;
-    if (t === 'function') {
-      arg.call(that, id);
-    } else if (t === 'string') {
-      window.location.href = arg;
-    }
-  };
-  if (columns.length && columns[0].columns) {
-    topHeader = [];
-    newColumns = [];
-    for (_i = 0, _len = columns.length; _i < _len; _i++) {
-      tc = columns[_i];
-      if (!(tc.columns && tc.columns.length !== 0)) {
-        continue;
-      }
-      topHeader.push({
-        title: dvl.wrapConstIfNeeded(tc.title),
-        classStr: tc.classStr,
-        span: tc.columns.length
-      });
-      listen.push(tc.title);
-      _ref4 = tc.columns;
-      for (_j = 0, _len2 = _ref4.length; _j < _len2; _j++) {
-        c = _ref4[_j];
-        newColumns.push(c);
-      }
-    }
-    columns = newColumns;
-  }
-  for (i in columns) {
-    c = columns[i];
-    c.title = dvl.wrapConstIfNeeded(c.title || '');
-    c.sortable = dvl.wrapConstIfNeeded((_ref5 = c.sortable) != null ? _ref5 : true);
-    c.showIndicator = dvl.wrapConstIfNeeded((_ref6 = c.showIndicator) != null ? _ref6 : true);
-    c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator || false);
-    c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip || null);
-    c.cellClick = dvl.wrapConstIfNeeded(c.cellClick || null);
-    c.visible = dvl.wrapConstIfNeeded((_ref7 = c.visible) != null ? _ref7 : true);
-    c.hideHeader = dvl.wrapConstIfNeeded(c.hideHeader);
-    c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'text'];
-    c.cellClassGen = c.cellClassGen ? dvl.wrapConstIfNeeded(c.cellClassGen) : null;
-    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen);
-    listenColumnVisible.push(c.visible, c.hideHeader);
-    if (c.renderer.depends) {
-      _ref8 = c.renderer.depends;
-      for (_k = 0, _len3 = _ref8.length; _k < _len3; _k++) {
-        d = _ref8[_k];
-        listen.push(d);
-      }
-    }
-    c.uniquClass = 'column_' + i;
-  }
-  t = d3.select(selector).append('table');
-  if (classStr) {
-    t.attr('class', classStr);
-  }
-  colClass = function(c) {
-    return (c.classStr || c.id) + ' ' + c.uniquClass + (c.sorted ? ' sorted' : '') + (c.sortable.get() ? ' sortable' : ' unsortable');
-  };
-  thead = t.append('thead');
-  if (topHeader) {
-    th = thead.append('tr').attr('class', 'top_header');
-  }
-  h = thead.append('tr');
-  b = t.append('tbody');
-  if (topHeader) {
-    th.selectAll('th').data(topHeader).enter().append('th').attr('class', function(d) {
-      return d.classStr || null;
-    }).attr('colspan', function(d) {
-      return d.span;
-    }).append('div').text(function(d) {
-      return d.title.get();
-    });
-  }
-  sel = h.selectAll('th').data(columns).enter().append('th').on('click', function(c) {
-    var si;
-    if (c.id == null) {
-      return;
-    }
-    goOrCall(onHeaderClick.get(), c.id, this);
-    if (sortOnClick.get() && c.sortable.get()) {
-      if (sortOn.get() === c.id) {
-        modes = sortModes.get();
-        si = modes.indexOf(sortOrder.get());
-        return sortOrder.set(modes[(si + 1) % modes.length]).notify();
-      } else {
-        return sortOn.set(c.id).notify();
-      }
-    }
-  });
-  sel.append('span');
-  si = sortIndicator.get();
-  if (si) {
-    sel.append('div').attr('class', 'sort_indicator').style('display', function(c) {
-      if (c.sortable.get()) {
-        return null;
-      } else {
-        return 'none';
-      }
-    });
-  }
-  tableLength = function() {
-    var c, l, length, _l, _len4;
-    length = +Infinity;
-    for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
-      c = columns[_l];
-      l = c.gen.len();
-      if (l < length) {
-        length = l;
-      }
-    }
-    if (length === Infinity) {
-      length = 1;
-    }
-    return length;
-  };
-  makeTable = function() {
-    var c, cg, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortIndicatorCol, sortOnId, sortOnIndicatorId, _l, _len4, _len5, _m, _sortOrder;
-    length = tableLength();
-    r = pv.range(length);
-    if (visible.hasChanged()) {
-      t.style('display', visible.get() ? null : 'none');
-    }
-    if (showHeader.hasChanged()) {
-      thead.style('display', showHeader.get() ? null : 'none');
-    }
-    if (topHeader) {
-      th.selectAll('th > div').data(topHeader).text(function(d) {
-        return d.title.get();
-      });
-    }
-    if (headerTooltip.hasChanged()) {
-      h.attr('title', headerTooltip.get());
-    }
-    if (sort) {
-      sortOnId = sortOn.get();
-      sortOnIndicatorId = sortOnIndicator.get();
-      sortCol = null;
-      sortIndicatorCol = null;
-      for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
-        c = columns[_l];
-        if (c.sorted = c.id === sortOnId) {
-          sortCol = c;
-          if (!sortCol.sortable.get()) {
-            throw "sort on column marked unsortable (" + sortOnId + ")";
-          }
-        }
-        if (c.sortedIndicator = c.id === sortOnIndicatorId) {
-          sortIndicatorCol = c;
-        }
-      }
-      _sortOrder = sortOrder.get();
-      if (_sortOrder && sortCol) {
-        sortGen = (sortCol.sortGen || sortCol.gen).gen();
-        numeric = sortGen && typeof (sortGen(0)) === 'number';
-        dir = String(_sortOrder).toLowerCase();
-        if (dir === 'desc') {
-          if (numeric) {
-            sortFn = function(i, j) {
-              var sj;
-              si = sortGen(i);
-              sj = sortGen(j);
-              if (isNaN(si)) {
-                if (isNaN(sj)) {
-                  return 0;
-                } else {
-                  return 1;
-                }
-              } else {
-                if (isNaN(sj)) {
-                  return -1;
-                } else {
-                  return sj - si;
-                }
-              }
-            };
-          } else {
-            sortFn = function(i, j) {
-              return sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase());
-            };
-          }
-          r.sort(sortFn);
-        } else if (dir === 'asc') {
-          if (numeric) {
-            sortFn = function(i, j) {
-              var sj;
-              si = sortGen(j);
-              sj = sortGen(i);
-              if (isNaN(si)) {
-                if (isNaN(sj)) {
-                  return 0;
-                } else {
-                  return 1;
-                }
-              } else {
-                if (isNaN(sj)) {
-                  return -1;
-                } else {
-                  return sj - si;
-                }
-              }
-            };
-          } else {
-            sortFn = function(i, j) {
-              return sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase());
-            };
-          }
-          r.sort(sortFn);
-        }
-      }
-      if (_sortOrder && sortIndicator.get()) {
-        dir = String(_sortOrder).toLowerCase();
-        h.selectAll('th').data(columns).select('div.sort_indicator').style('display', function(c) {
-          if (c.sortable.get()) {
-            return null;
-          } else {
-            return 'none';
-          }
-        }).attr('class', function(c) {
-          var which;
-          which = c === sortIndicatorCol && dir !== 'none' ? c.reverseIndicator.get() ? (dir === 'asc' ? 'desc' : 'asc') : dir : 'none';
-          return 'sort_indicator ' + which;
-        });
-      }
-    }
-    h.selectAll('th').data(columns).attr('class', colClass).style('display', function(c) {
-      if (c.visible.get() && !c.hideHeader.get()) {
-        return null;
-      } else {
-        return "none";
-      }
-    }).attr('title', function(c) {
-      return c.headerTooltip.get();
-    }).select('span')[htmlTitles ? 'html' : 'text'](function(c) {
-      return c.title.get();
-    });
-    limit = rowLimit.get();
-    if (limit != null) {
-      r = r.splice(0, Math.max(0, limit));
-    }
-    numRows.update(r.length);
-    sel = b.selectAll('tr').data(r);
-    ent = sel.enter().append('tr');
-    if (rowClassGen) {
-      gen = rowClassGen.gen();
-      ent.attr('class', gen);
-      sel.attr('class', gen);
-    }
-    sel.exit().remove();
-    sel = b.selectAll('tr');
-    row = sel.selectAll('td').data(columns);
-    row.enter().append('td');
-    row.attr('class', colClass);
-    row.exit().remove();
-    for (_m = 0, _len5 = columns.length; _m < _len5; _m++) {
-      col = columns[_m];
-      gen = col.gen.gen();
-      csel = sel.select('td.' + col.uniquClass);
-      csel.on('click', function(i) {
-        return goOrCall(col.cellClick.gen()(i), col, this);
-      }).style('display', col.visible.get() ? null : 'none');
-      if (col.hoverGen) {
-        csel.attr('title', col.hoverGen.gen());
-      }
-      if (col.cellClassGen) {
-        cg = col.cellClassGen.gen();
-        csel.attr('class', function(i) {
-          return colClass(col) + (cg != null ? ' ' + cg(i) : void 0);
-        });
-      }
-      col.renderer(csel, gen, col.sorted);
-    }
-  };
-  dvl.register({
-    name: 'table_maker',
-    fn: makeTable,
-    listen: listen,
-    change: [numRows]
-  });
-  columnVisible = function() {
-    var col, _l, _len4;
-    h.selectAll('th').data(columns).style('display', function(c) {
-      if (c.visible.get() && !c.hideHeader.get()) {
-        return null;
-      } else {
-        return "none";
-      }
-    });
-    for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
-      col = columns[_l];
-      sel.select('td.' + col.uniquClass).style('display', col.visible.get() ? null : 'none');
-    }
-  };
-  dvl.register({
-    name: 'table_column_visible',
-    fn: columnVisible,
-    listen: listenColumnVisible
-  });
-  return {
-    sortOn: sortOn,
-    sortOrder: sortOrder,
-    numRows: numRows,
-    node: t.node()
-  };
-};
-dvl.html.table.renderer = {
-  text: function(col, dataFn) {
-    col.text(dataFn);
-  },
-  html: function(col, dataFn) {
-    col.html(dataFn);
-  },
-  aLink: function(_arg) {
-    var f, html, linkGen, poo, what;
-    linkGen = _arg.linkGen, html = _arg.html, poo = _arg.poo;
-    what = html ? 'html' : 'text';
-    linkGen = dvl.wrapConstIfNeeded(linkGen);
-    f = function(col, dataFn) {
-      var sel;
-      sel = col.selectAll('a').data(function(d) {
-        return [d];
-      });
-      sel.enter().append('a');
-      sel.attr('href', linkGen.gen())[what](dataFn);
-    };
-    f.depends = [linkGen];
-    return f;
-  },
-  spanLink: function(_arg) {
-    var click, f, titleGen;
-    click = _arg.click;
-    titleGen = dvl.wrapConstIfNeeded(titleGen);
-    f = function(col, dataFn) {
-      var sel;
-      sel = col.selectAll('span').data(function(d) {
-        return [d];
-      });
-      sel.enter().append('span').attr('class', 'span_link');
-      sel.html(dataFn).on('click', click);
-    };
-    return f;
-  },
-  barDiv: function(col, dataFn) {
-    var sel;
-    sel = col.selectAll('div').data(function(d) {
-      return [d];
-    });
-    sel.enter().append('div').attr('class', 'bar_div').style('width', (function(d) {
-      return dataFn(d) + 'px';
-    }));
-    sel.style('width', (function(d) {
-      return dataFn(d) + 'px';
-    }));
-  },
-  img: function(col, dataFn) {
-    var sel;
-    sel = col.selectAll('img').data(function(d) {
-      return [d];
-    });
-    sel.enter().append('img').attr('src', dataFn);
-    sel.attr('src', dataFn);
-  },
-  imgDiv: function(col, dataFn) {
-    var sel;
-    sel = col.selectAll('div').data(function(d) {
-      return [d];
-    });
-    sel.enter().append('div').attr('class', dataFn);
-    sel.attr('class', dataFn);
-  },
-  svgSparkline: function(_arg) {
-    var classStr, f, height, padding, width, x, y;
-    classStr = _arg.classStr, width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
-    f = function(col, dataFn) {
-      var line, points, sel, svg;
-      svg = col.selectAll('svg').data(function(i) {
-        return [dataFn(i)];
-      });
-      line = function(d) {
-        var mmx, mmy, sx, sy;
-        mmx = dvl.util.getMinMax(d, (function(d) {
-          return d[x];
-        }));
-        mmy = dvl.util.getMinMax(d, (function(d) {
-          return d[y];
-        }));
-        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
-        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
-        return d3.svg.line().x(function(dp) {
-          return sx(dp[x]);
-        }).y(function(dp) {
-          return sy(dp[y]);
-        })(d);
-      };
-      svg.enter().append('svg:svg').attr('class', classStr).attr('width', width).attr('height', height);
-      sel = svg.selectAll('path').data(function(d) {
-        return [d];
-      });
-      sel.enter().append("svg:path").attr("class", "line");
-      sel.attr("d", line);
-      points = svg.selectAll('circle').data(function(d) {
-        var mmx, mmy, sx, sy;
-        mmx = dvl.util.getMinMax(d, (function(d) {
-          return d[x];
-        }));
-        mmy = dvl.util.getMinMax(d, (function(d) {
-          return d[y];
-        }));
-        sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
-        sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
-        return [['top', sx(d[mmy.maxIdx][x]), sy(mmy.max)], ['bottom', sx(d[mmy.minIdx][x]), sy(mmy.min)], ['right', sx(mmx.max), sy(d[mmx.maxIdx][y])], ['left', sx(mmx.min), sy(d[mmx.minIdx][y])]];
-      });
-      points.enter().append("svg:circle").attr("r", 2).attr("class", function(d) {
-        return d[0];
-      });
-      points.attr("cx", function(d) {
-        return d[1];
-      }).attr("cy", function(d) {
-        return d[2];
-      });
-    };
-    f.depends = [];
-    return f;
-  }
 };
 dvl.compare = function(acc, reverse) {
   acc = dvl.wrapConstIfNeeded(acc || dvl.ident);
@@ -5111,7 +3377,7 @@ dvl.html.table2.render = {
     };
   }
 };
-dvl_html_table = function(_arg) {
+dvl.html.table = function(_arg) {
   var b, c, classStr, colClass, columnVisible, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, listenColumnVisible, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOnIndicator, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8;
   selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit, htmlTitles = _arg.htmlTitles;
   if (dvl.knows(selector)) {
@@ -5261,7 +3527,7 @@ dvl_html_table = function(_arg) {
   makeTable = function() {
     var c, cg, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortIndicatorCol, sortOnId, sortOnIndicatorId, _l, _len4, _len5, _m, _sortOrder;
     length = tableLength();
-    r = pv.range(length);
+    r = d3.range(length);
     if (visible.hasChanged()) {
       t.style('display', visible.get() ? null : 'none');
     }
@@ -5447,3 +3713,294 @@ dvl_html_table = function(_arg) {
     node: t.node()
   };
 };
+dvl.html.table.renderer = {
+  text: function(col, dataFn) {
+    col.text(dataFn);
+  },
+  html: function(col, dataFn) {
+    col.html(dataFn);
+  },
+  aLink: function(_arg) {
+    var f, html, linkGen, poo, what;
+    linkGen = _arg.linkGen, html = _arg.html, poo = _arg.poo;
+    what = html ? 'html' : 'text';
+    linkGen = dvl.wrapConstIfNeeded(linkGen);
+    f = function(col, dataFn) {
+      var sel;
+      sel = col.selectAll('a').data(function(d) {
+        return [d];
+      });
+      sel.enter().append('a');
+      sel.attr('href', linkGen.gen())[what](dataFn);
+    };
+    f.depends = [linkGen];
+    return f;
+  },
+  spanLink: function(_arg) {
+    var click, f, titleGen;
+    click = _arg.click;
+    titleGen = dvl.wrapConstIfNeeded(titleGen);
+    f = function(col, dataFn) {
+      var sel;
+      sel = col.selectAll('span').data(function(d) {
+        return [d];
+      });
+      sel.enter().append('span').attr('class', 'span_link');
+      sel.html(dataFn).on('click', click);
+    };
+    return f;
+  },
+  barDiv: function(col, dataFn) {
+    var sel;
+    sel = col.selectAll('div').data(function(d) {
+      return [d];
+    });
+    sel.enter().append('div').attr('class', 'bar_div').style('width', (function(d) {
+      return dataFn(d) + 'px';
+    }));
+    sel.style('width', (function(d) {
+      return dataFn(d) + 'px';
+    }));
+  },
+  img: function(col, dataFn) {
+    var sel;
+    sel = col.selectAll('img').data(function(d) {
+      return [d];
+    });
+    sel.enter().append('img').attr('src', dataFn);
+    sel.attr('src', dataFn);
+  },
+  imgDiv: function(col, dataFn) {
+    var sel;
+    sel = col.selectAll('div').data(function(d) {
+      return [d];
+    });
+    sel.enter().append('div').attr('class', dataFn);
+    sel.attr('class', dataFn);
+  }
+};
+dvl.gen = {};
+dvl.gen.fromFn = function(fn) {
+  var gen;
+  gen = dvl.def(null, 'fn_generator');
+  gen.setGen(fn, Infinity);
+  return gen;
+};
+dvl.gen.fromValue = function(value, acc, fn, name) {
+  var gen, makeGen;
+  value = dvl.wrapConstIfNeeded(value);
+  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  gen = dvl.def(null, name || 'value_generator');
+  makeGen = function() {
+    var a, f, g, rv, v;
+    a = acc.get();
+    f = fn.get();
+    v = value.get();
+    if ((a != null) && (f != null) && (v != null)) {
+      rv = f(a(v));
+      g = function() {
+        return rv;
+      };
+      gen.setGen(g);
+    } else {
+      gen.setGen(null);
+    }
+    return dvl.notify(gen);
+  };
+  dvl.register({
+    fn: makeGen,
+    listen: [value, acc, fn],
+    change: [gen],
+    name: 'value_make_gen'
+  });
+  return gen;
+};
+dvl.gen.fromGen = function(generator, fn, name) {
+  var gen, makeGen;
+  generator = dvl.wrapConstIfNeeded(generator);
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  gen = dvl.def(null, name || 'generator_generator');
+  makeGen = function() {
+    var g, _fn, _generator;
+    _generator = generator.gen();
+    _fn = fn.get();
+    if ((_generator != null) && (_fn != null)) {
+      g = function(i) {
+        return _fn(_generator(i));
+      };
+      gen.setGen(g, generator.len);
+    } else {
+      gen.setGen(null);
+    }
+    return dvl.notify(gen);
+  };
+  dvl.register({
+    fn: makeGen,
+    listen: [generator, fn],
+    change: [gen],
+    name: 'generator_make_gen'
+  });
+  return gen;
+};
+dvl.gen.fromArray = function(data, acc, fn, name) {
+  var d, gen, makeGen;
+  data = dvl.wrapConstIfNeeded(data);
+  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  gen = dvl.def(null, name || 'array_generator');
+  d = [];
+  makeGen = function() {
+    var g, _acc, _data, _fn;
+    _acc = acc.get();
+    _fn = fn.get();
+    _data = data.get();
+    if ((_acc != null) && (_fn != null) && (_data != null) && _data.length > 0) {
+      d = _data;
+      g = function(i) {
+        i = i % d.length;
+        return _fn(_acc(d[i], i));
+      };
+      gen.setGen(g, _data.length);
+    } else {
+      gen.setGen(null);
+    }
+    return dvl.notify(gen);
+  };
+  dvl.register({
+    fn: makeGen,
+    listen: [data, acc, fn],
+    change: [gen],
+    name: 'array_make_gen'
+  });
+  return gen;
+};
+dvl.gen.fromRowData = dvl.gen.fromArray;
+dvl.gen.fromColumnData = function(data, acc, fn, name) {
+  var d, gen, makeGen;
+  data = dvl.wrapConstIfNeeded(data);
+  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  gen = dvl.def(null, name || 'column_generator');
+  d = [];
+  makeGen = function() {
+    var a, dObj, f, g;
+    a = acc.get();
+    f = fn.get();
+    dObj = data.get();
+    if ((a != null) && (f != null) && (dObj != null) && (d = a(dObj))) {
+      g = function(i) {
+        i = i % d.length;
+        return f(d[i]);
+      };
+      gen.setGen(g, d.length);
+    } else {
+      gen.setGen(null);
+    }
+    return dvl.notify(gen);
+  };
+  dvl.register({
+    fn: makeGen,
+    listen: [data, acc, fn],
+    change: [gen],
+    name: 'array_make_gen'
+  });
+  return gen;
+};
+dvl.gen.equal = function(genA, genB, retTrue, retFalse) {
+  var gen, makeGen;
+  if (retTrue === void 0) {
+    retTrue = true;
+  }
+  if (retFalse === void 0) {
+    retFalse = false;
+  }
+  retTrue = dvl.wrapConstIfNeeded(retTrue);
+  retFalse = dvl.wrapConstIfNeeded(retFalse);
+  gen = dvl.def(null, 'equal_generator');
+  makeGen = function() {
+    var a, b, ha, hb, lenA, lenB, rfg, rfl, rtg, rtl;
+    a = genA.gen();
+    b = genB.gen();
+    ha = a != null;
+    hb = b != null;
+    rtg = retTrue.gen();
+    rfg = retFalse.gen();
+    rtl = retTrue.len();
+    rfl = retFalse.len();
+    if (ha && ha) {
+      lenA = genA.len() || Infinity;
+      lenB = genB.len() || Infinity;
+      gen.setGen((function(i) {
+        if (a(i) === b(i)) {
+          return rtg(i);
+        } else {
+          return rfg(i);
+        }
+      }), Math.min(lenA, lenB, rtl, rfl));
+    } else if (!ha && !hb) {
+      gen.setGen(rtg, rtl);
+    } else {
+      gen.setGen(rfg, rfl);
+    }
+    return dvl.notify(gen);
+  };
+  dvl.register({
+    fn: makeGen,
+    listen: [genA, genB, retTrue, retFalse],
+    change: [gen],
+    name: 'equal_make_gen'
+  });
+  return gen;
+};
+generator_maker_maker = function(combiner, name) {
+  return function() {
+    var args, gen, makeGen;
+    args = Array.prototype.slice.apply(arguments);
+    gen = dvl.def(null, name + '_generator');
+    makeGen = function() {
+      var arg, arg_gen, g, gens, lens, valid, _i, _len;
+      valid = args.length > 0;
+      gens = [];
+      lens = [];
+      for (_i = 0, _len = args.length; _i < _len; _i++) {
+        arg = args[_i];
+        arg_gen = arg.gen();
+        if (arg_gen === null) {
+          valid = false;
+          break;
+        }
+        gens.push(arg_gen);
+        lens.push(arg.len());
+      }
+      if (valid) {
+        g = function(i) {
+          var cgen, gis, _j, _len2;
+          gis = [];
+          for (_j = 0, _len2 = gens.length; _j < _len2; _j++) {
+            cgen = gens[_j];
+            gis.push(cgen(i));
+          }
+          return combiner.apply(null, gis);
+        };
+        gen.setGen(g, Math.min.apply(null, lens));
+      } else {
+        gen.setGen(null);
+      }
+      dvl.notify(gen);
+    };
+    dvl.register({
+      fn: makeGen,
+      listen: args,
+      change: [gen],
+      name: name + '_make_gen'
+    });
+    return gen;
+  };
+};
+dvl.gen.add = generator_maker_maker((function(a, b, c) {
+  return a + b + (c || 0);
+}), 'add');
+dvl.gen.sub = generator_maker_maker((function(a, b, c) {
+  return a - b - (c || 0);
+}), 'sub');
