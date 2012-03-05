@@ -27,16 +27,14 @@ suite.addBatch({
       assert.strictEqual(t.runs, 1);
     },
 
-    "correct next run": {
-      "next run": function(t) {
-        t.a.set(4).notify();
-        assert.strictEqual(t.runs, 2);
-      }
+    "correct next run": function(t) {
+      t.a.set(4).notify();
+      assert.strictEqual(t.runs, 2);
     }
   },
 
 
-  "basic register / no run": {
+  "basic register / no init run": {
     topic: function() {
       var t = {
         runs: 0,
@@ -58,11 +56,9 @@ suite.addBatch({
       assert.strictEqual(t.runs, 0);
     },
 
-    "correct next run": {
-      "next run": function(t) {
-        t.a.set(4).notify();
-        assert.strictEqual(t.runs, 1);
-      }
+    "correct next run": function(t) {
+      t.a.set(4).notify();
+      assert.strictEqual(t.runs, 1);
     }
   },
 
@@ -92,12 +88,10 @@ suite.addBatch({
       assert.strictEqual(t.b.get(), 15);
     },
 
-    "correct next run": {
-      "next run": function(t) {
-        t.a.set(4).notify();
-        assert.strictEqual(t.runs, 2);
-        assert.strictEqual(t.b.get(), 20);
-      }
+    "correct next run": function(t) {
+      t.a.set(4).notify();
+      assert.strictEqual(t.runs, 2);
+      assert.strictEqual(t.b.get(), 20);
     }
   },
 });
