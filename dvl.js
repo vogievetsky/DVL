@@ -169,19 +169,6 @@ dvl.util = {
       maxIdx: maxIdx
     };
   },
-  getRow: function(data, i) {
-    var k, row, vs;
-    if (dvl.typeOf(data) === 'array') {
-      return data[i];
-    } else {
-      row = {};
-      for (k in data) {
-        vs = data[k];
-        row[k] = vs[i];
-      }
-      return row;
-    }
-  },
   crossDomainPost: function(url, params) {
     var clean, frame, inputs, k, post_process, v;
     frame = d3.select('body').append('iframe').style('display', 'none');
@@ -533,7 +520,7 @@ dvl.util = {
     if (dvl.knows(v)) {
       return v;
     } else {
-      return dvl["const"](v, name);
+      return dvl["const"](v).name(name);
     }
   };
   dvl.wrapVarIfNeeded = function(v, name) {
@@ -543,7 +530,7 @@ dvl.util = {
     if (dvl.knows(v)) {
       return v;
     } else {
-      return dvl.def(v, name);
+      return dvl.def(v).name(name);
     }
   };
   dvl.valueOf = function(v) {
@@ -1826,29 +1813,21 @@ dvl.snap = function(_arg) {
   value = dvl.wrapConstIfNeeded(value);
   trim = dvl.wrapConstIfNeeded(trim || false);
   name || (name = 'snaped_data');
-  out = dvl.def(null, name);
+  out = dvl.def(null).name(name);
   updateSnap = function() {
-    var a, d, dist, ds, dsc, i, minDatum, minDist, minIdx, v, _len;
+    var a, d, dist, ds, i, minDatum, minDist, minIdx, v, _len;
     ds = data.get();
     a = acc.get();
     v = value.get();
     if (ds && a && v) {
-      if (dvl.typeOf(ds) !== 'array') {
-        dsc = a(ds);
-        a = function(x) {
-          return x;
-        };
-      } else {
-        dsc = ds;
-      }
-      if (trim.get() && dsc.length !== 0 && (v < a(dsc[0]) || a(dsc[dsc.length - 1]) < v)) {
+      if (trim.get() && ds.length !== 0 && (v < a(ds[0]) || a(ds[ds.length - 1]) < v)) {
         minIdx = -1;
       } else {
         minIdx = -1;
         minDist = Infinity;
-        if (dsc) {
-          for (i = 0, _len = dsc.length; i < _len; i++) {
-            d = dsc[i];
+        if (ds) {
+          for (i = 0, _len = ds.length; i < _len; i++) {
+            d = ds[i];
             dist = Math.abs(a(d) - v);
             if (dist < minDist) {
               minDist = dist;
@@ -1857,7 +1836,7 @@ dvl.snap = function(_arg) {
           }
         }
       }
-      minDatum = minIdx < 0 ? null : dvl.util.getRow(ds, minIdx);
+      minDatum = minIdx < 0 ? null : ds[minIdx];
       if (out.get() !== minDatum) {
         out.set(minDatum);
       }

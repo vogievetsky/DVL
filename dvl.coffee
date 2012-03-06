@@ -131,15 +131,6 @@ dvl.util = {
     return { min, max, minIdx, maxIdx }
 
 
-  getRow: (data, i) ->
-    if dvl.typeOf(data) is 'array'
-      return data[i]
-    else
-      row = {}
-      for k,vs of data
-        row[k] = vs[i]
-      return row
-
   crossDomainPost: (url, params) ->
     frame = d3.select('body').append('iframe').style('display', 'none')
 
@@ -367,11 +358,11 @@ dvl.util = {
 
   dvl.wrapConstIfNeeded = (v, name) ->
     v = null if v is undefined
-    if dvl.knows(v) then v else dvl.const(v, name)
+    if dvl.knows(v) then v else dvl.const(v).name(name)
 
   dvl.wrapVarIfNeeded = (v, name) ->
     v = null if v is undefined
-    if dvl.knows(v) then v else dvl.def(v, name)
+    if dvl.knows(v) then v else dvl.def(v).name(name)
 
   dvl.valueOf = (v) ->
     if dvl.knows(v)
@@ -1418,7 +1409,7 @@ dvl.snap = ({data, acc, value, trim, name}) ->
   trim = dvl.wrapConstIfNeeded(trim or false)
   name or= 'snaped_data'
 
-  out = dvl.def(null, name)
+  out = dvl.def(null).name(name)
 
   updateSnap = ->
     ds = data.get()
@@ -1426,29 +1417,23 @@ dvl.snap = ({data, acc, value, trim, name}) ->
     v = value.get()
 
     if ds and a and v
-      if dvl.typeOf(ds) isnt 'array'
-        # ToDo: make this nicer
-        dsc = a(ds)
-        a = (x) -> x
-      else
-        dsc = ds
-
-      if trim.get() and dsc.length isnt 0 and (v < a(dsc[0]) or a(dsc[dsc.length-1]) < v)
+      if trim.get() and ds.length isnt 0 and (v < a(ds[0]) or a(ds[ds.length-1]) < v)
         minIdx = -1
       else
         minIdx = -1
         minDist = Infinity
-        if dsc
-          for d,i in dsc
+        if ds
+          for d,i in ds
             dist = Math.abs(a(d) - v)
             if dist < minDist
               minDist = dist
               minIdx = i
 
-      minDatum = if minIdx < 0 then null else dvl.util.getRow(ds, minIdx)
+      minDatum = if minIdx < 0 then null else ds[minIdx]
       out.set(minDatum) unless out.get() is minDatum
     else
       out.set(null)
+
     dvl.notify(out)
 
   dvl.register({fn:updateSnap, listen:[data, acc, value, trim], change:[out], name:name+'_maker'})
