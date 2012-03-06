@@ -29,7 +29,7 @@ function lift(fn) {
     return fn.apply(null, args);
   };
 }
-;var clipId, debug, default_compare_modes, dvl, dvl_get, dvl_op, fn, generator_maker_maker, id_class_spliter, k, op_to_lift, _ref;
+;var clipId, debug, dvl, dvl_get, dvl_op, fn, k, op_to_lift, _ref;
 var __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
@@ -818,18 +818,18 @@ dvl.util = {
     len = 0;
     return {
       push: function(l) {
-        var _name;
+        var level;
         len += 1;
-        minLevel = Math.min(minLevel, l.level);
-        (queue[_name = l.level] || (queue[_name] = [])).push(l);
-        return null;
+        level = l.level;
+        minLevel = Math.min(minLevel, level);
+        (queue[level] || (queue[level] = [])).push(l);
       },
       shift: function() {
         len -= 1;
-        while (!queue[minLevel] || queue[minLevel].length === 0) {
+        while (!(queue[minLevel] && queue[minLevel].length)) {
           minLevel += 1;
         }
-        return queue[minLevel].pop();
+        return queue[minLevel].shift();
       },
       length: function() {
         return len;
@@ -1138,9 +1138,18 @@ dvl.assert = function(_arg) {
     name: 'assert_fn'
   });
 };
-dvl.apply = function(_arg) {
-  var allowNull, apply, args, fn, invalid, name, out, ret, update;
-  fn = _arg.fn, args = _arg.args, out = _arg.out, name = _arg.name, invalid = _arg.invalid, allowNull = _arg.allowNull, update = _arg.update;
+dvl.apply = function() {
+  var allowNull, apply, args, fn, invalid, name, out, ret, update, _ref2;
+  switch (arguments.length) {
+    case 1:
+      _ref2 = arguments[0], fn = _ref2.fn, args = _ref2.args, out = _ref2.out, name = _ref2.name, invalid = _ref2.invalid, allowNull = _ref2.allowNull, update = _ref2.update;
+      break;
+    case 2:
+      args = arguments[0], fn = arguments[1];
+      break;
+    default:
+      throw "bad number of arguments";
+  }
   fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
   if (args == null) {
     throw 'dvl.apply only makes sense with at least one argument';
@@ -2194,194 +2203,205 @@ dvl.scale = {};
     };
   };
 })();
-id_class_spliter = /(?=[#.:])/;
-dvl.bind = function(args) {
-  var attrList, c, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, self, staticClass, styleList, text, transition, transitionExit, v, _i, _len, _ref2, _ref3, _ref4;
-  if (!args.parent) {
-    throw "'parent' not defiend";
-  }
-  self = args.self;
-  if (typeof self !== 'string') {
-    throw "'self' not defiend";
-  }
-  parts = self.split(id_class_spliter);
-  nodeType = parts.shift();
-  staticClass = [];
-  for (_i = 0, _len = parts.length; _i < _len; _i++) {
-    part = parts[_i];
-    c = part[0];
-    if (c === '.') {
-      staticClass.push(part.slice(1));
-    } else {
-      throw "not currently supported in 'self' (" + part + ")";
+(function() {
+  var def_data_fn, id_class_spliter;
+  id_class_spliter = /(?=[#.:])/;
+  def_data_fn = dvl["const"](function(d) {
+    return [d];
+  });
+  return dvl.bind = function(args) {
+    var attrList, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, self, staticClass, staticId, styleList, text, transition, transitionExit, v, _i, _len, _ref2, _ref3, _ref4;
+    if (!args.parent) {
+      throw "'parent' not defiend";
     }
-  }
-  staticClass = staticClass.join(' ');
-  parent = dvl.wrapConstIfNeeded(args.parent);
-  data = dvl.wrapConstIfNeeded(args.data || [void 0]);
-  join = dvl.wrapConstIfNeeded(args.join);
-  text = args.text ? dvl.wrapConstIfNeeded(args.text) : null;
-  html = args.html ? dvl.wrapConstIfNeeded(args.html) : null;
-  transition = dvl.wrapConstIfNeeded(args.transition);
-  transitionExit = dvl.wrapConstIfNeeded(args.transitionExit);
-  listen = [parent, data, join, text, html, transition, transitionExit];
-  attrList = {};
-  _ref2 = args.attr;
-  for (k in _ref2) {
-    v = _ref2[k];
-    v = dvl.wrapConstIfNeeded(v);
-    if (k === 'class' && staticClass) {
-      v = dvl.op.concat(v, ' ' + staticClass);
+    self = args.self;
+    if (typeof self !== 'string') {
+      throw "'self' not defiend";
     }
-    listen.push(v);
-    attrList[k] = v;
-  }
-  if (staticClass && !attrList['class']) {
-    attrList['class'] = dvl["const"](staticClass);
-  }
-  styleList = {};
-  _ref3 = args.style;
-  for (k in _ref3) {
-    v = _ref3[k];
-    v = dvl.wrapConstIfNeeded(v);
-    listen.push(v);
-    styleList[k] = v;
-  }
-  onList = {};
-  _ref4 = args.on;
-  for (k in _ref4) {
-    v = _ref4[k];
-    v = dvl.wrapConstIfNeeded(v);
-    listen.push(v);
-    onList[k] = v;
-  }
-  out = dvl.def(null, 'selection');
-  dvl.register({
-    listen: listen,
-    change: [out],
-    fn: function() {
-      var a, add1, add2, addO, e, enter, ex, force, k, postTrans, preTrans, s, t, v, _data, _j, _join, _k, _l, _len2, _len3, _len4, _parent, _transition, _transitionExit;
-      _parent = parent.get();
-      if (!_parent) {
-        return;
+    parts = self.split(id_class_spliter);
+    nodeType = parts.shift();
+    staticId = null;
+    staticClass = [];
+    for (_i = 0, _len = parts.length; _i < _len; _i++) {
+      part = parts[_i];
+      switch (part[0]) {
+        case '#':
+          staticId = part.substring(1);
+          break;
+        case '.':
+          staticClass.push(part.substring(1));
+          break;
+        default:
+          throw "not currently supported in 'self' (" + part + ")";
       }
-      force = parent.hasChanged() || data.hasChanged() || join.hasChanged();
-      _data = data.get();
-      _join = join.get();
-      if (_data) {
-        _transition = transition.get();
-        _transitionExit = transitionExit.get();
-        enter = [];
-        preTrans = [];
-        postTrans = [];
-        add1 = function(fn, v) {
-          if (v.hasChanged() || force) {
-            preTrans.push({
-              fn: fn,
-              a1: v.getPrev()
-            });
-            postTrans.push({
-              fn: fn,
-              a1: v.get()
-            });
+    }
+    staticClass = staticClass.join(' ');
+    parent = dvl.wrapConstIfNeeded(args.parent);
+    data = dvl.wrapConstIfNeeded(args.data || def_data_fn);
+    join = dvl.wrapConstIfNeeded(args.join);
+    text = args.text ? dvl.wrapConstIfNeeded(args.text) : null;
+    html = args.html ? dvl.wrapConstIfNeeded(args.html) : null;
+    transition = dvl.wrapConstIfNeeded(args.transition);
+    transitionExit = dvl.wrapConstIfNeeded(args.transitionExit);
+    listen = [parent, data, join, text, html, transition, transitionExit];
+    attrList = {};
+    _ref2 = args.attr;
+    for (k in _ref2) {
+      v = _ref2[k];
+      v = dvl.wrapConstIfNeeded(v);
+      if (k === 'class' && staticClass) {
+        v = dvl.op.concat(v, ' ' + staticClass);
+      }
+      listen.push(v);
+      attrList[k] = v;
+    }
+    if (staticClass && !attrList['class']) {
+      attrList['class'] = dvl["const"](staticClass);
+    }
+    styleList = {};
+    _ref3 = args.style;
+    for (k in _ref3) {
+      v = _ref3[k];
+      v = dvl.wrapConstIfNeeded(v);
+      listen.push(v);
+      styleList[k] = v;
+    }
+    onList = {};
+    _ref4 = args.on;
+    for (k in _ref4) {
+      v = _ref4[k];
+      v = dvl.wrapConstIfNeeded(v);
+      listen.push(v);
+      onList[k] = v;
+    }
+    out = dvl.def(null, 'selection');
+    dvl.register({
+      listen: listen,
+      change: [out],
+      fn: function() {
+        var a, add1, add2, addO, e, enter, ex, force, k, postTrans, preTrans, s, t, v, _data, _j, _join, _k, _l, _len2, _len3, _len4, _parent, _transition, _transitionExit;
+        _parent = parent.get();
+        if (!_parent) {
+          return;
+        }
+        force = parent.hasChanged() || data.hasChanged() || join.hasChanged();
+        _data = data.get();
+        _join = join.get();
+        if (_data) {
+          _transition = transition.get();
+          _transitionExit = transitionExit.get();
+          enter = [];
+          preTrans = [];
+          postTrans = [];
+          add1 = function(fn, v) {
+            if (v.hasChanged() || force) {
+              preTrans.push({
+                fn: fn,
+                a1: v.getPrev()
+              });
+              postTrans.push({
+                fn: fn,
+                a1: v.get()
+              });
+            } else {
+              enter.push({
+                fn: fn,
+                a1: v.get()
+              });
+            }
+          };
+          add2 = function(fn, k, v) {
+            if (v.hasChanged() || force) {
+              preTrans.push({
+                fn: fn,
+                a1: k,
+                a2: v.getPrev()
+              });
+              postTrans.push({
+                fn: fn,
+                a1: k,
+                a2: v.get()
+              });
+            } else {
+              enter.push({
+                fn: fn,
+                a1: k,
+                a2: v.get()
+              });
+            }
+          };
+          addO = function(fn, k, v) {
+            if (v.hasChanged() || force) {
+              preTrans.push({
+                fn: fn,
+                a1: k,
+                a2: v.get()
+              });
+            } else {
+              enter.push({
+                fn: fn,
+                a1: k,
+                a2: v.get()
+              });
+            }
+          };
+          if (text) {
+            add1('text', text);
+          }
+          if (html) {
+            add1('html', html);
+          }
+          for (k in attrList) {
+            v = attrList[k];
+            add2('attr', k, v);
+          }
+          for (k in styleList) {
+            v = styleList[k];
+            add2('style', k, v);
+          }
+          for (k in onList) {
+            v = onList[k];
+            addO('on', k, v);
+          }
+          s = _parent.selectAll(self).data(_data, _join);
+          e = s.enter().append(nodeType);
+          for (_j = 0, _len2 = enter.length; _j < _len2; _j++) {
+            a = enter[_j];
+            e[a.fn](a.a1, a.a2);
+          }
+          for (_k = 0, _len3 = preTrans.length; _k < _len3; _k++) {
+            a = preTrans[_k];
+            s[a.fn](a.a1, a.a2);
+          }
+          if (_transition && (_transition.duration != null)) {
+            t = s.transition();
+            t.duration(_transition.duration || 1000);
+            if (_transition.delay) {
+              t.delay(_transition.delay);
+            }
+            if (_transition.ease) {
+              t.ease(_transition.ease);
+            }
           } else {
-            enter.push({
-              fn: fn,
-              a1: v.get()
-            });
+            t = s;
           }
-        };
-        add2 = function(fn, k, v) {
-          if (v.hasChanged() || force) {
-            preTrans.push({
-              fn: fn,
-              a1: k,
-              a2: v.getPrev()
-            });
-            postTrans.push({
-              fn: fn,
-              a1: k,
-              a2: v.get()
-            });
-          } else {
-            enter.push({
-              fn: fn,
-              a1: k,
-              a2: v.get()
-            });
+          for (_l = 0, _len4 = postTrans.length; _l < _len4; _l++) {
+            a = postTrans[_l];
+            t[a.fn](a.a1, a.a2);
           }
-        };
-        addO = function(fn, k, v) {
-          if (v.hasChanged() || force) {
-            preTrans.push({
-              fn: fn,
-              a1: k,
-              a2: v.get()
-            });
-          } else {
-            enter.push({
-              fn: fn,
-              a1: k,
-              a2: v.get()
-            });
-          }
-        };
-        if (text) {
-          add1('text', text);
-        }
-        if (html) {
-          add1('html', html);
-        }
-        for (k in attrList) {
-          v = attrList[k];
-          add2('attr', k, v);
-        }
-        for (k in styleList) {
-          v = styleList[k];
-          add2('style', k, v);
-        }
-        for (k in onList) {
-          v = onList[k];
-          addO('on', k, v);
-        }
-        s = _parent.selectAll(self).data(_data, _join);
-        e = s.enter().append(nodeType);
-        for (_j = 0, _len2 = enter.length; _j < _len2; _j++) {
-          a = enter[_j];
-          e[a.fn](a.a1, a.a2);
-        }
-        for (_k = 0, _len3 = preTrans.length; _k < _len3; _k++) {
-          a = preTrans[_k];
-          s[a.fn](a.a1, a.a2);
-        }
-        if (_transition && (_transition.duration != null)) {
-          t = s.transition();
-          t.duration(_transition.duration || 1000);
-          if (_transition.delay) {
-            t.delay(_transition.delay);
-          }
-          if (_transition.ease) {
-            t.ease(_transition.ease);
+          ex = s.exit().remove();
+          if (!(e.empty() && ex.empty())) {
+            out.set(s).notify();
           }
         } else {
-          t = s;
-        }
-        for (_l = 0, _len4 = postTrans.length; _l < _len4; _l++) {
-          a = postTrans[_l];
-          t[a.fn](a.a1, a.a2);
-        }
-        ex = s.exit().remove();
-        if (!(e.empty() && ex.empty())) {
+          s = _parent.selectAll(self).remove();
           out.set(s).notify();
         }
-      } else {
-        s = _parent.selectAll(self).remove();
-        out.set(s).notify();
       }
-    }
-  });
-  return out;
-};
+    });
+    return out;
+  };
+})();
 dvl.chain = function(f, h) {
   var out;
   f = dvl.wrapConstIfNeeded(f);
@@ -3021,986 +3041,362 @@ dvl.compare = function(acc, reverse) {
     }
   });
 };
-default_compare_modes = ['up', 'down'];
-dvl.html.table2 = function(_arg) {
-  var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref2, _ref3, _ref4;
-  parent = _arg.parent, data = _arg.data, sort = _arg.sort, classStr = _arg.classStr, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
-  table = dvl.valueOf(parent).append('table').attr('class', classStr);
-  sort = sort || {};
-  sortOn = dvl.wrapVarIfNeeded(sort.on);
-  sortDir = dvl.wrapVarIfNeeded(sort.dir);
-  sortOnIndicator = dvl.wrapVarIfNeeded((_ref2 = sort.onIndicator) != null ? _ref2 : sortOn);
-  headerCol = [];
-  bodyCol = [];
-  compareMap = {};
-  compareList = [sortOn, sortDir];
-  for (_i = 0, _len = columns.length; _i < _len; _i++) {
-    c = columns[_i];
-        if ((_ref3 = c.sortable) != null) {
-      _ref3;
-    } else {
-      c.sortable = true;
-    };
-    if (c.sortable) {
-      if (c.compare != null) {
-        comp = dvl.wrapConstIfNeeded(c.compare);
-      } else {
-        comp = dvl.compare(c.value);
-      }
-      compareMap[c.id] = comp;
-      compareList.push(comp);
-      if (!((_ref4 = c.compareModes) != null ? _ref4[0] : void 0)) {
-        c.compareModes = default_compare_modes;
-      }
-    }
-    headerCol.push({
-      id: c.id,
-      title: c.title,
-      classStr: c.classStr,
-      tooltip: c.headerTooltip
-    });
-    bodyCol.push({
-      id: c.id,
-      "class": c.classStr,
-      value: c.value,
-      render: c.render,
-      on: c.on
-    });
-  }
-  compare = dvl.def(null, 'compare');
-  dvl.register({
-    listen: compareList,
-    change: [compare],
-    fn: function() {
-      var cmp, oldCmp, _ref5, _sortDir, _sortOn;
-      _sortOn = sortOn.get();
-      _sortDir = sortDir.get();
-      if (_sortOn != null) {
-        cmp = (_ref5 = compareMap[_sortOn]) != null ? _ref5.get() : void 0;
-        if (cmp && _sortDir === 'down') {
-          oldCmp = cmp;
-          cmp = function(a, b) {
-            return oldCmp(b, a);
-          };
-        }
-        compare.set(cmp);
-      } else {
-        compare.set(null);
-      }
-      compare.notify();
-    }
-  });
-  dvl.html.table2.header({
-    parent: table,
-    columns: headerCol,
-    onClick: function(id) {
-      var c, column, compareModes, _j, _len2;
-      column = null;
-      for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
-        c = columns[_j];
-        if (c.id === id) {
-          column = c;
-          break;
-        }
-      }
-      if (!(column && column.sortable)) {
-        return;
-      }
-      compareModes = column.compareModes;
-      if (id === sortOn.get()) {
-        sortDir.set(compareModes[(compareModes.indexOf(sortDir.get()) + 1) % compareModes.length]);
-        dvl.notify(sortDir);
-      } else {
-        sortOn.set(id);
-        sortDir.set(compareModes[0]);
-        dvl.notify(sortOn, sortDir);
-      }
-    }
-  });
-  dvl.html.table2.body({
-    parent: table,
-    data: data,
-    rowClass: rowClass,
-    rowLimit: rowLimit,
-    columns: bodyCol,
-    compare: compare
-  });
-  return {};
-};
-dvl.html.table2.header = function(_arg) {
-  var c, columns, listen, onClick, parent, thead, _i, _len;
-  parent = _arg.parent, columns = _arg.columns, onClick = _arg.onClick;
-  if (!parent) {
-    throw 'there needs to be a parent';
-  }
-  thead = dvl.valueOf(parent).append('thead').append('tr');
-  listen = [];
-  for (_i = 0, _len = columns.length; _i < _len; _i++) {
-    c = columns[_i];
-    c.title = dvl.wrapConstIfNeeded(c.title);
-    c.classStr = dvl.wrapConstIfNeeded(c.classStr);
-    c.tooltip = dvl.wrapConstIfNeeded(c.tooltip);
-    listen.push(c.title, c.classStr, c.tooltip);
-  }
-  dvl.register({
-    name: 'head_render',
-    listen: listen,
-    fn: function() {
-      var colSel;
-      colSel = thead.selectAll('td').data(columns);
-      colSel.enter().append('td');
-      colSel.exit().remove();
-      colSel.attr('class', function(c) {
-        return c.classStr.get();
-      }).attr('title', function(c) {
-        return c.tooltip.get();
-      }).text(function(c) {
-        return c.title.get();
-      }).on('click', function(c) {
-        return onClick(c.id);
-      });
-    }
-  });
-};
-dvl.html.table2.body = function(_arg) {
-  var c, change, columns, compare, data, k, listen, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2;
-  parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
-  if (!parent) {
-    throw 'there needs to be a parent';
-  }
-  if (!data) {
-    throw 'there needs to be data';
-  }
-  tbody = dvl.valueOf(parent).append('tbody');
-  compare = dvl.wrapConstIfNeeded(compare);
-  if (rowClass != null) {
-    rowClass = dvl.wrapConstIfNeeded(rowClass);
-  }
-  rowLimit = dvl.wrapConstIfNeeded(rowLimit);
-  listen = [data, compare, rowClass, rowLimit];
-  change = [];
-  for (_i = 0, _len = columns.length; _i < _len; _i++) {
-    c = columns[_i];
-    c["class"] = dvl.wrapConstIfNeeded(c["class"]);
-    c.value = dvl.wrapConstIfNeeded(c.value);
-    listen.push(c["class"]);
-    _ref2 = c.on;
-    for (k in _ref2) {
-      v = _ref2[k];
-      v = dvl.wrapConstIfNeeded(v);
-      listen.push(v);
-      c.on[k] = v;
-    }
-    change.push(c.selection = dvl.def(null, "" + c.id + "_selection"));
-  }
-  dvl.register({
-    name: 'body_render',
-    listen: listen,
-    change: change,
-    fn: function() {
-      var c, colSel, dataSorted, i, k, rowSel, sel, v, _compare, _data, _len2, _ref3, _rowClass, _rowLimit;
-      _data = data.get();
-      if (!_data) {
-        tbody.selectAll('tr').remove();
-        return;
-      }
-      dataSorted = _data;
-      _compare = compare.get();
-      if (_compare) {
-        dataSorted = dataSorted.slice().sort(_compare);
-      }
-      _rowLimit = rowLimit.get();
-      if (_rowLimit != null) {
-        dataSorted = dataSorted.slice(0, _rowLimit);
-      }
-      rowSel = tbody.selectAll('tr').data(dataSorted);
-      rowSel.enter().append('tr');
-      rowSel.exit().remove();
-      if (rowClass) {
-        _rowClass = rowClass.get();
-        rowSel.attr('class', _rowClass);
-      }
-      colSel = rowSel.selectAll('td').data(columns);
-      colSel.enter().append('td');
-      colSel.exit().remove();
-      for (i = 0, _len2 = columns.length; i < _len2; i++) {
-        c = columns[i];
-        sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted).attr('class', c["class"].get());
-        _ref3 = c.on;
-        for (k in _ref3) {
-          v = _ref3[k];
-          sel.on(k, v.get());
-        }
-        c.selection.set(sel).notify();
-      }
-    }
-  });
-  for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
-    c = columns[_j];
-    render = typeof c.render !== 'function' ? dvl.html.table2.render[c.render || 'text'] : c.render;
-    render.call(c, c.selection, c.value);
-  }
-};
-dvl.html.table2.render = {
-  text: function(selection, value) {
-    dvl.register({
-      listen: [selection, value],
-      fn: function() {
-        var _selection, _value;
-        _selection = selection.get();
-        _value = value.get();
-        if ((_selection != null) && _value) {
-          _selection.text(_value);
-        }
-      }
-    });
-  },
-  html: function(selection, value) {
-    dvl.register({
-      listen: [selection, value],
-      fn: function() {
-        var _selection, _value;
-        _selection = selection.get();
-        _value = value.get();
-        if ((_selection != null) && _value) {
-          _selection.html(_value);
-        }
-      }
-    });
-  },
-  aLink: function(_arg) {
-    var href;
-    href = _arg.href;
-    return function(selection, value) {
-      dvl.bind({
-        parent: selection,
-        self: 'a.link',
-        data: function(d) {
-          return [d];
-        },
-        attr: {
-          href: href
-        },
-        text: value
-      });
-    };
-  },
-  spanLink: function(_arg) {
-    var click, titleGen;
-    click = _arg.click;
-    titleGen = dvl.wrapConstIfNeeded(titleGen);
-    return function(sel, value) {
-      sel = sel.selectAll('span').data(function(d) {
-        return [d];
-      });
-      sel.enter().append('span').attr('class', 'span_link');
-      sel.html(value).on('click', click);
-    };
-  },
-  img: function(selection, value) {
-    dvl.bind({
-      parent: selection,
-      self: 'img',
-      data: function(d) {
-        return [d];
-      },
-      attr: {
-        src: value
-      }
-    });
-  },
-  imgDiv: function(sel, value) {
-    sel = sel.selectAll('div').data(function(d) {
-      return [d];
-    });
-    sel.enter().append('div');
-    sel.attr('class', value);
-  },
-  sparkline: function(_arg) {
-    var height, padding, width, x, y;
-    width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
-        if (padding != null) {
-      padding;
-    } else {
-      padding = 0;
-    };
-    return function(selection, value) {
-      var dataFn, lineFn, svg;
-      lineFn = dvl.apply({
-        args: [x, y, padding],
-        fn: function(x, y, padding) {
-          return function(d) {
-            var mmx, mmy, sx, sy;
-            mmx = dvl.util.getMinMax(d, (function(d) {
-              return d[x];
-            }));
-            mmy = dvl.util.getMinMax(d, (function(d) {
-              return d[y];
-            }));
-            sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
-            sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
-            return d3.svg.line().x(function(dp) {
-              return sx(dp[x]);
-            }).y(function(dp) {
-              return sy(dp[y]);
-            })(d);
-          };
-        }
-      });
-      dataFn = dvl.apply({
-        args: value,
-        fn: function(value) {
-          return function(d, i) {
-            return [value(d, i)];
-          };
-        }
-      });
-      svg = dvl.bind({
-        parent: selection,
-        self: 'svg.sparkline',
-        data: dataFn,
-        attr: {
-          width: width,
-          height: height
-        }
-      });
-      dvl.bind({
-        parent: svg,
-        self: 'path',
-        data: function(d) {
-          return [d];
-        },
-        attr: {
-          d: lineFn
-        }
-      });
-    };
-  }
-};
-dvl.html.table = function(_arg) {
-  var b, c, classStr, colClass, columnVisible, columns, d, goOrCall, h, headerTooltip, htmlTitles, i, listen, listenColumnVisible, makeTable, modes, newColumns, numRows, onHeaderClick, rowClassGen, rowLimit, sel, selector, showHeader, si, sort, sortIndicator, sortModes, sortOn, sortOnClick, sortOnIndicator, sortOrder, t, tableLength, tc, th, thead, topHeader, visible, _i, _j, _k, _len, _len2, _len3, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8;
-  selector = _arg.selector, classStr = _arg.classStr, rowClassGen = _arg.rowClassGen, visible = _arg.visible, columns = _arg.columns, showHeader = _arg.showHeader, sort = _arg.sort, onHeaderClick = _arg.onHeaderClick, headerTooltip = _arg.headerTooltip, rowLimit = _arg.rowLimit, htmlTitles = _arg.htmlTitles;
-  if (dvl.knows(selector)) {
-    throw 'selector has to be a plain string.';
-  }
-  if (dvl.knows(columns)) {
-    throw 'columns has to be a plain array.';
-  }
-  if (dvl.knows(sort)) {
-    throw 'sort has to be a plain object.';
-  }
-  visible = dvl.wrapConstIfNeeded(visible != null ? visible : true);
-  showHeader = dvl.wrapConstIfNeeded(showHeader != null ? showHeader : true);
-  onHeaderClick = dvl.wrapConstIfNeeded(onHeaderClick);
-  headerTooltip = dvl.wrapConstIfNeeded(headerTooltip || null);
-  rowLimit = dvl.wrapConstIfNeeded(rowLimit || null);
-  sort = sort || {};
-  sortOn = dvl.wrapVarIfNeeded(sort.on);
-  sortOnIndicator = dvl.wrapVarIfNeeded((_ref2 = sort.onIndicator) != null ? _ref2 : sortOn);
-  sortOnClick = dvl.wrapConstIfNeeded((_ref3 = sort.autoOnClick) != null ? _ref3 : true);
-  sortModes = dvl.wrapConstIfNeeded(sort.modes || ['asc', 'desc', 'none']);
-  modes = sortModes.get();
-  sortOrder = dvl.wrapVarIfNeeded(sort.order || (modes.length > 0 ? modes[0] : 'none'));
-  listen = [rowClassGen, visible, showHeader, headerTooltip, rowLimit, sortOn, sortOnIndicator, sortModes, sortOrder];
-  listenColumnVisible = [];
-  sortIndicator = dvl.wrapConstIfNeeded(sort.indicator);
-  listen.push(sortIndicator);
-  numRows = dvl.def(null, 'num_rows');
-  goOrCall = function(arg, id, that) {
-    var t;
-    t = typeof arg;
-    if (t === 'function') {
-      arg.call(that, id);
-    } else if (t === 'string') {
-      window.location.href = arg;
-    }
-  };
-  if (columns.length && columns[0].columns) {
-    topHeader = [];
-    newColumns = [];
+(function() {
+  var default_compare_modes;
+  default_compare_modes = ['up', 'down'];
+  dvl.html.table = function(_arg) {
+    var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref2, _ref3, _ref4;
+    parent = _arg.parent, data = _arg.data, sort = _arg.sort, classStr = _arg.classStr, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
+    table = dvl.valueOf(parent).append('table').attr('class', classStr);
+    sort = sort || {};
+    sortOn = dvl.wrapVarIfNeeded(sort.on);
+    sortDir = dvl.wrapVarIfNeeded(sort.dir);
+    sortOnIndicator = dvl.wrapVarIfNeeded((_ref2 = sort.onIndicator) != null ? _ref2 : sortOn);
+    headerCol = [];
+    bodyCol = [];
+    compareMap = {};
+    compareList = [sortOn, sortDir];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
-      tc = columns[_i];
-      if (!(tc.columns && tc.columns.length !== 0)) {
-        continue;
-      }
-      topHeader.push({
-        title: dvl.wrapConstIfNeeded(tc.title),
-        classStr: tc.classStr,
-        span: tc.columns.length
-      });
-      listen.push(tc.title);
-      _ref4 = tc.columns;
-      for (_j = 0, _len2 = _ref4.length; _j < _len2; _j++) {
-        c = _ref4[_j];
-        newColumns.push(c);
-      }
-    }
-    columns = newColumns;
-  }
-  for (i in columns) {
-    c = columns[i];
-    c.title = dvl.wrapConstIfNeeded(c.title || '');
-    c.sortable = dvl.wrapConstIfNeeded((_ref5 = c.sortable) != null ? _ref5 : true);
-    c.showIndicator = dvl.wrapConstIfNeeded((_ref6 = c.showIndicator) != null ? _ref6 : true);
-    c.reverseIndicator = dvl.wrapConstIfNeeded(c.reverseIndicator || false);
-    c.headerTooltip = dvl.wrapConstIfNeeded(c.headerTooltip || null);
-    c.cellClick = dvl.wrapConstIfNeeded(c.cellClick || null);
-    c.visible = dvl.wrapConstIfNeeded((_ref7 = c.visible) != null ? _ref7 : true);
-    c.hideHeader = dvl.wrapConstIfNeeded(c.hideHeader);
-    c.renderer = typeof c.renderer === 'function' ? c.renderer : dvl.html.table.renderer[c.renderer || 'text'];
-    c.cellClassGen = c.cellClassGen ? dvl.wrapConstIfNeeded(c.cellClassGen) : null;
-    listen.push(c.title, c.showIndicator, c.reverseIndicator, c.gen, c.sortGen, c.hoverGen, c.headerTooltip, c.cellClick, c.cellClassGen);
-    listenColumnVisible.push(c.visible, c.hideHeader);
-    if (c.renderer.depends) {
-      _ref8 = c.renderer.depends;
-      for (_k = 0, _len3 = _ref8.length; _k < _len3; _k++) {
-        d = _ref8[_k];
-        listen.push(d);
-      }
-    }
-    c.uniquClass = 'column_' + i;
-  }
-  t = d3.select(selector).append('table');
-  if (classStr) {
-    t.attr('class', classStr);
-  }
-  colClass = function(c) {
-    return (c.classStr || c.id) + ' ' + c.uniquClass + (c.sorted ? ' sorted' : '') + (c.sortable.get() ? ' sortable' : ' unsortable');
-  };
-  thead = t.append('thead');
-  if (topHeader) {
-    th = thead.append('tr').attr('class', 'top_header');
-  }
-  h = thead.append('tr');
-  b = t.append('tbody');
-  if (topHeader) {
-    th.selectAll('th').data(topHeader).enter().append('th').attr('class', function(d) {
-      return d.classStr || null;
-    }).attr('colspan', function(d) {
-      return d.span;
-    }).append('div').text(function(d) {
-      return d.title.get();
-    });
-  }
-  sel = h.selectAll('th').data(columns).enter().append('th').on('click', function(c) {
-    var si;
-    if (c.id == null) {
-      return;
-    }
-    goOrCall(onHeaderClick.get(), c.id, this);
-    if (sortOnClick.get() && c.sortable.get()) {
-      if (sortOn.get() === c.id) {
-        modes = sortModes.get();
-        si = modes.indexOf(sortOrder.get());
-        return sortOrder.set(modes[(si + 1) % modes.length]).notify();
+      c = columns[_i];
+            if ((_ref3 = c.sortable) != null) {
+        _ref3;
       } else {
-        return sortOn.set(c.id).notify();
-      }
-    }
-  });
-  sel.append('span');
-  si = sortIndicator.get();
-  if (si) {
-    sel.append('div').attr('class', 'sort_indicator').style('display', function(c) {
-      if (c.sortable.get()) {
-        return null;
-      } else {
-        return 'none';
-      }
-    });
-  }
-  tableLength = function() {
-    var c, l, length, _l, _len4;
-    length = +Infinity;
-    for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
-      c = columns[_l];
-      l = c.gen.len();
-      if (l < length) {
-        length = l;
-      }
-    }
-    if (length === Infinity) {
-      length = 1;
-    }
-    return length;
-  };
-  makeTable = function() {
-    var c, cg, col, csel, dir, ent, gen, length, limit, numeric, r, row, sortCol, sortFn, sortGen, sortIndicatorCol, sortOnId, sortOnIndicatorId, _l, _len4, _len5, _m, _sortOrder;
-    length = tableLength();
-    r = d3.range(length);
-    if (visible.hasChanged()) {
-      t.style('display', visible.get() ? null : 'none');
-    }
-    if (showHeader.hasChanged()) {
-      thead.style('display', showHeader.get() ? null : 'none');
-    }
-    if (topHeader) {
-      th.selectAll('th > div').data(topHeader).text(function(d) {
-        return d.title.get();
-      });
-    }
-    if (headerTooltip.hasChanged()) {
-      h.attr('title', headerTooltip.get());
-    }
-    if (sort) {
-      sortOnId = sortOn.get();
-      sortOnIndicatorId = sortOnIndicator.get();
-      sortCol = null;
-      sortIndicatorCol = null;
-      for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
-        c = columns[_l];
-        if (c.sorted = c.id === sortOnId) {
-          sortCol = c;
-          if (!sortCol.sortable.get()) {
-            throw "sort on column marked unsortable (" + sortOnId + ")";
-          }
-        }
-        if (c.sortedIndicator = c.id === sortOnIndicatorId) {
-          sortIndicatorCol = c;
-        }
-      }
-      _sortOrder = sortOrder.get();
-      if (_sortOrder && sortCol) {
-        sortGen = (sortCol.sortGen || sortCol.gen).gen();
-        numeric = sortGen && typeof (sortGen(0)) === 'number';
-        dir = String(_sortOrder).toLowerCase();
-        if (dir === 'desc') {
-          if (numeric) {
-            sortFn = function(i, j) {
-              var sj;
-              si = sortGen(i);
-              sj = sortGen(j);
-              if (isNaN(si)) {
-                if (isNaN(sj)) {
-                  return 0;
-                } else {
-                  return 1;
-                }
-              } else {
-                if (isNaN(sj)) {
-                  return -1;
-                } else {
-                  return sj - si;
-                }
-              }
-            };
-          } else {
-            sortFn = function(i, j) {
-              return sortGen(j).toLowerCase().localeCompare(sortGen(i).toLowerCase());
-            };
-          }
-          r.sort(sortFn);
-        } else if (dir === 'asc') {
-          if (numeric) {
-            sortFn = function(i, j) {
-              var sj;
-              si = sortGen(j);
-              sj = sortGen(i);
-              if (isNaN(si)) {
-                if (isNaN(sj)) {
-                  return 0;
-                } else {
-                  return 1;
-                }
-              } else {
-                if (isNaN(sj)) {
-                  return -1;
-                } else {
-                  return sj - si;
-                }
-              }
-            };
-          } else {
-            sortFn = function(i, j) {
-              return sortGen(i).toLowerCase().localeCompare(sortGen(j).toLowerCase());
-            };
-          }
-          r.sort(sortFn);
-        }
-      }
-      if (_sortOrder && sortIndicator.get()) {
-        dir = String(_sortOrder).toLowerCase();
-        h.selectAll('th').data(columns).select('div.sort_indicator').style('display', function(c) {
-          if (c.sortable.get()) {
-            return null;
-          } else {
-            return 'none';
-          }
-        }).attr('class', function(c) {
-          var which;
-          which = c === sortIndicatorCol && dir !== 'none' ? c.reverseIndicator.get() ? (dir === 'asc' ? 'desc' : 'asc') : dir : 'none';
-          return 'sort_indicator ' + which;
-        });
-      }
-    }
-    h.selectAll('th').data(columns).attr('class', colClass).style('display', function(c) {
-      if (c.visible.get() && !c.hideHeader.get()) {
-        return null;
-      } else {
-        return "none";
-      }
-    }).attr('title', function(c) {
-      return c.headerTooltip.get();
-    }).select('span')[htmlTitles ? 'html' : 'text'](function(c) {
-      return c.title.get();
-    });
-    limit = rowLimit.get();
-    if (limit != null) {
-      r = r.splice(0, Math.max(0, limit));
-    }
-    numRows.update(r.length);
-    sel = b.selectAll('tr').data(r);
-    ent = sel.enter().append('tr');
-    if (rowClassGen) {
-      gen = rowClassGen.gen();
-      ent.attr('class', gen);
-      sel.attr('class', gen);
-    }
-    sel.exit().remove();
-    sel = b.selectAll('tr');
-    row = sel.selectAll('td').data(columns);
-    row.enter().append('td');
-    row.attr('class', colClass);
-    row.exit().remove();
-    for (_m = 0, _len5 = columns.length; _m < _len5; _m++) {
-      col = columns[_m];
-      gen = col.gen.gen();
-      csel = sel.select('td.' + col.uniquClass);
-      csel.on('click', function(i) {
-        return goOrCall(col.cellClick.gen()(i), col, this);
-      }).style('display', col.visible.get() ? null : 'none');
-      if (col.hoverGen) {
-        csel.attr('title', col.hoverGen.gen());
-      }
-      if (col.cellClassGen) {
-        cg = col.cellClassGen.gen();
-        csel.attr('class', function(i) {
-          return colClass(col) + (cg != null ? ' ' + cg(i) : void 0);
-        });
-      }
-      col.renderer(csel, gen, col.sorted);
-    }
-  };
-  dvl.register({
-    name: 'table_maker',
-    fn: makeTable,
-    listen: listen,
-    change: [numRows]
-  });
-  columnVisible = function() {
-    var col, _l, _len4;
-    h.selectAll('th').data(columns).style('display', function(c) {
-      if (c.visible.get() && !c.hideHeader.get()) {
-        return null;
-      } else {
-        return "none";
-      }
-    });
-    for (_l = 0, _len4 = columns.length; _l < _len4; _l++) {
-      col = columns[_l];
-      sel.select('td.' + col.uniquClass).style('display', col.visible.get() ? null : 'none');
-    }
-  };
-  dvl.register({
-    name: 'table_column_visible',
-    fn: columnVisible,
-    listen: listenColumnVisible
-  });
-  return {
-    sortOn: sortOn,
-    sortOrder: sortOrder,
-    numRows: numRows,
-    node: t.node()
-  };
-};
-dvl.html.table.renderer = {
-  text: function(col, dataFn) {
-    col.text(dataFn);
-  },
-  html: function(col, dataFn) {
-    col.html(dataFn);
-  },
-  aLink: function(_arg) {
-    var f, html, linkGen, poo, what;
-    linkGen = _arg.linkGen, html = _arg.html, poo = _arg.poo;
-    what = html ? 'html' : 'text';
-    linkGen = dvl.wrapConstIfNeeded(linkGen);
-    f = function(col, dataFn) {
-      var sel;
-      sel = col.selectAll('a').data(function(d) {
-        return [d];
-      });
-      sel.enter().append('a');
-      sel.attr('href', linkGen.gen())[what](dataFn);
-    };
-    f.depends = [linkGen];
-    return f;
-  },
-  spanLink: function(_arg) {
-    var click, f, titleGen;
-    click = _arg.click;
-    titleGen = dvl.wrapConstIfNeeded(titleGen);
-    f = function(col, dataFn) {
-      var sel;
-      sel = col.selectAll('span').data(function(d) {
-        return [d];
-      });
-      sel.enter().append('span').attr('class', 'span_link');
-      sel.html(dataFn).on('click', click);
-    };
-    return f;
-  },
-  barDiv: function(col, dataFn) {
-    var sel;
-    sel = col.selectAll('div').data(function(d) {
-      return [d];
-    });
-    sel.enter().append('div').attr('class', 'bar_div').style('width', (function(d) {
-      return dataFn(d) + 'px';
-    }));
-    sel.style('width', (function(d) {
-      return dataFn(d) + 'px';
-    }));
-  },
-  img: function(col, dataFn) {
-    var sel;
-    sel = col.selectAll('img').data(function(d) {
-      return [d];
-    });
-    sel.enter().append('img').attr('src', dataFn);
-    sel.attr('src', dataFn);
-  },
-  imgDiv: function(col, dataFn) {
-    var sel;
-    sel = col.selectAll('div').data(function(d) {
-      return [d];
-    });
-    sel.enter().append('div').attr('class', dataFn);
-    sel.attr('class', dataFn);
-  }
-};
-dvl.gen = {};
-dvl.gen.fromFn = function(fn) {
-  var gen;
-  gen = dvl.def(null, 'fn_generator');
-  gen.setGen(fn, Infinity);
-  return gen;
-};
-dvl.gen.fromValue = function(value, acc, fn, name) {
-  var gen, makeGen;
-  value = dvl.wrapConstIfNeeded(value);
-  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, name || 'value_generator');
-  makeGen = function() {
-    var a, f, g, rv, v;
-    a = acc.get();
-    f = fn.get();
-    v = value.get();
-    if ((a != null) && (f != null) && (v != null)) {
-      rv = f(a(v));
-      g = function() {
-        return rv;
+        c.sortable = true;
       };
-      gen.setGen(g);
-    } else {
-      gen.setGen(null);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [value, acc, fn],
-    change: [gen],
-    name: 'value_make_gen'
-  });
-  return gen;
-};
-dvl.gen.fromGen = function(generator, fn, name) {
-  var gen, makeGen;
-  generator = dvl.wrapConstIfNeeded(generator);
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, name || 'generator_generator');
-  makeGen = function() {
-    var g, _fn, _generator;
-    _generator = generator.gen();
-    _fn = fn.get();
-    if ((_generator != null) && (_fn != null)) {
-      g = function(i) {
-        return _fn(_generator(i));
-      };
-      gen.setGen(g, generator.len);
-    } else {
-      gen.setGen(null);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [generator, fn],
-    change: [gen],
-    name: 'generator_make_gen'
-  });
-  return gen;
-};
-dvl.gen.fromArray = function(data, acc, fn, name) {
-  var d, gen, makeGen;
-  data = dvl.wrapConstIfNeeded(data);
-  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, name || 'array_generator');
-  d = [];
-  makeGen = function() {
-    var g, _acc, _data, _fn;
-    _acc = acc.get();
-    _fn = fn.get();
-    _data = data.get();
-    if ((_acc != null) && (_fn != null) && (_data != null) && _data.length > 0) {
-      d = _data;
-      g = function(i) {
-        i = i % d.length;
-        return _fn(_acc(d[i], i));
-      };
-      gen.setGen(g, _data.length);
-    } else {
-      gen.setGen(null);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [data, acc, fn],
-    change: [gen],
-    name: 'array_make_gen'
-  });
-  return gen;
-};
-dvl.gen.fromRowData = dvl.gen.fromArray;
-dvl.gen.fromColumnData = function(data, acc, fn, name) {
-  var d, gen, makeGen;
-  data = dvl.wrapConstIfNeeded(data);
-  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  gen = dvl.def(null, name || 'column_generator');
-  d = [];
-  makeGen = function() {
-    var a, dObj, f, g;
-    a = acc.get();
-    f = fn.get();
-    dObj = data.get();
-    if ((a != null) && (f != null) && (dObj != null) && (d = a(dObj))) {
-      g = function(i) {
-        i = i % d.length;
-        return f(d[i]);
-      };
-      gen.setGen(g, d.length);
-    } else {
-      gen.setGen(null);
-    }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [data, acc, fn],
-    change: [gen],
-    name: 'array_make_gen'
-  });
-  return gen;
-};
-dvl.gen.equal = function(genA, genB, retTrue, retFalse) {
-  var gen, makeGen;
-  if (retTrue === void 0) {
-    retTrue = true;
-  }
-  if (retFalse === void 0) {
-    retFalse = false;
-  }
-  retTrue = dvl.wrapConstIfNeeded(retTrue);
-  retFalse = dvl.wrapConstIfNeeded(retFalse);
-  gen = dvl.def(null, 'equal_generator');
-  makeGen = function() {
-    var a, b, ha, hb, lenA, lenB, rfg, rfl, rtg, rtl;
-    a = genA.gen();
-    b = genB.gen();
-    ha = a != null;
-    hb = b != null;
-    rtg = retTrue.gen();
-    rfg = retFalse.gen();
-    rtl = retTrue.len();
-    rfl = retFalse.len();
-    if (ha && ha) {
-      lenA = genA.len() || Infinity;
-      lenB = genB.len() || Infinity;
-      gen.setGen((function(i) {
-        if (a(i) === b(i)) {
-          return rtg(i);
+      if (c.sortable) {
+        if (c.compare != null) {
+          comp = dvl.wrapConstIfNeeded(c.compare);
         } else {
-          return rfg(i);
+          comp = dvl.compare(c.value);
         }
-      }), Math.min(lenA, lenB, rtl, rfl));
-    } else if (!ha && !hb) {
-      gen.setGen(rtg, rtl);
-    } else {
-      gen.setGen(rfg, rfl);
+        compareMap[c.id] = comp;
+        compareList.push(comp);
+        if (!((_ref4 = c.compareModes) != null ? _ref4[0] : void 0)) {
+          c.compareModes = default_compare_modes;
+        }
+      }
+      headerCol.push({
+        id: c.id,
+        title: c.title,
+        classStr: c.classStr,
+        tooltip: c.headerTooltip
+      });
+      bodyCol.push({
+        id: c.id,
+        "class": c.classStr,
+        value: c.value,
+        render: c.render,
+        on: c.on
+      });
     }
-    return dvl.notify(gen);
-  };
-  dvl.register({
-    fn: makeGen,
-    listen: [genA, genB, retTrue, retFalse],
-    change: [gen],
-    name: 'equal_make_gen'
-  });
-  return gen;
-};
-generator_maker_maker = function(combiner, name) {
-  return function() {
-    var args, gen, makeGen;
-    args = Array.prototype.slice.apply(arguments);
-    gen = dvl.def(null, name + '_generator');
-    makeGen = function() {
-      var arg, arg_gen, g, gens, lens, valid, _i, _len;
-      valid = args.length > 0;
-      gens = [];
-      lens = [];
-      for (_i = 0, _len = args.length; _i < _len; _i++) {
-        arg = args[_i];
-        arg_gen = arg.gen();
-        if (arg_gen === null) {
-          valid = false;
-          break;
-        }
-        gens.push(arg_gen);
-        lens.push(arg.len());
-      }
-      if (valid) {
-        g = function(i) {
-          var cgen, gis, _j, _len2;
-          gis = [];
-          for (_j = 0, _len2 = gens.length; _j < _len2; _j++) {
-            cgen = gens[_j];
-            gis.push(cgen(i));
-          }
-          return combiner.apply(null, gis);
-        };
-        gen.setGen(g, Math.min.apply(null, lens));
-      } else {
-        gen.setGen(null);
-      }
-      dvl.notify(gen);
-    };
+    compare = dvl.def(null, 'compare');
     dvl.register({
-      fn: makeGen,
-      listen: args,
-      change: [gen],
-      name: name + '_make_gen'
+      listen: compareList,
+      change: [compare],
+      fn: function() {
+        var cmp, oldCmp, _ref5, _sortDir, _sortOn;
+        _sortOn = sortOn.get();
+        _sortDir = sortDir.get();
+        if (_sortOn != null) {
+          cmp = (_ref5 = compareMap[_sortOn]) != null ? _ref5.get() : void 0;
+          if (cmp && _sortDir === 'down') {
+            oldCmp = cmp;
+            cmp = function(a, b) {
+              return oldCmp(b, a);
+            };
+          }
+          compare.set(cmp);
+        } else {
+          compare.set(null);
+        }
+        compare.notify();
+      }
     });
-    return gen;
+    dvl.html.table.header({
+      parent: table,
+      columns: headerCol,
+      onClick: function(id) {
+        var c, column, compareModes, _j, _len2;
+        column = null;
+        for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
+          c = columns[_j];
+          if (c.id === id) {
+            column = c;
+            break;
+          }
+        }
+        if (!(column && column.sortable)) {
+          return;
+        }
+        compareModes = column.compareModes;
+        if (id === sortOn.get()) {
+          sortDir.set(compareModes[(compareModes.indexOf(sortDir.get()) + 1) % compareModes.length]);
+          dvl.notify(sortDir);
+        } else {
+          sortOn.set(id);
+          sortDir.set(compareModes[0]);
+          dvl.notify(sortOn, sortDir);
+        }
+      }
+    });
+    dvl.html.table.body({
+      parent: table,
+      data: data,
+      rowClass: rowClass,
+      rowLimit: rowLimit,
+      columns: bodyCol,
+      compare: compare
+    });
+    return {};
   };
-};
-dvl.gen.add = generator_maker_maker((function(a, b, c) {
-  return a + b + (c || 0);
-}), 'add');
-dvl.gen.sub = generator_maker_maker((function(a, b, c) {
-  return a - b - (c || 0);
-}), 'sub');
+  dvl.html.table.header = function(_arg) {
+    var c, columns, listen, onClick, parent, thead, _i, _len;
+    parent = _arg.parent, columns = _arg.columns, onClick = _arg.onClick;
+    if (!parent) {
+      throw 'there needs to be a parent';
+    }
+    thead = dvl.valueOf(parent).append('thead').append('tr');
+    listen = [];
+    for (_i = 0, _len = columns.length; _i < _len; _i++) {
+      c = columns[_i];
+      c.title = dvl.wrapConstIfNeeded(c.title);
+      c.classStr = dvl.wrapConstIfNeeded(c.classStr);
+      c.tooltip = dvl.wrapConstIfNeeded(c.tooltip);
+      listen.push(c.title, c.classStr, c.tooltip);
+    }
+    dvl.register({
+      name: 'head_render',
+      listen: listen,
+      fn: function() {
+        var colSel;
+        colSel = thead.selectAll('td').data(columns);
+        colSel.enter().append('td');
+        colSel.exit().remove();
+        colSel.attr('class', function(c) {
+          return c.classStr.get();
+        }).attr('title', function(c) {
+          return c.tooltip.get();
+        }).text(function(c) {
+          return c.title.get();
+        }).on('click', function(c) {
+          return onClick(c.id);
+        });
+      }
+    });
+  };
+  dvl.html.table.body = function(_arg) {
+    var c, change, columns, compare, data, k, listen, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2;
+    parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
+    if (!parent) {
+      throw 'there needs to be a parent';
+    }
+    if (!data) {
+      throw 'there needs to be data';
+    }
+    tbody = dvl.valueOf(parent).append('tbody');
+    compare = dvl.wrapConstIfNeeded(compare);
+    if (rowClass != null) {
+      rowClass = dvl.wrapConstIfNeeded(rowClass);
+    }
+    rowLimit = dvl.wrapConstIfNeeded(rowLimit);
+    listen = [data, compare, rowClass, rowLimit];
+    change = [];
+    for (_i = 0, _len = columns.length; _i < _len; _i++) {
+      c = columns[_i];
+      c["class"] = dvl.wrapConstIfNeeded(c["class"]);
+      c.value = dvl.wrapConstIfNeeded(c.value);
+      listen.push(c["class"]);
+      _ref2 = c.on;
+      for (k in _ref2) {
+        v = _ref2[k];
+        v = dvl.wrapConstIfNeeded(v);
+        listen.push(v);
+        c.on[k] = v;
+      }
+      change.push(c.selection = dvl.def(null, "" + c.id + "_selection"));
+    }
+    dvl.register({
+      name: 'body_render',
+      listen: listen,
+      change: change,
+      fn: function() {
+        var c, colSel, dataSorted, i, k, rowSel, sel, v, _compare, _data, _len2, _ref3, _rowClass, _rowLimit;
+        _data = data.get();
+        if (!_data) {
+          tbody.selectAll('tr').remove();
+          return;
+        }
+        dataSorted = _data;
+        _compare = compare.get();
+        if (_compare) {
+          dataSorted = dataSorted.slice().sort(_compare);
+        }
+        _rowLimit = rowLimit.get();
+        if (_rowLimit != null) {
+          dataSorted = dataSorted.slice(0, _rowLimit);
+        }
+        rowSel = tbody.selectAll('tr').data(dataSorted);
+        rowSel.enter().append('tr');
+        rowSel.exit().remove();
+        if (rowClass) {
+          _rowClass = rowClass.get();
+          rowSel.attr('class', _rowClass);
+        }
+        colSel = rowSel.selectAll('td').data(columns);
+        colSel.enter().append('td');
+        colSel.exit().remove();
+        for (i = 0, _len2 = columns.length; i < _len2; i++) {
+          c = columns[i];
+          sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted).attr('class', c["class"].get());
+          _ref3 = c.on;
+          for (k in _ref3) {
+            v = _ref3[k];
+            sel.on(k, v.get());
+          }
+          c.selection.set(sel).notify();
+        }
+      }
+    });
+    for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
+      c = columns[_j];
+      render = typeof c.render !== 'function' ? dvl.html.table2.render[c.render || 'text'] : c.render;
+      render.call(c, c.selection, c.value);
+    }
+  };
+  return dvl.html.table.render = {
+    text: function(selection, value) {
+      dvl.register({
+        listen: [selection, value],
+        fn: function() {
+          var _selection, _value;
+          _selection = selection.get();
+          _value = value.get();
+          if ((_selection != null) && _value) {
+            _selection.text(_value);
+          }
+        }
+      });
+    },
+    html: function(selection, value) {
+      dvl.register({
+        listen: [selection, value],
+        fn: function() {
+          var _selection, _value;
+          _selection = selection.get();
+          _value = value.get();
+          if ((_selection != null) && _value) {
+            _selection.html(_value);
+          }
+        }
+      });
+    },
+    aLink: function(_arg) {
+      var href;
+      href = _arg.href;
+      return function(selection, value) {
+        dvl.bind({
+          parent: selection,
+          self: 'a.link',
+          data: function(d) {
+            return [d];
+          },
+          attr: {
+            href: href
+          },
+          text: value
+        });
+      };
+    },
+    spanLink: function(_arg) {
+      var click, titleGen;
+      click = _arg.click;
+      titleGen = dvl.wrapConstIfNeeded(titleGen);
+      return function(sel, value) {
+        sel = sel.selectAll('span').data(function(d) {
+          return [d];
+        });
+        sel.enter().append('span').attr('class', 'span_link');
+        sel.html(value).on('click', click);
+      };
+    },
+    img: function(selection, value) {
+      dvl.bind({
+        parent: selection,
+        self: 'img',
+        data: function(d) {
+          return [d];
+        },
+        attr: {
+          src: value
+        }
+      });
+    },
+    imgDiv: function(sel, value) {
+      sel = sel.selectAll('div').data(function(d) {
+        return [d];
+      });
+      sel.enter().append('div');
+      sel.attr('class', value);
+    },
+    sparkline: function(_arg) {
+      var height, padding, width, x, y;
+      width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
+            if (padding != null) {
+        padding;
+      } else {
+        padding = 0;
+      };
+      return function(selection, value) {
+        var dataFn, lineFn, svg;
+        lineFn = dvl.apply({
+          args: [x, y, padding],
+          fn: function(x, y, padding) {
+            return function(d) {
+              var mmx, mmy, sx, sy;
+              mmx = dvl.util.getMinMax(d, (function(d) {
+                return d[x];
+              }));
+              mmy = dvl.util.getMinMax(d, (function(d) {
+                return d[y];
+              }));
+              sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
+              sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
+              return d3.svg.line().x(function(dp) {
+                return sx(dp[x]);
+              }).y(function(dp) {
+                return sy(dp[y]);
+              })(d);
+            };
+          }
+        });
+        dataFn = dvl.apply({
+          args: value,
+          fn: function(value) {
+            return function(d, i) {
+              return [value(d, i)];
+            };
+          }
+        });
+        svg = dvl.bind({
+          parent: selection,
+          self: 'svg.sparkline',
+          data: dataFn,
+          attr: {
+            width: width,
+            height: height
+          }
+        });
+        dvl.bind({
+          parent: svg,
+          self: 'path',
+          data: function(d) {
+            return [d];
+          },
+          attr: {
+            d: lineFn
+          }
+        });
+      };
+    }
+  };
+})();

@@ -1,0 +1,13 @@
+- Make this work:
+    var v = dvl.def(4)
+      .assert(function(x) { return x%2 == 0; })
+      .enum([4,6,8])
+      .type(Number)
+      .name('my_v')
+
+- move dvl.html.table to dash
+- remove sprintf
+- remove protovis
+- modularize
+
+
