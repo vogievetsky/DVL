@@ -1980,53 +1980,31 @@ dvl.svg.clipPath = ({parent, x, y, width, height}) ->
 
   return "url(##{myId})"
 
+dvl.misc = {}
+dvl.misc.mouse = (element, out) ->
+  element = dvl.wrapConstIfNeeded(element)
+  width   = dvl.wrapConstIfNeeded(width)
+  height  = dvl.wrapConstIfNeeded(height)
+  out     = dvl.wrapVarIfNeeded(out, 'mouse')
 
-dvl.svg.mouse = ({parent, width, height, outX, outY, fnX, fnY}) ->
-  parent = dvl.wrapConstIfNeeded(parent)
-  width  = dvl.wrapConstIfNeeded(width)
-  height = dvl.wrapConstIfNeeded(height)
-  x     = dvl.wrapVarIfNeeded(outX, 'mouse_x')
-  y     = dvl.wrapVarIfNeeded(outY, 'mouse_y')
-  fnX   = dvl.wrapConstIfNeeded(fnX or dvl.identity)
-  fnY   = dvl.wrapConstIfNeeded(fnY or dvl.identity)
-  flipX = dvl.wrapConstIfNeeded(flipX or false)
-  flipY = dvl.wrapConstIfNeeded(flipY or false)
-
-  mouse = [-1, -1]
   recorder = ->
-    _parent = parent.get()
-    _width  = width.get()
-    _height = height.get()
-
-    mouse = if _parent and d3.event then d3.svg.mouse(_parent.node()) else mouse
-    fx = fnX.get()
-    fy = fnY.get()
-    mx = mouse[0]
-    my = mouse[1]
-    if 0 <= mx <= _width and 0 <= my <= _height
-      x.set(fx(mx)) if fx
-      y.set(fy(my)) if fy
-    else
-      x.set(null)
-      y.set(null)
-
-    dvl.notify(x, y)
+    _element = element.get()
+    mouse = if _element and d3.event then d3.svg.mouse(_element.node()) else null
+    out.set(mouse).notify()
     return
 
-  dvl.valueOf(parent)
+  element.get()
     .on('mousemove', recorder)
     .on('mouseout', recorder)
 
   dvl.register {
-    listen: [parent, fnX, fnY, flipX, flipY]
-    change: [x, y]
     name: 'mouse_recorder'
+    listen: [parent]
+    change: [out]
     fn: recorder
   }
 
-  return { x, y }
-
-
+  return out
 
 
 

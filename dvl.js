@@ -2564,53 +2564,27 @@ dvl.svg.clipPath = function(_arg) {
   });
   return "url(#" + myId + ")";
 };
-dvl.svg.mouse = function(_arg) {
-  var flipX, flipY, fnX, fnY, height, mouse, outX, outY, parent, recorder, width, x, y;
-  parent = _arg.parent, width = _arg.width, height = _arg.height, outX = _arg.outX, outY = _arg.outY, fnX = _arg.fnX, fnY = _arg.fnY;
-  parent = dvl.wrapConstIfNeeded(parent);
+dvl.misc = {};
+dvl.misc.mouse = function(element, out) {
+  var height, recorder, width;
+  element = dvl.wrapConstIfNeeded(element);
   width = dvl.wrapConstIfNeeded(width);
   height = dvl.wrapConstIfNeeded(height);
-  x = dvl.wrapVarIfNeeded(outX, 'mouse_x');
-  y = dvl.wrapVarIfNeeded(outY, 'mouse_y');
-  fnX = dvl.wrapConstIfNeeded(fnX || dvl.identity);
-  fnY = dvl.wrapConstIfNeeded(fnY || dvl.identity);
-  flipX = dvl.wrapConstIfNeeded(flipX || false);
-  flipY = dvl.wrapConstIfNeeded(flipY || false);
-  mouse = [-1, -1];
+  out = dvl.wrapVarIfNeeded(out, 'mouse');
   recorder = function() {
-    var fx, fy, mx, my, _height, _parent, _width;
-    _parent = parent.get();
-    _width = width.get();
-    _height = height.get();
-    mouse = _parent && d3.event ? d3.svg.mouse(_parent.node()) : mouse;
-    fx = fnX.get();
-    fy = fnY.get();
-    mx = mouse[0];
-    my = mouse[1];
-    if ((0 <= mx && mx <= _width) && (0 <= my && my <= _height)) {
-      if (fx) {
-        x.set(fx(mx));
-      }
-      if (fy) {
-        y.set(fy(my));
-      }
-    } else {
-      x.set(null);
-      y.set(null);
-    }
-    dvl.notify(x, y);
+    var mouse, _element;
+    _element = element.get();
+    mouse = _element && d3.event ? d3.svg.mouse(_element.node()) : null;
+    out.set(mouse).notify();
   };
-  dvl.valueOf(parent).on('mousemove', recorder).on('mouseout', recorder);
+  element.get().on('mousemove', recorder).on('mouseout', recorder);
   dvl.register({
-    listen: [parent, fnX, fnY, flipX, flipY],
-    change: [x, y],
     name: 'mouse_recorder',
+    listen: [parent],
+    change: [out],
     fn: recorder
   });
-  return {
-    x: x,
-    y: y
-  };
+  return out;
 };
 dvl.html = {};
 dvl.html.out = function(_arg) {
