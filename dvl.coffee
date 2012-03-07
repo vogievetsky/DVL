@@ -1794,7 +1794,8 @@ do ->
 
           add2 = (fn, k, v) ->
             if v.hasChanged() or force
-              preTrans.push  { fn, a1: k, a2: v.getPrev() }
+              #preTrans.push  { fn, a1: k, a2: v.getPrev() }
+              enter.push     { fn, a1: k, a2: v.getPrev() }
               postTrans.push { fn, a1: k, a2: v.get() }
             else
               enter.push     { fn, a1: k, a2: v.get() }
@@ -1832,7 +1833,7 @@ do ->
           t[a.fn](a.a1, a.a2) for a in postTrans
 
           ex = s.exit().remove()
-          out.set(s).notify() unless e.empty() and ex.empty()
+          out.set(s).notify() if not e.empty() or not ex.empty() or force
         else
           s = _parent.selectAll(self).remove()
           out.set(s).notify()

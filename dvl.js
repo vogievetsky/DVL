@@ -2291,7 +2291,7 @@ dvl.scale = {};
           };
           add2 = function(fn, k, v) {
             if (v.hasChanged() || force) {
-              preTrans.push({
+              enter.push({
                 fn: fn,
                 a1: k,
                 a2: v.getPrev()
@@ -2369,7 +2369,7 @@ dvl.scale = {};
             t[a.fn](a.a1, a.a2);
           }
           ex = s.exit().remove();
-          if (!(e.empty() && ex.empty())) {
+          if (!e.empty() || !ex.empty() || force) {
             out.set(s).notify();
           }
         } else {

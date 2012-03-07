@@ -2,22 +2,17 @@
 <html>
   <head>
     <title>New</title>
-    <script type="text/javascript" src="../../js/jquery-1.6.2.min.js"></script>
     <script type="text/javascript" src="../../d3.js"></script>
-    <script type="text/javascript" src="../../protovis-r3.2.js"></script>
-    <script type="text/javascript" src="../../sprintf.js"></script>
     <script type="text/javascript" src="../../dvl.js"></script>
-
     <style type="text/css">
 
     </style>
-
   </head>
   <body>
   </body>
 
   <script>
-    var data = dvl.def([2,6,8,3,2], 'data_yo')
+    var data = dvl.def([2,6,8,3,2])
 
     setInterval(function() {
       var _data = data.get()
@@ -41,11 +36,11 @@
       data: data,
       join: String,
       attr: {
-        x: dvl.op.add(xFn, 100),
+        x: xFn,
         y: 0,
         height: function(d) { return d * 10 },
         width: width
-      }
+      },
     })
 
   </script>
