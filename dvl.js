@@ -954,18 +954,6 @@ dvl.util = {
     };
     return rec;
   };
-  dvl.debugFind = function(name) {
-    var id, ret, v;
-    name += '_';
-    ret = [];
-    for (id in variables) {
-      v = variables[id];
-      if (id.indexOf(name) === 0 && !isNaN(id.substr(name.length))) {
-        ret.push(v);
-      }
-    }
-    return ret;
-  };
   dvl.graphToDot = function(lastTrace, showId) {
     var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, _i, _j, _k, _len, _len2, _len3, _name, _ref2, _ref3;
     execOrder = {};
@@ -1047,16 +1035,16 @@ dvl.alwaysLazy = function(v, fn) {
     return dvl.notify(v);
   };
 };
-dvl.zero = dvl["const"](0, 'zero');
-dvl["null"] = dvl["const"](null, 'null');
+dvl.zero = dvl["const"](0).name('zero');
+dvl["null"] = dvl["const"](null).name('null');
 dvl.ident = function(x) {
   return x;
 };
-dvl.identity = dvl["const"](dvl.ident, 'identity');
-dvl.acc = function(c) {
-  var acc, column, makeAcc;
-  column = dvl.wrapConstIfNeeded(c);
-  acc = dvl.def(null, "acc_" + (column.get()));
+dvl.identity = dvl["const"](dvl.ident).name('identity');
+dvl.acc = function(column) {
+  var acc, makeAcc;
+  column = dvl.wrapConstIfNeeded(column);
+  acc = dvl.def().name("acc");
   makeAcc = function() {
     var col;
     col = column.get();
@@ -1102,28 +1090,6 @@ dvl.debug = function() {
     name: 'debug'
   });
   return obj;
-};
-dvl.assert = function(_arg) {
-  var allowNull, data, fn, msg;
-  data = _arg.data, fn = _arg.fn, msg = _arg.msg, allowNull = _arg.allowNull;
-  msg || (msg = "" + obj.id + " failed its assert test");
-    if (allowNull != null) {
-    allowNull;
-  } else {
-    allowNull = true;
-  };
-  verifyAssert(function() {
-    var d;
-    d = data.get();
-    if ((d !== null || allowNull) && !fn(d)) {
-      throw msg;
-    }
-  });
-  dvl.register({
-    fn: verifyAssert,
-    listen: [obj],
-    name: 'assert_fn'
-  });
 };
 dvl.apply = function() {
   var allowNull, apply, args, fn, invalid, name, out, ret, update, _ref2;
@@ -1286,40 +1252,6 @@ dvl.recorder = function(options) {
     name: 'recorder'
   });
   return array;
-};
-dvl.delay = function(_arg) {
-  var data, init, name, out, time, timeoutFn, timer;
-  data = _arg.data, time = _arg.time, name = _arg.name, init = _arg.init;
-  if (!data) {
-    throw 'you must provide a data';
-  }
-  if (!time) {
-    throw 'you must provide a time';
-  }
-  data = dvl.wrapConstIfNeeded(data);
-  time = dvl.wrapConstIfNeeded(time);
-  timer = null;
-  out = dvl.def(init || null, name || 'delay');
-  timeoutFn = function() {
-    out.set(data.get()).notify();
-    return timer = null;
-  };
-  dvl.register({
-    listen: [data, time],
-    name: name || 'timeout',
-    fn: function() {
-      var t;
-      if (timer) {
-        clearTimeout(timer);
-      }
-      timer = null;
-      if (time.get()) {
-        t = Math.max(0, parseInt(time.get(), 10));
-        return timer = setTimeout(timeoutFn, t);
-      }
-    }
-  });
-  return out;
 };
 (function() {
   var ajaxManagers, makeManager, nextGroupId, normalRequester, outstanding;
@@ -1714,94 +1646,6 @@ dvl.ajax.requester = {
       }
     };
   }
-};
-dvl.resizer = function(_arg) {
-  var dimension, fn, onResize, out, selector;
-  selector = _arg.selector, out = _arg.out, dimension = _arg.dimension, fn = _arg.fn;
-  out = dvl.wrapVarIfNeeded(out);
-  dimension = dvl.wrapConstIfNeeded(dimension || 'width');
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  onResize = function() {
-    var e, val, _dimension, _fn;
-    _dimension = dimension.get();
-    _fn = fn.get();
-    if ((_dimension === 'width' || _dimension === 'height') && _fn) {
-      if (selector) {
-        e = jQuery(selector);
-        val = e[_dimension]();
-      } else {
-        val = document.body[_dimension === 'width' ? 'clientWidth' : 'clientHeight'];
-      }
-      return out.update(_fn(val));
-    } else {
-      return out.update(null);
-    }
-  };
-  $(window).resize(onResize);
-  dvl.register({
-    name: 'resizer',
-    listen: [dimension, fn],
-    change: [out],
-    fn: onResize
-  });
-  return out;
-};
-dvl.format = function(string, subs) {
-  var list, makeString, out, s, _i, _j, _len, _len2;
-  out = dvl.def(null, 'formated_out');
-  for (_i = 0, _len = subs.length; _i < _len; _i++) {
-    s = subs[_i];
-    if (!dvl.knows(s)) {
-      if (s.fn) {
-        s.fn = dvl.wrapConstIfNeeded(s.fn);
-      }
-      s.data = dvl.wrapConstIfNeeded(s.data);
-    }
-  }
-  makeString = function() {
-    var args, invalid, s, v, _j, _len2;
-    args = [string];
-    invalid = false;
-    for (_j = 0, _len2 = subs.length; _j < _len2; _j++) {
-      s = subs[_j];
-      if (dvl.knows(s)) {
-        v = s.get();
-        if (v === null) {
-          invalid = true;
-          break;
-        }
-        args.push(v);
-      } else {
-        v = s.data.get();
-        if (v === null) {
-          invalid = true;
-          break;
-        }
-        if (s.fn) {
-          v = s.fn.get()(v);
-        }
-        args.push(v);
-      }
-    }
-    out.set(invalid ? null : sprintf.apply(null, args));
-    return dvl.notify(out);
-  };
-  list = [];
-  for (_j = 0, _len2 = subs.length; _j < _len2; _j++) {
-    s = subs[_j];
-    if (dvl.knows(s)) {
-      list.push(s);
-    } else {
-      list.push(s.data);
-    }
-  }
-  dvl.register({
-    fn: makeString,
-    listen: list,
-    change: [out],
-    name: 'formater'
-  });
-  return out;
 };
 dvl.snap = function(_arg) {
   var acc, data, name, out, trim, updateSnap, value;
@@ -2565,7 +2409,68 @@ dvl.misc.mouse = function(element, out) {
   });
   return out;
 };
+dvl.misc.delay = function(data, time) {
+  var out, timeoutFn, timer;
+  if (time == null) {
+    time = 1;
+  }
+  data = dvl.wrapConstIfNeeded(data);
+  time = dvl.wrapConstIfNeeded(time);
+  timer = null;
+  out = dvl.def();
+  timeoutFn = function() {
+    out.set(data.get()).notify();
+    return timer = null;
+  };
+  dvl.register({
+    listen: [data, time],
+    name: name || 'timeout',
+    fn: function() {
+      var t;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = null;
+      if (time.get() != null) {
+        t = Math.max(0, time.get());
+        return timer = setTimeout(timeoutFn, t);
+      }
+    }
+  });
+  return out;
+};
 dvl.html = {};
+dvl.html.resizer = function(_arg) {
+  var dimension, fn, onResize, out, selector;
+  selector = _arg.selector, out = _arg.out, dimension = _arg.dimension, fn = _arg.fn;
+  out = dvl.wrapVarIfNeeded(out);
+  dimension = dvl.wrapConstIfNeeded(dimension || 'width');
+  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  onResize = function() {
+    var e, val, _dimension, _fn;
+    _dimension = dimension.get();
+    _fn = fn.get();
+    if ((_dimension === 'width' || _dimension === 'height') && _fn) {
+      if (selector) {
+        e = jQuery(selector);
+        val = e[_dimension]();
+      } else {
+        val = document.body[_dimension === 'width' ? 'clientWidth' : 'clientHeight'];
+      }
+      return out.update(_fn(val));
+    } else {
+      return out.update(null);
+    }
+  };
+  $(window).resize(onResize);
+  dvl.register({
+    name: 'resizer',
+    listen: [dimension, fn],
+    change: [out],
+    fn: onResize
+  });
+  return out;
+};
 dvl.html.out = function(_arg) {
   var attr, data, fn, format, hideInvalid, invalid, out, selector, style, text, updateHtml, what;
   selector = _arg.selector, data = _arg.data, fn = _arg.fn, format = _arg.format, invalid = _arg.invalid, hideInvalid = _arg.hideInvalid, attr = _arg.attr, style = _arg.style, text = _arg.text;

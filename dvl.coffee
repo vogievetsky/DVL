@@ -689,14 +689,6 @@ dvl.util = {
 
     return rec
 
-  dvl.debugFind = (name) ->
-    name += '_'
-    ret = []
-    for id,v of variables
-      if id.indexOf(name) is 0 and not isNaN(id.substr(name.length))
-        ret.push v
-    return ret
-
   ######################################################
   ##
   ##  Renders the variable graph into dot
@@ -771,17 +763,17 @@ dvl.alwaysLazy = (v, fn) ->
     v.setLazy(fn)
     dvl.notify(v)
 
-dvl.zero = dvl.const(0, 'zero')
+dvl.zero = dvl.const(0).name('zero')
 
-dvl.null = dvl.const(null, 'null')
+dvl.null = dvl.const(null).name('null')
 
 dvl.ident = (x) -> x
-dvl.identity = dvl.const(dvl.ident, 'identity')
+dvl.identity = dvl.const(dvl.ident).name('identity')
 
 
-dvl.acc = (c) ->
-  column = dvl.wrapConstIfNeeded(c);
-  acc = dvl.def(null, "acc_#{column.get()}")
+dvl.acc = (column) ->
+  column = dvl.wrapConstIfNeeded(column);
+  acc = dvl.def().name("acc")
 
   makeAcc = ->
     col = column.get();
@@ -820,25 +812,6 @@ dvl.debug = () ->
   dvl.register({fn:dbgPrint, listen:[obj], name:'debug'})
   return obj
 
-
-######################################################
-##
-##  A DVL object invarient maintainer
-##
-##  Runs the supplied function on the data periodicaly on chage and throws the msg unless the function returns true.
-##
-##
-dvl.assert = ({data, fn, msg, allowNull}) ->
-  msg or= "#{obj.id} failed its assert test"
-  allowNull ?= true
-
-  verifyAssert ->
-    d = data.get()
-    if (d isnt null or allowNull) and not fn(d)
-      throw msg
-
-  dvl.register({fn:verifyAssert, listen:[obj], name:'assert_fn'})
-  return
 
 ######################################################
 ##
@@ -965,31 +938,6 @@ dvl.recorder = (options) ->
 
   dvl.register({fn:record, listen:[data], change:[array], name:'recorder'})
   return array
-
-
-dvl.delay = ({ data, time, name, init }) ->
-  throw 'you must provide a data' unless data
-  throw 'you must provide a time' unless time
-  data = dvl.wrapConstIfNeeded(data)
-  time = dvl.wrapConstIfNeeded(time)
-  timer = null
-  out = dvl.def(init or null, name or 'delay')
-
-  timeoutFn = ->
-    out.set(data.get()).notify()
-    timer = null
-
-  dvl.register {
-    listen: [data, time]
-    name: name or 'timeout'
-    fn: ->
-      clearTimeout(timer) if timer
-      timer = null
-      if time.get()
-        t = Math.max(0, parseInt(time.get(), 10))
-        timer = setTimeout(timeoutFn, t)
-  }
-  return out
 
 
 ##-------------------------------------------------------
@@ -1330,76 +1278,6 @@ dvl.ajax.requester = {
         return
     }
 }
-
-
-dvl.resizer = ({selector, out, dimension, fn}) ->
-  out = dvl.wrapVarIfNeeded(out)
-  dimension = dvl.wrapConstIfNeeded(dimension or 'width')
-  fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
-
-  onResize = ->
-    _dimension = dimension.get()
-    _fn = fn.get()
-    if _dimension in ['width', 'height'] and _fn
-      if selector
-        e = jQuery(selector)
-        val = e[_dimension]()
-      else
-        val = document.body[if _dimension is 'width' then 'clientWidth' else 'clientHeight']
-
-      out.update(_fn(val))
-    else
-      out.update(null)
-
-  $(window).resize onResize
-  dvl.register {
-    name: 'resizer'
-    listen: [dimension, fn]
-    change: [out]
-    fn: onResize
-  }
-  return out
-
-
-
-dvl.format = (string, subs) ->
-  out = dvl.def(null, 'formated_out')
-
-  for s in subs
-    if not dvl.knows(s)
-      s.fn = dvl.wrapConstIfNeeded(s.fn) if s.fn
-      s.data = dvl.wrapConstIfNeeded(s.data)
-
-  makeString = ->
-    args = [string]
-    invalid = false
-    for s in subs
-      if dvl.knows(s)
-        v = s.get()
-        if v == null
-          invalid = true
-          break
-        args.push v
-      else
-        v = s.data.get()
-        if v == null
-          invalid = true
-          break
-        v = s.fn.get()(v) if s.fn
-        args.push v
-
-    out.set(if invalid then null else sprintf.apply(null, args))
-    dvl.notify(out)
-
-  list = []
-  for s in subs
-    if dvl.knows(s)
-      list.push s
-    else
-      list.push s.data
-
-  dvl.register({fn:makeString, listen:list, change:[out], name:'formater'})
-  return out
 
 
 dvl.snap = ({data, acc, value, trim, name}) ->
@@ -1966,6 +1844,9 @@ dvl.svg.clipPath = ({parent, x, y, width, height}) ->
 
   return "url(##{myId})"
 
+
+# misc # --------------------------------------------------
+
 dvl.misc = {}
 dvl.misc.mouse = (element, out) ->
   element = dvl.wrapConstIfNeeded(element)
@@ -1993,6 +1874,27 @@ dvl.misc.mouse = (element, out) ->
   return out
 
 
+dvl.misc.delay = (data, time = 1) ->
+  data = dvl.wrapConstIfNeeded(data)
+  time = dvl.wrapConstIfNeeded(time)
+  timer = null
+  out = dvl.def()
+
+  timeoutFn = ->
+    out.set(data.get()).notify()
+    timer = null
+
+  dvl.register {
+    listen: [data, time]
+    name: name or 'timeout'
+    fn: ->
+      clearTimeout(timer) if timer
+      timer = null
+      if time.get()?
+        t = Math.max(0, time.get())
+        timer = setTimeout(timeoutFn, t)
+  }
+  return out
 
 
 # HTML # --------------------------------------------------
@@ -2000,7 +1902,37 @@ dvl.misc.mouse = (element, out) ->
 dvl.html = {}
 
 ##-------------------------------------------------------
+##  Capture the size of something in HTML
 ##
+dvl.html.resizer = ({selector, out, dimension, fn}) ->
+  out = dvl.wrapVarIfNeeded(out)
+  dimension = dvl.wrapConstIfNeeded(dimension or 'width')
+  fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
+
+  onResize = ->
+    _dimension = dimension.get()
+    _fn = fn.get()
+    if _dimension in ['width', 'height'] and _fn
+      if selector
+        e = jQuery(selector)
+        val = e[_dimension]()
+      else
+        val = document.body[if _dimension is 'width' then 'clientWidth' else 'clientHeight']
+
+      out.update(_fn(val))
+    else
+      out.update(null)
+
+  $(window).resize onResize
+  dvl.register {
+    name: 'resizer'
+    listen: [dimension, fn]
+    change: [out]
+    fn: onResize
+  }
+  return out
+
+##-------------------------------------------------------
 ##  Output to an HTML attribute
 ##
 dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, text}) ->

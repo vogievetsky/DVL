@@ -12,4 +12,4 @@ process.env.TZ = "America/Los_Angeles";
 //require("./env-xhr");
 //require("./env-fragment");
 
-require("../d3");
+require("../d3/d3");
