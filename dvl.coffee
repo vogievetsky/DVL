@@ -385,14 +385,14 @@ dvl.util = {
 
 
   checkForCycle = (fo) ->
-    stack = fo.updates.slice()
+    stack = fo.depends.slice()
     visited = {}
 
     while stack.length > 0
       v = stack.pop()
       visited[v.id] = true
 
-      for w in v.updates
+      for w in v.depends
         throw "circular dependancy detected around #{w.id}" if w is fo
         stack.push w if not visited[w.id]
 
@@ -404,7 +404,7 @@ dvl.util = {
       v = stack.pop()
       nextLevel = v.level+1
 
-      for w in v.updates
+      for w in v.depends
         if w.level < nextLevel
           w.level = nextLevel
           stack.push w
@@ -415,7 +415,7 @@ dvl.util = {
   bfsZero = (queue) ->
     while queue.length > 0
       v = queue.shift()
-      for w in v.updates
+      for w in v.depends
         w.level = 0
         queue.push w
 
@@ -424,7 +424,7 @@ dvl.util = {
 
   class DVLFunctionObject
     constructor: (@id, @name, @ctx, @fn, @listen, @change) ->
-      @updates = []
+      @depends = []
       @level = 0
       if curRecording
         curRecording.fns.push this
@@ -437,7 +437,9 @@ dvl.util = {
         for v in uv
           @change.push(v)
           v.changers.push(this)
-          @updates.push(l) for l in v.listeners
+          for l in v.listeners
+            l.depends.push(this)
+            @level = Math.max(@level, l.level+1)
 
         checkForCycle(this)
         bfsUpdate([this])
@@ -452,8 +454,7 @@ dvl.util = {
           @listen.push(v)
           v.listeners.push(this)
           for c in v.changers
-            c.updates.push(this)
-            @level = Math.max(@level, c.level+1)
+            @depends.push(c)
 
         checkForCycle(this)
         bfsUpdate([this])
@@ -477,10 +478,10 @@ dvl.util = {
       bfsZero([this])
 
       queue = []
-      for lv in @listen
-        for cf in lv.changers
-          queue.push cf
-          cf.updates.splice(cf.updates.indexOf(this), 1)
+      for cv in @change
+        for lf in cv.listeners
+          queue.push lf
+          lf.depends.splice(lf.depends.indexOf(this), 1)
 
       for v in @change
         v.changers.splice(v.changers.indexOf(this), 1)
@@ -488,8 +489,9 @@ dvl.util = {
       for v in @listen
         v.listeners.splice(v.listeners.indexOf(this), 1)
 
-      bfsUpdate(@updates) # do not care if @update gets trashed
-      @change = @listen = @updates = null # cause an error if we hit these
+      # I think this houldbe queue [ToDo]
+      bfsUpdate(@depends) # do not care if @update gets trashed
+      @change = @listen = @depends = null # cause an error if we hit these
       return
 
 
@@ -524,12 +526,12 @@ dvl.util = {
       # Update dependancy graph
       for cv in change
         for lf in cv.listeners
-          fo.updates.push lf
+          lf.depends.push fo
+          fo.level = Math.max(fo.level, lf.level+1)
 
       for lv in listen
         for cf in lv.changers
-          cf.updates.push fo
-          fo.level = Math.max(fo.level, cf.level+1)
+          fo.depends.push cf
 
       registerers[id] = fo
       checkForCycle(fo)
@@ -559,7 +561,7 @@ dvl.util = {
   dvl.clearAll = ->
     # disolve the graph to make the garbage collection job as easy as possibe
     for k, l of registerers
-      l.listen = l.change = l.updates = null
+      l.listen = l.change = l.depends = null
 
     for k, v of variables
       v.listeners = v.changers = null
@@ -577,7 +579,7 @@ dvl.util = {
     sorted = true
 
     compare = (a, b) ->
-      levelDiff = b.level - a.level
+      levelDiff = a.level - b.level
       return if levelDiff is 0 then b.id - a.id else levelDiff
 
     return {

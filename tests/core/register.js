@@ -168,6 +168,143 @@ suite.addBatch({
   },
 });
 
+
+suite.addBatch({
+  "addListen": {
+    topic: function() {
+      var t = {
+        a: dvl.def(3),
+        b: dvl.def(4),
+        status: ''
+      }
+
+      t.f = dvl.register({ listen: t.a, fn: function() { t.status += 'A' } });
+      return t;
+    },
+
+    "correct init run": function(t) {
+      assert.strictEqual(t.status, 'A');
+    },
+
+    "correct pre add a change": function(t) {
+      t.status = '';
+      t.a.notify()
+      assert.strictEqual(t.status, 'A');
+    },
+
+    "correct pre add b change": function(t) {
+      t.status = '';
+      t.b.notify()
+      assert.strictEqual(t.status, '');
+    },
+
+    "correct add b": function(t) {
+      t.status = '';
+      t.f.addListen(t.b)
+      assert.strictEqual(t.status, 'A');
+    },
+
+    "correct post add a change": function(t) {
+      t.status = '';
+      t.a.notify()
+      assert.strictEqual(t.status, 'A');
+    },
+
+    "correct post add b change": function(t) {
+      t.status = '';
+      t.b.notify()
+      assert.strictEqual(t.status, 'A');
+    },
+  },
+});
+
+
+
+suite.addBatch({
+  "addChange": {
+    topic: function() {
+      var t = {
+        a: dvl.def(3),
+        b: dvl.def(3),
+        changes: [],
+        status: ''
+      }
+
+      t.f = dvl.register({
+        listen: t.a,
+        fn: function() { t.status += 'A'; dvl.notify.apply(null, t.changes); }
+      });
+
+      dvl.register({
+        listen: t.b,
+        fn: function() { t.status += 'B' }
+      });
+      return t;
+    },
+
+    "correct init run": function(t) {
+      assert.strictEqual(t.status, 'AB');
+    },
+
+    "correct pre add a change": function(t) {
+      t.status = '';
+      t.a.notify();
+      assert.strictEqual(t.status, 'A');
+    },
+
+    "correct add b": function(t) {
+      t.status = '';
+      t.f.addChange(t.b);
+      t.changes.push(t.b);
+      assert.strictEqual(t.status, '');
+    },
+
+    "correct post add a change": function(t) {
+      t.status = '';
+      t.a.notify()
+      assert.strictEqual(t.status, 'AB');
+    },
+  },
+});
+
+
+suite.addBatch({
+  "remove basic": {
+    topic: function() {
+      var t = {
+        a: dvl.def(3),
+        status: ''
+      }
+
+      t.f = dvl.register({
+        listen: t.a,
+        fn: function() { t.status += 'A'; }
+      });
+
+      return t;
+    },
+
+    "correct init run": function(t) {
+      assert.strictEqual(t.status, 'A');
+    },
+
+    "correct pre remove": function(t) {
+      t.status = '';
+      t.a.notify();
+      assert.strictEqual(t.status, 'A');
+    },
+
+    "correct post remove": function(t) {
+      t.status = '';
+      t.f.remove();
+      t.a.notify();
+      assert.strictEqual(t.status, '');
+    },
+  },
+});
+
+
+
 suite.addBatch({
   "register order preserved - 1": {
     topic: function() {
@@ -183,11 +320,11 @@ suite.addBatch({
       return t;
     },
 
-    "corect init run": function(t) {
+    "correct init run": function(t) {
       assert.strictEqual(t.status, 'ABC');
     },
 
-    "corect next run": function(t) {
+    "correct next run": function(t) {
       t.status = '';
       t.a.notify()
       assert.strictEqual(t.status, 'ABC');
@@ -211,11 +348,11 @@ suite.addBatch({
       return t;
     },
 
-    "corect init run": function(t) {
+    "correct init run": function(t) {
       assert.strictEqual(t.status, 'ABC');
     },
 
-    "corect next run": function(t) {
+    "correct next run": function(t) {
       t.status = '';
       dvl.notify(t.a, t.b)
       assert.strictEqual(t.status, 'ABC');
@@ -246,11 +383,11 @@ suite.addBatch({
       return t;
     },
 
-    "corect init run": function(t) {
+    "correct init run": function(t) {
       assert.strictEqual(t.status, 'AB');
     },
 
-    "corect next run": function(t) {
+    "correct next run": function(t) {
       t.status = '';
       dvl.notify(t.a)
       assert.strictEqual(t.status, 'AB');
@@ -258,37 +395,37 @@ suite.addBatch({
   },
 });
 
-// suite.addBatch({
-//   "register order preserved - 4": {
-//     topic: function() {
-//       var t = {
-//         a: dvl.def(3),
-//         b: dvl.def(5),
-//         status: ''
-//       }
+suite.addBatch({
+  "register order preserved - 4": {
+    topic: function() {
+      var t = {
+        a: dvl.def(3),
+        b: dvl.def(5),
+        status: ''
+      }
 
-//       dvl.register({ listen: [t.a], change: [t.b], fn: function() {
-//         t.b.notify();
-//         t.status += '&';
-//       }});
+      dvl.register({ listen: [t.a], change: [t.b], fn: function() {
+        t.b.notify();
+        t.status += '&';
+      }});
 
-//       dvl.register({ listen: [t.b], fn: function() { t.status += 'A' } });
-//       dvl.register({ listen: [t.a], fn: function() { t.status += 'B' } });
-//       dvl.register({ listen: [t.b], fn: function() { t.status += 'C' } });
+      dvl.register({ listen: [t.b], fn: function() { t.status += 'A' } });
+      dvl.register({ listen: [t.a], fn: function() { t.status += 'B' } });
+      dvl.register({ listen: [t.b], fn: function() { t.status += 'C' } });
 
-//       return t;
-//     },
+      return t;
+    },
 
-//     "corect init run": function(t) {
-//       assert.strictEqual(t.status, '&ABC');
-//     },
+    "correct init run": function(t) {
+      assert.strictEqual(t.status, '&ABC');
+    },
 
-//     "corect next run": function(t) {
-//       t.status = '';
-//       t.a.notify()
-//       assert.strictEqual(t.status, '&ABC');
-//     },
-//   },
-// });
+    "correct next run": function(t) {
+      t.status = '';
+      t.a.notify()
+      assert.strictEqual(t.status, '&ABC');
+    },
+  },
+});
 
 suite.export(module);

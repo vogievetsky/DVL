@@ -558,12 +558,12 @@ dvl.util = {
   };
   checkForCycle = function(fo) {
     var stack, v, visited, w, _i, _len, _ref2;
-    stack = fo.updates.slice();
+    stack = fo.depends.slice();
     visited = {};
     while (stack.length > 0) {
       v = stack.pop();
       visited[v.id] = true;
-      _ref2 = v.updates;
+      _ref2 = v.depends;
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
         w = _ref2[_i];
         if (w === fo) {
@@ -580,7 +580,7 @@ dvl.util = {
     while (stack.length > 0) {
       v = stack.pop();
       nextLevel = v.level + 1;
-      _ref2 = v.updates;
+      _ref2 = v.depends;
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
         w = _ref2[_i];
         if (w.level < nextLevel) {
@@ -594,7 +594,7 @@ dvl.util = {
     var v, w, _i, _len, _ref2;
     while (queue.length > 0) {
       v = queue.shift();
-      _ref2 = v.updates;
+      _ref2 = v.depends;
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
         w = _ref2[_i];
         w.level = 0;
@@ -610,7 +610,7 @@ dvl.util = {
       this.fn = fn;
       this.listen = listen;
       this.change = change;
-      this.updates = [];
+      this.depends = [];
       this.level = 0;
       if (curRecording) {
         curRecording.fns.push(this);
@@ -628,7 +628,8 @@ dvl.util = {
           _ref2 = v.listeners;
           for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
             l = _ref2[_j];
-            this.updates.push(l);
+            l.depends.push(this);
+            this.level = Math.max(this.level, l.level + 1);
           }
         }
         checkForCycle(this);
@@ -647,8 +648,7 @@ dvl.util = {
           _ref2 = v.changers;
           for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
             c = _ref2[_j];
-            c.updates.push(this);
-            this.level = Math.max(this.level, c.level + 1);
+            this.depends.push(c);
           }
         }
         checkForCycle(this);
@@ -671,18 +671,18 @@ dvl.util = {
       return this;
     };
     DVLFunctionObject.prototype.remove = function() {
-      var cf, lv, queue, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref2, _ref3, _ref4, _ref5;
+      var cv, lf, queue, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref2, _ref3, _ref4, _ref5;
       delete registerers[this.id];
       bfsZero([this]);
       queue = [];
-      _ref2 = this.listen;
+      _ref2 = this.change;
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-        lv = _ref2[_i];
-        _ref3 = lv.changers;
+        cv = _ref2[_i];
+        _ref3 = cv.listeners;
         for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
-          cf = _ref3[_j];
-          queue.push(cf);
-          cf.updates.splice(cf.updates.indexOf(this), 1);
+          lf = _ref3[_j];
+          queue.push(lf);
+          lf.depends.splice(lf.depends.indexOf(this), 1);
         }
       }
       _ref4 = this.change;
@@ -695,8 +695,8 @@ dvl.util = {
         v = _ref5[_l];
         v.listeners.splice(v.listeners.indexOf(this), 1);
       }
-      bfsUpdate(this.updates);
-      this.change = this.listen = this.updates = null;
+      bfsUpdate(this.depends);
+      this.change = this.listen = this.depends = null;
     };
     return DVLFunctionObject;
   })();
@@ -748,7 +748,8 @@ dvl.util = {
         _ref2 = cv.listeners;
         for (_m = 0, _len5 = _ref2.length; _m < _len5; _m++) {
           lf = _ref2[_m];
-          fo.updates.push(lf);
+          lf.depends.push(fo);
+          fo.level = Math.max(fo.level, lf.level + 1);
         }
       }
       for (_n = 0, _len6 = listen.length; _n < _len6; _n++) {
@@ -756,8 +757,7 @@ dvl.util = {
         _ref3 = lv.changers;
         for (_o = 0, _len7 = _ref3.length; _o < _len7; _o++) {
           cf = _ref3[_o];
-          cf.updates.push(fo);
-          fo.level = Math.max(fo.level, cf.level + 1);
+          fo.depends.push(cf);
         }
       }
       registerers[id] = fo;
@@ -793,7 +793,7 @@ dvl.util = {
     var k, l, v;
     for (k in registerers) {
       l = registerers[k];
-      l.listen = l.change = l.updates = null;
+      l.listen = l.change = l.depends = null;
     }
     for (k in variables) {
       v = variables[k];
@@ -810,7 +810,7 @@ dvl.util = {
     sorted = true;
     compare = function(a, b) {
       var levelDiff;
-      levelDiff = b.level - a.level;
+      levelDiff = a.level - b.level;
       if (levelDiff === 0) {
         return b.id - a.id;
       } else {
