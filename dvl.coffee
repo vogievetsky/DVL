@@ -423,7 +423,7 @@ dvl.util = {
 
 
   class DVLFunctionObject
-    constructor: (@id, @ctx, @fn, @listen, @change) ->
+    constructor: (@id, @name, @ctx, @fn, @listen, @change) ->
       @updates = []
       @level = 0
       if curRecording
@@ -497,9 +497,8 @@ dvl.util = {
     throw 'cannot call register from within a notify' if curNotifyListener
     throw 'fn must be a function' if typeof(fn) != 'function'
 
-    # Check to see if (ctx, fu) already exists, raise error for now
-    # for k, l of registerers
-    #   throw 'called twice' if l.ctx is ctx and l.fn is fn
+    listen = [listen] unless dvl.typeOf(listen) is 'array'
+    change = [change] unless dvl.typeOf(change) is 'array'
 
     listenConst = []
     if listen
@@ -510,9 +509,8 @@ dvl.util = {
 
     if listen.length isnt 0 or change.length isnt 0 or force
       # Make function/context holder object; set level to 0
-      nextObjId += 1
-      id = (name or 'fn') + '_' + nextObjId
-      fo = new DVLFunctionObject(id, ctx, fn, listen, change)
+      id = ++nextObjId
+      fo = new DVLFunctionObject(id, (name or 'fn'), ctx, fn, listen, change)
 
       # Append listen and change to variables
       for v in listen
@@ -574,23 +572,29 @@ dvl.util = {
     return
 
 
-  levelPriorityQueue = (->
+  levelPriorityQueue = do ->
     queue = []
-    minLevel = Infinity
-    len = 0
-    push: (l) ->
-      len += 1
-      level = l.level
-      minLevel = Math.min(minLevel, level)
-      (queue[level] or= []).push l
-      return
-    shift: ->
-      len -= 1
-      while not (queue[minLevel] and queue[minLevel].length)
-        minLevel += 1
-      return queue[minLevel].shift()
-    length: -> len
-  )()
+    sorted = true
+
+    compare = (a, b) ->
+      levelDiff = b.level - a.level
+      return if levelDiff is 0 then b.id - a.id else levelDiff
+
+    return {
+      push: (l) ->
+        queue.push l
+        sorted = false
+        return
+
+      shift: ->
+        if not sorted
+          queue.sort(compare)
+          sorted = true
+        return queue.pop()
+
+      length: ->
+        return queue.length
+    }
 
   curNotifyListener = null
   curCollectListener = null
@@ -820,44 +824,47 @@ dvl.debug = () ->
 dvl.apply = ->
   switch arguments.length
     when 1
-      {fn, args, out, name, invalid, allowNull, update} = arguments[0]
+      [{fn, args, out, name, invalid, allowNull, update}] = arguments
     when 2
       [args, fn] = arguments
+    when 3
+      [args, {out, name, invalid, allowNull, update}, fn] = arguments
     else
-      throw "bad number of arguments"
+      throw "incorect number of arguments"
 
   fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
-  throw 'dvl.apply only makes sense with at least one argument' unless args?
   args = [args] unless dvl.typeOf(args) is 'array'
   args = args.map(dvl.wrapConstIfNeeded)
   invalid = dvl.wrapConstIfNeeded(invalid ? null)
 
-  ret = dvl.wrapVarIfNeeded((out ? invalid.get()), name or 'apply_out')
+  out = dvl.wrapVarIfNeeded(out ? invalid.get(), name or 'apply_out')
 
-  apply = ->
-    f = fn.get()
-    return unless f?
-    send = []
-    nulls = false
-    for a in args
-      v = a.get()
-      nulls = true if v == null
-      send.push v
+  dvl.register {
+    name: (name or 'apply')+'_fn'
+    listen: args.concat([fn, invalid])
+    change: [out]
+    fn: ->
+      f = fn.get()
+      return unless f?
+      send = []
+      nulls = false
+      for a in args
+        v = a.get()
+        nulls = true unless v?
+        send.push v
 
-    if not nulls or allowNull
-      r = f.apply(null, send)
-      return if r is undefined
-    else
-      r = invalid.get()
+      if not nulls or allowNull
+        r = f.apply(null, send)
+        return if r is undefined
+      else
+        r = invalid.get()
 
-    if dvl.valueOf(update)
-      ret.update(r)
-    else
-      ret.set(r)
-      dvl.notify(ret)
-
-  dvl.register({fn:apply, listen:args.concat([fn, invalid]), change:[ret], name:(name or 'apply')+'_fn'})
-  return ret
+      if update
+        out.update(r)
+      else
+        out.set(r).notify()
+  }
+  return out
 
 
 dvl.random = (options) ->

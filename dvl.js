@@ -603,8 +603,9 @@ dvl.util = {
     }
   };
   DVLFunctionObject = (function() {
-    function DVLFunctionObject(id, ctx, fn, listen, change) {
+    function DVLFunctionObject(id, name, ctx, fn, listen, change) {
       this.id = id;
+      this.name = name;
       this.ctx = ctx;
       this.fn = fn;
       this.listen = listen;
@@ -708,6 +709,12 @@ dvl.util = {
     if (typeof fn !== 'function') {
       throw 'fn must be a function';
     }
+    if (dvl.typeOf(listen) !== 'array') {
+      listen = [listen];
+    }
+    if (dvl.typeOf(change) !== 'array') {
+      change = [change];
+    }
     listenConst = [];
     if (listen) {
       for (_i = 0, _len = listen.length; _i < _len; _i++) {
@@ -720,9 +727,8 @@ dvl.util = {
     listen = uniqById(listen);
     change = uniqById(change);
     if (listen.length !== 0 || change.length !== 0 || force) {
-      nextObjId += 1;
-      id = (name || 'fn') + '_' + nextObjId;
-      fo = new DVLFunctionObject(id, ctx, fn, listen, change);
+      id = ++nextObjId;
+      fo = new DVLFunctionObject(id, name || 'fn', ctx, fn, listen, change);
       for (_j = 0, _len2 = listen.length; _j < _len2; _j++) {
         v = listen[_j];
         if (!v) {
@@ -799,27 +805,32 @@ dvl.util = {
     registerers = {};
   };
   levelPriorityQueue = (function() {
-    var len, minLevel, queue;
+    var compare, queue, sorted;
     queue = [];
-    minLevel = Infinity;
-    len = 0;
+    sorted = true;
+    compare = function(a, b) {
+      var levelDiff;
+      levelDiff = b.level - a.level;
+      if (levelDiff === 0) {
+        return b.id - a.id;
+      } else {
+        return levelDiff;
+      }
+    };
     return {
       push: function(l) {
-        var level;
-        len += 1;
-        level = l.level;
-        minLevel = Math.min(minLevel, level);
-        (queue[level] || (queue[level] = [])).push(l);
+        queue.push(l);
+        sorted = false;
       },
       shift: function() {
-        len -= 1;
-        while (!(queue[minLevel] && queue[minLevel].length)) {
-          minLevel += 1;
+        if (!sorted) {
+          queue.sort(compare);
+          sorted = true;
         }
-        return queue[minLevel].shift();
+        return queue.pop();
       },
       length: function() {
-        return len;
+        return queue.length;
       }
     };
   })();
@@ -1092,7 +1103,7 @@ dvl.debug = function() {
   return obj;
 };
 dvl.apply = function() {
-  var allowNull, apply, args, fn, invalid, name, out, ret, update, _ref2;
+  var allowNull, args, fn, invalid, name, out, update, _ref2, _ref3;
   switch (arguments.length) {
     case 1:
       _ref2 = arguments[0], fn = _ref2.fn, args = _ref2.args, out = _ref2.out, name = _ref2.name, invalid = _ref2.invalid, allowNull = _ref2.allowNull, update = _ref2.update;
@@ -1100,57 +1111,55 @@ dvl.apply = function() {
     case 2:
       args = arguments[0], fn = arguments[1];
       break;
+    case 3:
+      args = arguments[0], _ref3 = arguments[1], out = _ref3.out, name = _ref3.name, invalid = _ref3.invalid, allowNull = _ref3.allowNull, update = _ref3.update, fn = arguments[2];
+      break;
     default:
-      throw "bad number of arguments";
+      throw "incorect number of arguments";
   }
   fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  if (args == null) {
-    throw 'dvl.apply only makes sense with at least one argument';
-  }
   if (dvl.typeOf(args) !== 'array') {
     args = [args];
   }
   args = args.map(dvl.wrapConstIfNeeded);
   invalid = dvl.wrapConstIfNeeded(invalid != null ? invalid : null);
-  ret = dvl.wrapVarIfNeeded(out != null ? out : invalid.get(), name || 'apply_out');
-  apply = function() {
-    var a, f, nulls, r, send, v, _i, _len;
-    f = fn.get();
-    if (f == null) {
-      return;
-    }
-    send = [];
-    nulls = false;
-    for (_i = 0, _len = args.length; _i < _len; _i++) {
-      a = args[_i];
-      v = a.get();
-      if (v === null) {
-        nulls = true;
-      }
-      send.push(v);
-    }
-    if (!nulls || allowNull) {
-      r = f.apply(null, send);
-      if (r === void 0) {
+  out = dvl.wrapVarIfNeeded(out != null ? out : invalid.get(), name || 'apply_out');
+  dvl.register({
+    name: (name || 'apply') + '_fn',
+    listen: args.concat([fn, invalid]),
+    change: [out],
+    fn: function() {
+      var a, f, nulls, r, send, v, _i, _len;
+      f = fn.get();
+      if (f == null) {
         return;
       }
-    } else {
-      r = invalid.get();
+      send = [];
+      nulls = false;
+      for (_i = 0, _len = args.length; _i < _len; _i++) {
+        a = args[_i];
+        v = a.get();
+        if (v == null) {
+          nulls = true;
+        }
+        send.push(v);
+      }
+      if (!nulls || allowNull) {
+        r = f.apply(null, send);
+        if (r === void 0) {
+          return;
+        }
+      } else {
+        r = invalid.get();
+      }
+      if (update) {
+        return out.update(r);
+      } else {
+        return out.set(r).notify();
+      }
     }
-    if (dvl.valueOf(update)) {
-      return ret.update(r);
-    } else {
-      ret.set(r);
-      return dvl.notify(ret);
-    }
-  };
-  dvl.register({
-    fn: apply,
-    listen: args.concat([fn, invalid]),
-    change: [ret],
-    name: (name || 'apply') + '_fn'
   });
-  return ret;
+  return out;
 };
 dvl.random = function(options) {
   var gen, int, max, min, random, walk;
