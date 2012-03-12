@@ -1,11 +1,10 @@
 # DVL
 
-**DVL** is a free functionally reactive library written in JavaScript. DVL is based on the idea that code should automatically be run when the variables that it depends on changes.
+**DVL** is a free functionally reactive library written in JavaScript. DVL is based on the idea that data, not control flow is the most importnatn aspect of a program focused on data visulaization.
 
-DVL consists of three parts:
-DVL core – The DVL event dispatcher and miscellaneous helper utilities.
-DVL SVG – A collection of functions written on top of  [D3](http://mbostock.github.com/d3/) to allow for dynamic visualization with SVG.
-DVL HTML – A collection of functions written on top of  [D3](http://mbostock.github.com/d3/) and jQuery for creating dynamic HTML components.
+DVL is built on top of [D3](http://mbostock.github.com/d3/) to allow for dynamic data binding to the DOM.
+
+## Usage
 
 The code DVL functionality can be described with the following functions:
 
@@ -18,10 +17,10 @@ Creates a wrapped variable that can dispatch events.
 		x.set(7);
 		x.get(); //== 7
 		x.notify();
-		
+
 The above example creates a wrapped DVL variable with an initial value of 5. This value can be modified through x.get() and x.set(7). To announce to the rest of the program that x has changed x.notify() can be called.
 
-The null value is used to mark that a variable is invalid. 
+The null value is used to mark that a variable is invalid.
 
 **dvl.register**
 
@@ -50,7 +49,7 @@ Registers a function to be called whenever any of the registered listened to obj
 		});
 
 		c.get() //== 13
-		
+
 		a.set(3).notify()
 		b.set(4).notify()
 		c.get() //== 5
@@ -66,18 +65,35 @@ The apply function is a short-form for simplifying a common pattern found in DVL
 		var a = dvl.def(5);
 		var b = dvl.def(12);
 
-		var c = dvl.apply({
-		  args: [a, b],
-		  fn: function(av, bv) { 
-		    return Math.sqrt(av*av + bv*bv); 
-		  }
-		});
+		var c = dvl.apply(
+		  [a, b],
+		  function(av, bv) { return Math.sqrt(av*av + bv*bv); }
+		);
 
 		c.get() //== 13
-		
+
 		a.set(3).notify()
 		b.set(4).notify()
 		c.get() //== 5
-		
+
 The above example is equivalent to the example given for dvl.register.
+
+## Credits
+
+[Vadim Ogievetsky](http://vadim.ogievetsky.com)
+
+[Barret Schloerke]()
+
+With invaluable advice from [Mike Bostock](http://bost.ocks.org/mike/)
+
+
+
+
+
+
+
+
+
+
+
 
