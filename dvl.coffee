@@ -939,10 +939,10 @@ dvl.recorder = (options) ->
          d = o
       d[options.index] = i if options.index
       d[options.timestamp] = new Date() if options.timestamp
-      array.push(d)
-
-      array.shift() while m < array.get().length
-      dvl.notify(array)
+      _array = array.get()
+      _array.push(d)
+      _array.shift() while m < _array.length
+      array.set(_array).notify()
       i += 1
 
   dvl.register({fn:record, listen:[data], change:[array], name:'recorder'})
@@ -1335,6 +1335,27 @@ dvl.hasher = (obj) ->
   dvl.register({fn:updateHash, listen:[obj], name:'hash_changer'})
   return
 
+
+# Data # ------------------------------------------------
+
+dvl.data = {}
+
+dvl.data.min = (data, acc) ->
+  acc or= dvl.identity
+  return dvl.apply {
+    args: [data, acc]
+    update: true
+    fn: (data, acc) -> d3.min(data, acc)
+  }
+
+dvl.data.max = (data, acc) ->
+  acc or= dvl.identity
+  return dvl.apply {
+    args: [data, acc]
+    update: true
+    fn: (data, acc) -> d3.max(data, acc)
+  }
+
 # Scales # ------------------------------------------------
 
 dvl.scale = {}
@@ -1368,10 +1389,10 @@ dvl.scale = {}
 
     domainFrom = null
     domainTo   = null
-    scaleRef  = dvl.def(null, name + '_fn')
-    invertRef = dvl.def(null, name + '_invert')
-    ticksRef  = dvl.def(null, name + '_ticks')
-    formatRef = dvl.def(null, name + '_format')
+    scaleRef  = dvl.def().name(name + '_fn')
+    invertRef = dvl.def().name(name + '_invert')
+    ticksRef  = dvl.def().name(name + '_ticks')
+    formatRef = dvl.def().name(name + '_format')
 
     makeScale = () ->
       if domainFrom < domainTo
@@ -1681,8 +1702,8 @@ do ->
 
           add2 = (fn, k, v) ->
             if v.hasChanged() or force
-              #preTrans.push  { fn, a1: k, a2: v.getPrev() }
               enter.push     { fn, a1: k, a2: v.getPrev() }
+              preTrans.push  { fn, a1: k, a2: v.getPrev() }
               postTrans.push { fn, a1: k, a2: v.get() }
             else
               enter.push     { fn, a1: k, a2: v.get() }

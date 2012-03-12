@@ -1231,7 +1231,7 @@ dvl.recorder = function(options) {
   max = dvl.wrapConstIfNeeded(options.max || +Infinity);
   i = 0;
   record = function() {
-    var d, m, o;
+    var d, m, o, _array;
     d = fn.get()(data.get());
     m = max.get();
     if (d != null) {
@@ -1246,11 +1246,12 @@ dvl.recorder = function(options) {
       if (options.timestamp) {
         d[options.timestamp] = new Date();
       }
-      array.push(d);
-      while (m < array.get().length) {
-        array.shift();
+      _array = array.get();
+      _array.push(d);
+      while (m < _array.length) {
+        _array.shift();
       }
-      dvl.notify(array);
+      array.set(_array).notify();
       return i += 1;
     }
   };
@@ -1721,6 +1722,27 @@ dvl.hasher = function(obj) {
     name: 'hash_changer'
   });
 };
+dvl.data = {};
+dvl.data.min = function(data, acc) {
+  acc || (acc = dvl.identity);
+  return dvl.apply({
+    args: [data, acc],
+    update: true,
+    fn: function(data, acc) {
+      return d3.min(data, acc);
+    }
+  });
+};
+dvl.data.max = function(data, acc) {
+  acc || (acc = dvl.identity);
+  return dvl.apply({
+    args: [data, acc],
+    update: true,
+    fn: function(data, acc) {
+      return d3.max(data, acc);
+    }
+  });
+};
 dvl.scale = {};
 (function() {
   dvl.scale.linear = function(options) {
@@ -1754,10 +1776,10 @@ dvl.scale = {};
     }
     domainFrom = null;
     domainTo = null;
-    scaleRef = dvl.def(null, name + '_fn');
-    invertRef = dvl.def(null, name + '_invert');
-    ticksRef = dvl.def(null, name + '_ticks');
-    formatRef = dvl.def(null, name + '_format');
+    scaleRef = dvl.def().name(name + '_fn');
+    invertRef = dvl.def().name(name + '_invert');
+    ticksRef = dvl.def().name(name + '_ticks');
+    formatRef = dvl.def().name(name + '_format');
     makeScale = function() {
       if (domainFrom < domainTo) {
         return makeScaleFn();
@@ -2145,6 +2167,11 @@ dvl.scale = {};
           add2 = function(fn, k, v) {
             if (v.hasChanged() || force) {
               enter.push({
+                fn: fn,
+                a1: k,
+                a2: v.getPrev()
+              });
+              preTrans.push({
                 fn: fn,
                 a1: k,
                 a2: v.getPrev()
