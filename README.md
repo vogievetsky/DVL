@@ -82,7 +82,7 @@ The above example is equivalent to the example given for dvl.register.
 
 [Vadim Ogievetsky](http://vadim.ogievetsky.com)
 
-[Barret Schloerke]()
+[Barret Schloerke](http://github.com/schloerke)
 
 With invaluable advice from [Mike Bostock](http://bost.ocks.org/mike/)
 
