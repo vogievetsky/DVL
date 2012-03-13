@@ -2464,11 +2464,12 @@ do ->
         id:       c.id
         class:    c.classStr
         value:    c.value
+        hover:    c.hover
         render:   c.render
         on:       c.on
       }
 
-    compare = dvl.def(null, 'compare')
+    compare = dvl.def(null)
     dvl.register {
       listen: compareList
       change: [compare]
@@ -2577,7 +2578,8 @@ do ->
   ## ~rowLimit:          The maximum number of rows to show; if null all the rows are shown. [null]
   ##  columns:
   ##   ~value:       The value of the cell
-  ##   ~class:    The class of the column
+  ##   ~class:       The class of the column
+  ##   ~hover:       The hover
   ##
   dvl.html.table.body = ({parent, data, compare, rowClass, rowLimit, columns}) ->
     throw 'there needs to be a parent' unless parent
@@ -2592,14 +2594,15 @@ do ->
     for c in columns
       c.class = dvl.wrapConstIfNeeded(c.class)
       c.value = dvl.wrapConstIfNeeded(c.value)
-      listen.push c.class # not value
+      c.hover = dvl.wrapConstIfNeeded(c.hover)
+      listen.push c.class, c.hover # not value which is handled by the render
 
       for k,v of c.on
         v = dvl.wrapConstIfNeeded(v)
         listen.push v
         c.on[k] = v
 
-      change.push(c.selection = dvl.def(null, "#{c.id}_selection"))
+      change.push(c.selection = dvl.def(null).name("#{c.id}_selection"))
 
 
     dvl.register {
@@ -2635,6 +2638,8 @@ do ->
           sel = tbody.selectAll("td:nth-child(#{i+1})").data(dataSorted)
             .attr('class', c.class.get())
 
+          sel.attr('title', c.hover.get())
+
           for k,v of c.on
             sel.on(k, v.get())
 
@@ -2645,7 +2650,7 @@ do ->
 
     for c in columns
       render = if typeof c.render isnt 'function'
-        dvl.html.table2.render[c.render or 'text']
+        dvl.html.table.render[c.render or 'text']
       else
         c.render
 
@@ -2684,7 +2689,6 @@ do ->
       dvl.bind {
         parent: selection
         self: 'a.link'
-        data: (d) -> [d]
         attr: {
           href: href
         }
@@ -2704,7 +2708,6 @@ do ->
       dvl.bind {
         parent: selection
         self: 'img'
-        data: (d) -> [d]
         attr: {
           src: value
         }

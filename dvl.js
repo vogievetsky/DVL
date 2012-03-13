@@ -2979,11 +2979,12 @@ dvl.compare = function(acc, reverse) {
         id: c.id,
         "class": c.classStr,
         value: c.value,
+        hover: c.hover,
         render: c.render,
         on: c.on
       });
     }
-    compare = dvl.def(null, 'compare');
+    compare = dvl.def(null);
     dvl.register({
       listen: compareList,
       change: [compare],
@@ -3099,7 +3100,8 @@ dvl.compare = function(acc, reverse) {
       c = columns[_i];
       c["class"] = dvl.wrapConstIfNeeded(c["class"]);
       c.value = dvl.wrapConstIfNeeded(c.value);
-      listen.push(c["class"]);
+      c.hover = dvl.wrapConstIfNeeded(c.hover);
+      listen.push(c["class"], c.hover);
       _ref2 = c.on;
       for (k in _ref2) {
         v = _ref2[k];
@@ -3107,7 +3109,7 @@ dvl.compare = function(acc, reverse) {
         listen.push(v);
         c.on[k] = v;
       }
-      change.push(c.selection = dvl.def(null, "" + c.id + "_selection"));
+      change.push(c.selection = dvl.def(null).name("" + c.id + "_selection"));
     }
     dvl.register({
       name: 'body_render',
@@ -3142,6 +3144,7 @@ dvl.compare = function(acc, reverse) {
         for (i = 0, _len2 = columns.length; i < _len2; i++) {
           c = columns[i];
           sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted).attr('class', c["class"].get());
+          sel.attr('title', c.hover.get());
           _ref3 = c.on;
           for (k in _ref3) {
             v = _ref3[k];
@@ -3153,7 +3156,7 @@ dvl.compare = function(acc, reverse) {
     });
     for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
       c = columns[_j];
-      render = typeof c.render !== 'function' ? dvl.html.table2.render[c.render || 'text'] : c.render;
+      render = typeof c.render !== 'function' ? dvl.html.table.render[c.render || 'text'] : c.render;
       render.call(c, c.selection, c.value);
     }
   };
@@ -3191,9 +3194,6 @@ dvl.compare = function(acc, reverse) {
         dvl.bind({
           parent: selection,
           self: 'a.link',
-          data: function(d) {
-            return [d];
-          },
           attr: {
             href: href
           },
@@ -3217,9 +3217,6 @@ dvl.compare = function(acc, reverse) {
       dvl.bind({
         parent: selection,
         self: 'img',
-        data: function(d) {
-          return [d];
-        },
         attr: {
           src: value
         }
