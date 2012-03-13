@@ -2972,12 +2972,14 @@ dvl.compare = function(acc, reverse) {
       headerCol.push({
         id: c.id,
         title: c.title,
-        classStr: c.classStr,
+        "class": c["class"],
+        visible: c.visible,
         tooltip: c.headerTooltip
       });
       bodyCol.push({
         id: c.id,
-        "class": c.classStr,
+        "class": c["class"],
+        visible: c.visible,
         value: c.value,
         hover: c.hover,
         render: c.render,
@@ -3045,7 +3047,7 @@ dvl.compare = function(acc, reverse) {
     return {};
   };
   dvl.html.table.header = function(_arg) {
-    var c, columns, listen, onClick, parent, thead, _i, _len;
+    var c, columns, listen, onClick, parent, thead, _i, _len, _ref2;
     parent = _arg.parent, columns = _arg.columns, onClick = _arg.onClick;
     if (!parent) {
       throw 'there needs to be a parent';
@@ -3055,9 +3057,10 @@ dvl.compare = function(acc, reverse) {
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
       c.title = dvl.wrapConstIfNeeded(c.title);
-      c.classStr = dvl.wrapConstIfNeeded(c.classStr);
+      c["class"] = dvl.wrapConstIfNeeded(c["class"]);
+      c.visible = dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true);
       c.tooltip = dvl.wrapConstIfNeeded(c.tooltip);
-      listen.push(c.title, c.classStr, c.tooltip);
+      listen.push(c.title, c["class"], c.visible, c.tooltip);
     }
     dvl.register({
       name: 'head_render',
@@ -3068,19 +3071,19 @@ dvl.compare = function(acc, reverse) {
         colSel.enter().append('td');
         colSel.exit().remove();
         colSel.attr('class', function(c) {
-          return c.classStr.get();
+          return c["class"].get();
         }).attr('title', function(c) {
           return c.tooltip.get();
         }).text(function(c) {
           return c.title.get();
-        }).on('click', function(c) {
+        }).style('display', c.visible.get() ? null : 'none').on('click', function(c) {
           return onClick(c.id);
         });
       }
     });
   };
   dvl.html.table.body = function(_arg) {
-    var c, change, columns, compare, data, k, listen, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2;
+    var c, change, columns, compare, data, k, listen, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2, _ref3;
     parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
     if (!parent) {
       throw 'there needs to be a parent';
@@ -3099,12 +3102,13 @@ dvl.compare = function(acc, reverse) {
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
       c["class"] = dvl.wrapConstIfNeeded(c["class"]);
-      c.value = dvl.wrapConstIfNeeded(c.value);
+      c.visible = dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true);
       c.hover = dvl.wrapConstIfNeeded(c.hover);
-      listen.push(c["class"], c.hover);
-      _ref2 = c.on;
-      for (k in _ref2) {
-        v = _ref2[k];
+      c.value = dvl.wrapConstIfNeeded(c.value);
+      listen.push(c["class"], c.visible, c.hover);
+      _ref3 = c.on;
+      for (k in _ref3) {
+        v = _ref3[k];
         v = dvl.wrapConstIfNeeded(v);
         listen.push(v);
         c.on[k] = v;
@@ -3116,7 +3120,7 @@ dvl.compare = function(acc, reverse) {
       listen: listen,
       change: change,
       fn: function() {
-        var c, colSel, dataSorted, i, k, rowSel, sel, v, _compare, _data, _len2, _ref3, _rowClass, _rowLimit;
+        var c, colSel, dataSorted, i, k, rowSel, sel, v, visible, _compare, _data, _len2, _ref4, _rowClass, _rowLimit;
         _data = data.get();
         if (!_data) {
           tbody.selectAll('tr').remove();
@@ -3143,14 +3147,16 @@ dvl.compare = function(acc, reverse) {
         colSel.exit().remove();
         for (i = 0, _len2 = columns.length; i < _len2; i++) {
           c = columns[i];
-          sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted).attr('class', c["class"].get());
-          sel.attr('title', c.hover.get());
-          _ref3 = c.on;
-          for (k in _ref3) {
-            v = _ref3[k];
+          visible = c.visible.get();
+          sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted).attr('class', c["class"].get()).attr('title', c.hover.get()).style('display', visible ? null : 'none');
+          _ref4 = c.on;
+          for (k in _ref4) {
+            v = _ref4[k];
             sel.on(k, v.get());
           }
-          c.selection.set(sel).notify();
+          if (visible) {
+            c.selection.set(sel).notify();
+          }
         }
       }
     });
@@ -3222,12 +3228,14 @@ dvl.compare = function(acc, reverse) {
         }
       });
     },
-    imgDiv: function(sel, value) {
-      sel = sel.selectAll('div').data(function(d) {
-        return [d];
+    imgDiv: function(selection, value) {
+      dvl.bind({
+        parent: selection,
+        self: 'div',
+        attr: {
+          "class": value
+        }
       });
-      sel.enter().append('div');
-      sel.attr('class', value);
     },
     sparkline: function(_arg) {
       var height, padding, width, x, y;

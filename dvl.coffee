@@ -2457,12 +2457,14 @@ do ->
       headerCol.push {
         id:       c.id
         title:    c.title
-        classStr: c.classStr
+        class:    c.class
+        visible:  c.visible
         tooltip:  c.headerTooltip
       }
       bodyCol.push {
         id:       c.id
-        class:    c.classStr
+        class:    c.class
+        visible:  c.visible
         value:    c.value
         hover:    c.hover
         render:   c.render
@@ -2532,8 +2534,9 @@ do ->
   ##  parent:      Where to append the table.
   ##  columns:
   ##   ~title:       The title of the column.
-  ##   ~classStr:    The class of the column
+  ##   ~class:       The class of the column
   ##   ~tooltip:     The tooltip for the column
+  ##   ~visible:     Is this visible
   ##   ~onClick:     The click handler
   ##
   dvl.html.table.header = ({parent, columns, onClick}) ->
@@ -2543,9 +2546,10 @@ do ->
     listen = []
     for c in columns
       c.title = dvl.wrapConstIfNeeded(c.title)
-      c.classStr = dvl.wrapConstIfNeeded(c.classStr)
+      c.class = dvl.wrapConstIfNeeded(c.class)
+      c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
       c.tooltip = dvl.wrapConstIfNeeded(c.tooltip)
-      listen.push c.title, c.classStr, c.tooltip
+      listen.push c.title, c.class, c.visible, c.tooltip
 
     dvl.register {
       name: 'head_render'
@@ -2556,9 +2560,10 @@ do ->
         colSel.exit().remove()
 
         colSel
-          .attr('class', (c) -> c.classStr.get())
+          .attr('class', (c) -> c.class.get())
           .attr('title', (c) -> c.tooltip.get())
           .text((c) -> c.title.get())
+          .style('display', if c.visible.get() then null else 'none')
           .on('click', (c) -> onClick(c.id))
 
         return
@@ -2580,6 +2585,8 @@ do ->
   ##   ~value:       The value of the cell
   ##   ~class:       The class of the column
   ##   ~hover:       The hover
+  ##   ~visible:     This this column shown?
+  ##    on:          Whatever on events you want
   ##
   dvl.html.table.body = ({parent, data, compare, rowClass, rowLimit, columns}) ->
     throw 'there needs to be a parent' unless parent
@@ -2593,9 +2600,11 @@ do ->
     change = []
     for c in columns
       c.class = dvl.wrapConstIfNeeded(c.class)
-      c.value = dvl.wrapConstIfNeeded(c.value)
+      c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
       c.hover = dvl.wrapConstIfNeeded(c.hover)
-      listen.push c.class, c.hover # not value which is handled by the render
+      c.value = dvl.wrapConstIfNeeded(c.value)
+      # don't listen to value which is handled by the render
+      listen.push c.class, c.visible, c.hover
 
       for k,v of c.on
         v = dvl.wrapConstIfNeeded(v)
@@ -2635,15 +2644,16 @@ do ->
         colSel.exit().remove()
 
         for c,i in columns
+          visible = c.visible.get()
           sel = tbody.selectAll("td:nth-child(#{i+1})").data(dataSorted)
             .attr('class', c.class.get())
-
-          sel.attr('title', c.hover.get())
+            .attr('title', c.hover.get())
+            .style('display', if visible then null else 'none')
 
           for k,v of c.on
             sel.on(k, v.get())
 
-          c.selection.set(sel).notify()
+          c.selection.set(sel).notify() if visible
 
         return
     }
@@ -2714,10 +2724,14 @@ do ->
       }
       return
 
-    imgDiv: (sel, value) ->
-      sel = sel.selectAll('div').data((d) -> [d])
-      sel.enter().append('div')
-      sel.attr('class', value)
+    imgDiv: (selection, value) ->
+      dvl.bind {
+        parent: selection
+        self: 'div'
+        attr: {
+          class: value
+        }
+      }
       return
 
     sparkline: ({width, height, x, y, padding}) ->
