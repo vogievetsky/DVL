@@ -2555,15 +2555,15 @@ do ->
       name: 'head_render'
       listen
       fn: ->
-        colSel = thead.selectAll('td').data(columns)
-        colSel.enter().append('td')
+        colSel = thead.selectAll('th').data(columns)
+        colSel.enter().append('th')
         colSel.exit().remove()
 
         colSel
           .attr('class', (c) -> c.class.get())
           .attr('title', (c) -> c.tooltip.get())
           .text((c) -> c.title.get())
-          .style('display', if c.visible.get() then null else 'none')
+          .style('display', (c) -> if c.visible.get() then null else 'none')
           .on('click', (c) -> onClick(c.id))
 
         return
@@ -2598,21 +2598,27 @@ do ->
     rowLimit = dvl.wrapConstIfNeeded(rowLimit)
     listen = [data, compare, rowClass, rowLimit]
     change = []
+    newColumns = []
     for c in columns
-      c.class = dvl.wrapConstIfNeeded(c.class)
-      c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
-      c.hover = dvl.wrapConstIfNeeded(c.hover)
-      c.value = dvl.wrapConstIfNeeded(c.value)
+      newColumns.push(nc = {})
+      nc.class = dvl.wrapConstIfNeeded(c.class)
+      nc.visible = dvl.wrapConstIfNeeded(c.visible ? true)
+      nc.hover = dvl.wrapConstIfNeeded(c.hover)
+      nc.value = dvl.wrapConstIfNeeded(c.value)
       # don't listen to value which is handled by the render
-      listen.push c.class, c.visible, c.hover
+      listen.push nc.class, nc.visible, nc.hover
 
+      nc.render = c.render or 'text'
+
+      nc.on = {}
       for k,v of c.on
         v = dvl.wrapConstIfNeeded(v)
         listen.push v
-        c.on[k] = v
+        nc.on[k] = v
 
-      change.push(c.selection = dvl.def(null).name("#{c.id}_selection"))
+      change.push(nc.selection = dvl.def(null).name("#{c.id}_selection"))
 
+    columns = newColumns
 
     dvl.register {
       name: 'body_render'
@@ -2660,7 +2666,7 @@ do ->
 
     for c in columns
       render = if typeof c.render isnt 'function'
-        dvl.html.table.render[c.render or 'text']
+        dvl.html.table.render[c.render]
       else
         c.render
 

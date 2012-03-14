@@ -3067,8 +3067,8 @@ dvl.compare = function(acc, reverse) {
       listen: listen,
       fn: function() {
         var colSel;
-        colSel = thead.selectAll('td').data(columns);
-        colSel.enter().append('td');
+        colSel = thead.selectAll('th').data(columns);
+        colSel.enter().append('th');
         colSel.exit().remove();
         colSel.attr('class', function(c) {
           return c["class"].get();
@@ -3076,14 +3076,20 @@ dvl.compare = function(acc, reverse) {
           return c.tooltip.get();
         }).text(function(c) {
           return c.title.get();
-        }).style('display', c.visible.get() ? null : 'none').on('click', function(c) {
+        }).style('display', function(c) {
+          if (c.visible.get()) {
+            return null;
+          } else {
+            return 'none';
+          }
+        }).on('click', function(c) {
           return onClick(c.id);
         });
       }
     });
   };
   dvl.html.table.body = function(_arg) {
-    var c, change, columns, compare, data, k, listen, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2, _ref3;
+    var c, change, columns, compare, data, k, listen, nc, newColumns, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2, _ref3;
     parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
     if (!parent) {
       throw 'there needs to be a parent';
@@ -3099,22 +3105,27 @@ dvl.compare = function(acc, reverse) {
     rowLimit = dvl.wrapConstIfNeeded(rowLimit);
     listen = [data, compare, rowClass, rowLimit];
     change = [];
+    newColumns = [];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
-      c["class"] = dvl.wrapConstIfNeeded(c["class"]);
-      c.visible = dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true);
-      c.hover = dvl.wrapConstIfNeeded(c.hover);
-      c.value = dvl.wrapConstIfNeeded(c.value);
-      listen.push(c["class"], c.visible, c.hover);
+      newColumns.push(nc = {});
+      nc["class"] = dvl.wrapConstIfNeeded(c["class"]);
+      nc.visible = dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true);
+      nc.hover = dvl.wrapConstIfNeeded(c.hover);
+      nc.value = dvl.wrapConstIfNeeded(c.value);
+      listen.push(nc["class"], nc.visible, nc.hover);
+      nc.render = c.render || 'text';
+      nc.on = {};
       _ref3 = c.on;
       for (k in _ref3) {
         v = _ref3[k];
         v = dvl.wrapConstIfNeeded(v);
         listen.push(v);
-        c.on[k] = v;
+        nc.on[k] = v;
       }
-      change.push(c.selection = dvl.def(null).name("" + c.id + "_selection"));
+      change.push(nc.selection = dvl.def(null).name("" + c.id + "_selection"));
     }
+    columns = newColumns;
     dvl.register({
       name: 'body_render',
       listen: listen,
@@ -3162,7 +3173,7 @@ dvl.compare = function(acc, reverse) {
     });
     for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
       c = columns[_j];
-      render = typeof c.render !== 'function' ? dvl.html.table.render[c.render || 'text'] : c.render;
+      render = typeof c.render !== 'function' ? dvl.html.table.render[c.render] : c.render;
       render.call(c, c.selection, c.value);
     }
   };
