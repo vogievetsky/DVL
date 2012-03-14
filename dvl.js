@@ -3064,7 +3064,7 @@ dvl.compare = function(acc, reverse) {
       listen.push(c.title, c["class"], c.visible, c.tooltip);
     }
     sel = thead.selectAll('th').data(columns);
-    sel.enter().append('th');
+    sel.enter().append('th').append('span');
     sel.exit().remove();
     dvl.register({
       name: 'header_render',
@@ -3077,7 +3077,7 @@ dvl.compare = function(acc, reverse) {
           visibleChanged = c.visible.hasChanged();
           if (c.visible.get()) {
             if (c.title.hasChanged() || visibleChanged) {
-              sel.text(c.title.get());
+              sel.select('span').text(c.title.get());
             }
             if (c["class"].hasChanged() || visibleChanged) {
               sel.attr('class', c["class"].get());
@@ -3166,13 +3166,11 @@ dvl.compare = function(acc, reverse) {
         colSel = rowSel.selectAll('td').data(columns);
         colSel.enter().append('td');
         colSel.exit().remove();
-        console.log('here');
         for (i = 0, _len2 = columns.length; i < _len2; i++) {
           c = columns[i];
           sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted);
           visibleChanged = c.visible.hasChanged() || newRows;
           if (c.visible.get()) {
-            console.log(c["class"].get(), c["class"].hasChanged(), visibleChanged);
             if (c["class"].hasChanged() || visibleChanged) {
               sel.attr('class', c["class"].get());
             }

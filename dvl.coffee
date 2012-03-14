@@ -2555,7 +2555,7 @@ do ->
 
     # Init step
     sel = thead.selectAll('th').data(columns)
-    sel.enter().append('th')
+    sel.enter().append('th').append('span')
     sel.exit().remove()
 
     dvl.register {
@@ -2566,13 +2566,13 @@ do ->
           sel = thead.select("th:nth-child(#{i+1})")
           visibleChanged = c.visible.hasChanged()
           if c.visible.get()
-            sel.text(c.title.get())            if c.title.hasChanged() or visibleChanged
-            sel.attr('class', c.class.get())   if c.class.hasChanged() or visibleChanged
-            sel.attr('title', c.tooltip.get()) if c.tooltip.hasChanged() or visibleChanged
-            sel.style('display', null)         if visibleChanged
+            sel.select('span').text(c.title.get()) if c.title.hasChanged() or visibleChanged
+            sel.attr('class', c.class.get())       if c.class.hasChanged() or visibleChanged
+            sel.attr('title', c.tooltip.get())     if c.tooltip.hasChanged() or visibleChanged
+            sel.style('display', null)             if visibleChanged
             sel.on('click', (d) -> onClick.get()?(d.id)) if onClick.hasChanged() or visibleChanged
           else
-            sel.style('display', 'none')       if visibleChanged
+            sel.style('display', 'none')           if visibleChanged
 
         return
     }
@@ -2652,12 +2652,10 @@ do ->
         colSel.enter().append('td')
         colSel.exit().remove()
 
-        console.log 'here'
         for c,i in columns
           sel = tbody.selectAll("td:nth-child(#{i+1})").data(dataSorted)
           visibleChanged = c.visible.hasChanged() or newRows
           if c.visible.get()
-            console.log c.class.get(), c.class.hasChanged(), visibleChanged
             sel.attr('class', c.class.get()) if c.class.hasChanged() or visibleChanged
             sel.attr('title', c.hover.get()) if c.hover.hasChanged() or visibleChanged
             sel.style('display', null)       if visibleChanged
