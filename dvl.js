@@ -3047,13 +3047,14 @@ dvl.compare = function(acc, reverse) {
     return {};
   };
   dvl.html.table.header = function(_arg) {
-    var c, columns, listen, onClick, parent, thead, _i, _len, _ref2;
+    var c, columns, listen, onClick, parent, sel, thead, _i, _len, _ref2;
     parent = _arg.parent, columns = _arg.columns, onClick = _arg.onClick;
     if (!parent) {
       throw 'there needs to be a parent';
     }
+    onClick = dvl.wrapConstIfNeeded(onClick);
     thead = dvl.valueOf(parent).append('thead').append('tr');
-    listen = [];
+    listen = [onClick];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
       c.title = dvl.wrapConstIfNeeded(c.title);
@@ -3062,29 +3063,43 @@ dvl.compare = function(acc, reverse) {
       c.tooltip = dvl.wrapConstIfNeeded(c.tooltip);
       listen.push(c.title, c["class"], c.visible, c.tooltip);
     }
+    sel = thead.selectAll('th').data(columns);
+    sel.enter().append('th');
+    sel.exit().remove();
     dvl.register({
-      name: 'head_render',
+      name: 'header_render',
       listen: listen,
       fn: function() {
-        var colSel;
-        colSel = thead.selectAll('th').data(columns);
-        colSel.enter().append('th');
-        colSel.exit().remove();
-        colSel.attr('class', function(c) {
-          return c["class"].get();
-        }).attr('title', function(c) {
-          return c.tooltip.get();
-        }).text(function(c) {
-          return c.title.get();
-        }).style('display', function(c) {
+        var c, i, visibleChanged, _len2;
+        for (i = 0, _len2 = columns.length; i < _len2; i++) {
+          c = columns[i];
+          sel = thead.select("th:nth-child(" + (i + 1) + ")");
+          visibleChanged = c.visible.hasChanged();
           if (c.visible.get()) {
-            return null;
+            if (c.title.hasChanged() || visibleChanged) {
+              sel.text(c.title.get());
+            }
+            if (c["class"].hasChanged() || visibleChanged) {
+              sel.attr('class', c["class"].get());
+            }
+            if (c.tooltip.hasChanged() || visibleChanged) {
+              sel.attr('title', c.tooltip.get());
+            }
+            if (visibleChanged) {
+              sel.style('display', null);
+            }
+            if (onClick.hasChanged() || visibleChanged) {
+              sel.on('click', function(d) {
+                var _base;
+                return typeof (_base = onClick.get()) === "function" ? _base(d.id) : void 0;
+              });
+            }
           } else {
-            return 'none';
+            if (visibleChanged) {
+              sel.style('display', 'none');
+            }
           }
-        }).on('click', function(c) {
-          return onClick(c.id);
-        });
+        }
       }
     });
   };
@@ -3131,13 +3146,8 @@ dvl.compare = function(acc, reverse) {
       listen: listen,
       change: change,
       fn: function() {
-        var c, colSel, dataSorted, i, k, rowSel, sel, v, visible, _compare, _data, _len2, _ref4, _rowClass, _rowLimit;
-        _data = data.get();
-        if (!_data) {
-          tbody.selectAll('tr').remove();
-          return;
-        }
-        dataSorted = _data;
+        var c, colSel, dataSorted, i, k, newRows, rowSel, sel, v, visibleChanged, _compare, _len2, _ref4, _rowClass, _rowLimit;
+        dataSorted = data.get() || [];
         _compare = compare.get();
         if (_compare) {
           dataSorted = dataSorted.slice().sort(_compare);
@@ -3147,7 +3157,7 @@ dvl.compare = function(acc, reverse) {
           dataSorted = dataSorted.slice(0, _rowLimit);
         }
         rowSel = tbody.selectAll('tr').data(dataSorted);
-        rowSel.enter().append('tr');
+        newRows = !rowSel.enter().append('tr').empty();
         rowSel.exit().remove();
         if (rowClass) {
           _rowClass = rowClass.get();
@@ -3156,24 +3166,41 @@ dvl.compare = function(acc, reverse) {
         colSel = rowSel.selectAll('td').data(columns);
         colSel.enter().append('td');
         colSel.exit().remove();
+        console.log('here');
         for (i = 0, _len2 = columns.length; i < _len2; i++) {
           c = columns[i];
-          visible = c.visible.get();
-          sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted).attr('class', c["class"].get()).attr('title', c.hover.get()).style('display', visible ? null : 'none');
-          _ref4 = c.on;
-          for (k in _ref4) {
-            v = _ref4[k];
-            sel.on(k, v.get());
-          }
-          if (visible) {
+          sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted);
+          visibleChanged = c.visible.hasChanged() || newRows;
+          if (c.visible.get()) {
+            console.log(c["class"].get(), c["class"].hasChanged(), visibleChanged);
+            if (c["class"].hasChanged() || visibleChanged) {
+              sel.attr('class', c["class"].get());
+            }
+            if (c.hover.hasChanged() || visibleChanged) {
+              sel.attr('title', c.hover.get());
+            }
+            if (visibleChanged) {
+              sel.style('display', null);
+            }
+            _ref4 = c.on;
+            for (k in _ref4) {
+              v = _ref4[k];
+              if (v.hasChanged() || visibleChanged) {
+                sel.on(k, v.get());
+              }
+            }
             c.selection.set(sel).notify();
+          } else {
+            if (visibleChanged) {
+              sel.style('display', 'none');
+            }
           }
         }
       }
     });
     for (_j = 0, _len2 = columns.length; _j < _len2; _j++) {
       c = columns[_j];
-      render = typeof c.render !== 'function' ? dvl.html.table.render[c.render] : c.render;
+      render = typeof c.render === 'function' ? c.render : dvl.html.table.render[c.render];
       render.call(c, c.selection, c.value);
     }
   };

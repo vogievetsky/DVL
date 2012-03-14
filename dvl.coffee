@@ -2541,9 +2541,11 @@ do ->
   ##
   dvl.html.table.header = ({parent, columns, onClick}) ->
     throw 'there needs to be a parent' unless parent
+    onClick = dvl.wrapConstIfNeeded(onClick)
+
     thead = dvl.valueOf(parent).append('thead').append('tr')
 
-    listen = []
+    listen = [onClick]
     for c in columns
       c.title = dvl.wrapConstIfNeeded(c.title)
       c.class = dvl.wrapConstIfNeeded(c.class)
@@ -2551,20 +2553,26 @@ do ->
       c.tooltip = dvl.wrapConstIfNeeded(c.tooltip)
       listen.push c.title, c.class, c.visible, c.tooltip
 
+    # Init step
+    sel = thead.selectAll('th').data(columns)
+    sel.enter().append('th')
+    sel.exit().remove()
+
     dvl.register {
-      name: 'head_render'
+      name: 'header_render'
       listen
       fn: ->
-        colSel = thead.selectAll('th').data(columns)
-        colSel.enter().append('th')
-        colSel.exit().remove()
-
-        colSel
-          .attr('class', (c) -> c.class.get())
-          .attr('title', (c) -> c.tooltip.get())
-          .text((c) -> c.title.get())
-          .style('display', (c) -> if c.visible.get() then null else 'none')
-          .on('click', (c) -> onClick(c.id))
+        for c,i in columns
+          sel = thead.select("th:nth-child(#{i+1})")
+          visibleChanged = c.visible.hasChanged()
+          if c.visible.get()
+            sel.text(c.title.get())            if c.title.hasChanged() or visibleChanged
+            sel.attr('class', c.class.get())   if c.class.hasChanged() or visibleChanged
+            sel.attr('title', c.tooltip.get()) if c.tooltip.hasChanged() or visibleChanged
+            sel.style('display', null)         if visibleChanged
+            sel.on('click', (d) -> onClick.get()?(d.id)) if onClick.hasChanged() or visibleChanged
+          else
+            sel.style('display', 'none')       if visibleChanged
 
         return
     }
@@ -2625,12 +2633,7 @@ do ->
       listen
       change
       fn: ->
-        _data = data.get()
-        if not _data
-          tbody.selectAll('tr').remove()
-          return
-
-        dataSorted = _data
+        dataSorted = data.get() or []
 
         _compare = compare.get()
         dataSorted = dataSorted.slice().sort(_compare) if _compare
@@ -2639,7 +2642,7 @@ do ->
         dataSorted = dataSorted.slice(0, _rowLimit) if _rowLimit?
 
         rowSel = tbody.selectAll('tr').data(dataSorted)
-        rowSel.enter().append('tr')
+        newRows = not rowSel.enter().append('tr').empty()
         rowSel.exit().remove()
         if rowClass
           _rowClass = rowClass.get()
@@ -2649,27 +2652,28 @@ do ->
         colSel.enter().append('td')
         colSel.exit().remove()
 
+        console.log 'here'
         for c,i in columns
-          visible = c.visible.get()
           sel = tbody.selectAll("td:nth-child(#{i+1})").data(dataSorted)
-            .attr('class', c.class.get())
-            .attr('title', c.hover.get())
-            .style('display', if visible then null else 'none')
+          visibleChanged = c.visible.hasChanged() or newRows
+          if c.visible.get()
+            console.log c.class.get(), c.class.hasChanged(), visibleChanged
+            sel.attr('class', c.class.get()) if c.class.hasChanged() or visibleChanged
+            sel.attr('title', c.hover.get()) if c.hover.hasChanged() or visibleChanged
+            sel.style('display', null)       if visibleChanged
 
-          for k,v of c.on
-            sel.on(k, v.get())
+            for k,v of c.on
+              sel.on(k, v.get()) if v.hasChanged() or visibleChanged
 
-          c.selection.set(sel).notify() if visible
+            c.selection.set(sel).notify()
+          else
+            sel.style('display', 'none')     if visibleChanged
 
         return
     }
 
     for c in columns
-      render = if typeof c.render isnt 'function'
-        dvl.html.table.render[c.render]
-      else
-        c.render
-
+      render = if typeof c.render is 'function' then c.render else dvl.html.table.render[c.render]
       render.call(c, c.selection, c.value)
 
     return

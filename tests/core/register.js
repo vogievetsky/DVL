@@ -41,8 +41,9 @@ suite.addBatch({
       assert.strictEqual(t.runs, 4);
     },
   },
+});
 
-
+suite.addBatch({
   "basic register / const": {
     topic: function() {
       var t = {
@@ -72,8 +73,9 @@ suite.addBatch({
       assert.strictEqual(t.runs, 1);
     },
   },
+});
 
-
+suite.addBatch({
   "basic register / no init run": {
     topic: function() {
       var t = {
@@ -101,8 +103,9 @@ suite.addBatch({
       assert.strictEqual(t.runs, 1);
     }
   },
+});
 
-
+suite.addBatch({
   "change and listen register": {
     topic: function() {
       var t = {
@@ -134,8 +137,49 @@ suite.addBatch({
       assert.strictEqual(t.b.get(), 20);
     }
   },
+});
 
+suite.addBatch({
+  "hasChanged works": {
+    topic: function() {
+      var t = {
+        a: dvl.def(3),
+        b: dvl.def(4),
+        c: dvl.const(5),
+        status: ''
+      }
 
+      dvl.register({
+        listen: [t.a, t.b, t.c],
+        fn: function() {
+          if (t.a.hasChanged()) t.status += 'A';
+          if (t.b.hasChanged()) t.status += 'B';
+          if (t.c.hasChanged()) t.status += 'C';
+        }
+      });
+
+      return t;
+    },
+
+    "correct initial run": function(t) {
+      assert.strictEqual(t.status, 'ABC');
+    },
+
+    "correct next run on a": function(t) {
+      t.status = '';
+      t.a.set(13).notify();
+      assert.strictEqual(t.status, 'A');
+    },
+
+    "correct next run on b": function(t) {
+      t.status = '';
+      t.b.set(14).notify();
+      assert.strictEqual(t.status, 'B');
+    },
+  },
+});
+
+suite.addBatch({
   "circular register": {
     topic: function() {
       var t = {
