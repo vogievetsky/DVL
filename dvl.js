@@ -2568,84 +2568,73 @@ dvl.html.out = function(_arg) {
   });
 };
 dvl.html.list = function(_arg) {
-  var classFn, classStr, extras, i, icons, links, listClassStr, names, onEnter, onLeave, onSelect, selection, selections, selector, sortFn, ul, values, _i, _len;
-  selector = _arg.selector, names = _arg.names, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, listClassStr = _arg.listClassStr, sortFn = _arg.sortFn;
+  var classStr, data, extras, i, icons, label, link, listClass, onEnter, onLeave, onSelect, selection, selections, selector, sortFn, ul, _i, _len;
+  selector = _arg.selector, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, sortFn = _arg.sortFn;
   if (!selector) {
     throw 'must have selector';
+  }
+  if (!data) {
+    throw 'must have data';
   }
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
   selections = dvl.wrapVarIfNeeded(selections || [], 'selections');
   sortFn = dvl.wrapConstIfNeeded(sortFn);
-  values = dvl.wrapConstIfNeeded(values);
-  names = dvl.wrapConstIfNeeded(names || values);
-  links = dvl.wrapConstIfNeeded(links);
+  data = dvl.wrapConstIfNeeded(data);
+  label = dvl.wrapConstIfNeeded(label || dvl.identity);
+  link = dvl.wrapConstIfNeeded(link);
+  listClass = dvl.wrapConstIfNeeded(listClass);
   icons || (icons = []);
   for (_i = 0, _len = icons.length; _i < _len; _i++) {
     i = icons[_i];
     i.position || (i.position = 'right');
   }
-  if (listClassStr != null) {
-    listClassStr = dvl.wrapConstIfNeeded(listClassStr);
+  if (listClass != null) {
+    listClass = dvl.wrapConstIfNeeded(listClass);
   } else {
-    classFn = dvl.def(null, 'class_fn');
-    dvl.register({
-      listen: [selection, selections],
-      change: [classFn],
-      fn: function() {
-        var f, _selection, _selections;
-        _selection = selection.get();
-        _selections = selections.get();
-        if (_selection) {
-          if (_selections) {
-            f = function(value) {
-              return (value === _selection ? 'is_selection' : 'isnt_selection') + ' ' + (__indexOf.call(_selections, value) >= 0 ? 'is_selections' : 'isnt_selections');
-            };
-          } else {
-            f = function(value) {
-              if (value === _selection) {
-                return 'is_selection';
-              } else {
-                return 'isnt_selection';
-              }
-            };
-          }
+    listClass = dvl.apply([selection, selections], function(_selection, _selections) {
+      if (_selection) {
+        if (_selections) {
+          return function(value) {
+            return (value === _selection ? 'is_selection' : 'isnt_selection') + ' ' + (__indexOf.call(_selections, value) >= 0 ? 'is_selections' : 'isnt_selections');
+          };
         } else {
-          if (_selections) {
-            f = function(value) {
-              if (__indexOf.call(_selections, value) >= 0) {
-                return 'is_selections';
-              } else {
-                return 'isnt_selections';
-              }
-            };
-          } else {
-            f = null;
-          }
+          return function(value) {
+            if (value === _selection) {
+              return 'is_selection';
+            } else {
+              return 'isnt_selection';
+            }
+          };
         }
-        classFn.set(f).notify();
+      } else {
+        if (_selections) {
+          return function(value) {
+            if (__indexOf.call(_selections, value) >= 0) {
+              return 'is_selections';
+            } else {
+              return 'isnt_selections';
+            }
+          };
+        } else {
+          return null;
+        }
       }
     });
-    listClassStr = dvl.gen.fromArray(values, null, classFn);
   }
   ul = d3.select(selector).append('ul').attr('class', classStr);
   dvl.register({
     name: 'update_html_list',
-    listen: [names, values, links],
+    listen: [data, label, link],
     fn: function() {
-      var a, addIcons, cont, cs, len, lg, myOnEnter, myOnLeave, ng, onClick, sel, vg;
-      len = Math.min(values.len(), names.len(), links.len() || Infinity);
-      if (len === Infinity) {
-        len = 1;
-      }
-      ng = names.gen();
-      vg = values.gen();
-      lg = links.gen();
-      cs = listClassStr.gen();
-      onClick = function(i) {
-        var link, sl, val, _sortFn;
-        val = vg(i);
+      var a, addIcons, cont, onClick, sel, _class, _data, _label, _link;
+      _data = data.get();
+      _label = label.get();
+      _link = link.get();
+      _class = listClass.get();
+      onClick = function(val, i) {
+        var linkVal, sl, _sortFn;
         if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
-          link = lg(i);
+          linkVal = typeof _link === "function" ? _link(val) : void 0;
           selection.set(val);
           sl = (selections.get() || []).slice();
           i = sl.indexOf(val);
@@ -2662,23 +2651,9 @@ dvl.html.list = function(_arg) {
           }
           selections.set(sl);
           dvl.notify(selection, selections);
-          if (link) {
-            window.location.href = link;
+          if (linkVal) {
+            window.location.href = linkVal;
           }
-        }
-      };
-      myOnEnter = function(i) {
-        var val;
-        val = vg(i);
-        if (typeof onEnter === "function") {
-          onEnter(val, i);
-        }
-      };
-      myOnLeave = function(i) {
-        var val;
-        val = vg(i);
-        if (typeof onLeave === "function") {
-          onLeave(val, i);
         }
       };
       addIcons = function(el, position) {
@@ -2711,21 +2686,23 @@ dvl.html.list = function(_arg) {
           }).append('div').attr('class', 'icon');
         });
       };
-      sel = ul.selectAll('li').data(d3.range(len));
+      sel = ul.selectAll('li').data(_data);
       a = sel.enter().append('li').append('a');
       addIcons(a, 'left');
       a.append('span');
       addIcons(a, 'right');
-      cont = sel.attr('class', cs).on('click', onClick).on('mouseover', myOnEnter).on('mouseout', myOnLeave).select('a').attr('href', lg);
-      cont.select('span').text(ng);
+      cont = sel.attr('class', _class).on('click', onClick).on('mouseover', onEnter).on('mouseout', onLeave).select('a').attr('href', _link);
+      cont.select('span').text(_label);
       sel.exit().remove();
     }
   });
   dvl.register({
     name: 'update_class_list',
-    listen: [listClassStr],
+    listen: [listClass],
     fn: function() {
-      return ul.selectAll('li').attr('class', listClassStr.gen());
+      var _class;
+      _class = listClass.get();
+      return ul.selectAll('li').attr('class', _class);
     }
   });
   return {
@@ -2735,10 +2712,13 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, divCont, getClass, icons, keepOnClick, links, listClassStr, menuAnchor, menuCont, menuOffset, menuOpen, myOnSelect, names, onEnter, onLeave, onSelect, open, selectedDiv, selection, selectionNames, selections, selector, sortFn, title, updateSelection, valueSpan, values;
-  selector = _arg.selector, names = _arg.names, selectionNames = _arg.selectionNames, values = _arg.values, links = _arg.links, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, icons = _arg.icons, sortFn = _arg.sortFn, keepOnClick = _arg.keepOnClick;
+  var classStr, close, data, divCont, getClass, icons, keepOnClick, label, link, listClass, listClassStr, menuAnchor, menuCont, menuOffset, menuOpen, myOnSelect, onEnter, onLeave, onSelect, open, selectedDiv, selection, selectionLabel, selections, selector, sortFn, title, updateSelection, valueSpan;
+  selector = _arg.selector, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, icons = _arg.icons, sortFn = _arg.sortFn, keepOnClick = _arg.keepOnClick;
   if (!selector) {
     throw 'must have selector';
+  }
+  if (!data) {
+    throw 'must have data';
   }
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
   selections = dvl.wrapVarIfNeeded(selections, 'selections');
@@ -2747,10 +2727,11 @@ dvl.html.dropdownList = function(_arg) {
     x: 0,
     y: 0
   });
-  values = dvl.wrapConstIfNeeded(values);
-  names = dvl.wrapConstIfNeeded(names || values);
-  selectionNames = dvl.wrapConstIfNeeded(selectionNames || names);
-  links = links ? dvl.wrapConstIfNeeded(links) : null;
+  data = dvl.wrapConstIfNeeded(data);
+  label = dvl.wrapConstIfNeeded(label || dvl.identity);
+  selectionLabel = dvl.wrapConstIfNeeded(selectionLabel || label);
+  link = dvl.wrapConstIfNeeded(link);
+  listClass = listClass ? dvl.wrapConstIfNeeded(listClass) : null;
   if (title) {
     title = dvl.wrapConstIfNeeded(title);
   }
@@ -2802,9 +2783,9 @@ dvl.html.dropdownList = function(_arg) {
   menuCont = divCont.append('div').attr('class', 'menu_cont').style('position', 'absolute').style('z-index', 1000).style('display', 'none');
   dvl.html.list({
     selector: menuCont.node(),
-    names: names,
-    values: values,
-    links: links,
+    data: data,
+    label: label,
+    link: link,
     sortFn: sortFn,
     selection: selection,
     selections: selections,
@@ -2835,30 +2816,18 @@ dvl.html.dropdownList = function(_arg) {
     };
   }).bind('blur', close);
   updateSelection = function() {
-    var i, len, ng, sel, vg;
+    var sel, selLabel;
     if (title) {
       valueSpan.text(title.get());
     } else {
       sel = selection.get();
-      if (sel != null) {
-        len = values.len();
-        ng = selectionNames.gen();
-        vg = values.gen();
-        i = 0;
-        while (i < len) {
-          if (vg(i) === sel) {
-            valueSpan.text(ng(i));
-            return;
-          }
-          i++;
-        }
-      }
-      valueSpan.html('&nbsp;');
+      selLabel = selectionLabel.get();
+      valueSpan.text(selLabel(sel));
     }
   };
   dvl.register({
     fn: updateSelection,
-    listen: [selection, selectionNames, values, title],
+    listen: [selection, selectionLabel, title],
     name: 'selection_updater'
   });
   return {
@@ -3047,7 +3016,7 @@ dvl.compare = function(acc, reverse) {
     return {};
   };
   dvl.html.table.header = function(_arg) {
-    var c, columns, listen, onClick, parent, sel, thead, _i, _len, _ref2;
+    var c, columns, enterTh, listen, nc, newColumns, onClick, parent, sel, thead, _i, _len, _ref2;
     parent = _arg.parent, columns = _arg.columns, onClick = _arg.onClick;
     if (!parent) {
       throw 'there needs to be a parent';
@@ -3055,32 +3024,40 @@ dvl.compare = function(acc, reverse) {
     onClick = dvl.wrapConstIfNeeded(onClick);
     thead = dvl.valueOf(parent).append('thead').append('tr');
     listen = [onClick];
+    newColumns = [];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
-      c.title = dvl.wrapConstIfNeeded(c.title);
-      c["class"] = dvl.wrapConstIfNeeded(c["class"]);
-      c.visible = dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true);
-      c.tooltip = dvl.wrapConstIfNeeded(c.tooltip);
-      listen.push(c.title, c["class"], c.visible, c.tooltip);
+      newColumns.push(nc = {
+        id: c.id,
+        title: dvl.wrapConstIfNeeded(c.title),
+        "class": dvl.wrapConstIfNeeded(c["class"]),
+        visible: dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true),
+        tooltip: dvl.wrapConstIfNeeded(c.tooltip),
+        indicator: c.indicator ? dvl.wrapConstIfNeeded(c.indicator) : void 0
+      });
+      listen.push(nc.title, nc["class"], nc.visible, nc.tooltip, nc.indicator);
     }
+    columns = newColumns;
     sel = thead.selectAll('th').data(columns);
-    sel.enter().append('th').append('span');
+    enterTh = sel.enter().append('th');
+    enterTh.append('span');
+    enterTh.append('div').attr('class', 'indicator').style('display', 'none');
     sel.exit().remove();
     dvl.register({
       name: 'header_render',
       listen: listen,
       fn: function() {
-        var c, i, visibleChanged, _len2;
+        var c, i, ind, visibleChanged, _indicator, _len2;
         for (i = 0, _len2 = columns.length; i < _len2; i++) {
           c = columns[i];
           sel = thead.select("th:nth-child(" + (i + 1) + ")");
           visibleChanged = c.visible.hasChanged();
           if (c.visible.get()) {
-            if (c.title.hasChanged() || visibleChanged) {
-              sel.select('span').text(c.title.get());
-            }
             if (c["class"].hasChanged() || visibleChanged) {
               sel.attr('class', c["class"].get());
+            }
+            if (c.tooltip.hasChanged() || visibleChanged) {
+              sel.attr('title', c.tooltip.get());
             }
             if (c.tooltip.hasChanged() || visibleChanged) {
               sel.attr('title', c.tooltip.get());
@@ -3093,6 +3070,18 @@ dvl.compare = function(acc, reverse) {
                 var _base;
                 return typeof (_base = onClick.get()) === "function" ? _base(d.id) : void 0;
               });
+            }
+            if (c.title.hasChanged() || visibleChanged) {
+              sel.select('span').text(c.title.get());
+            }
+            if (c.indicator && (c.indicator.hasChanged() || visibleChanged)) {
+              _indicator = c.indicator.get();
+              ind = sel.select('div.indicator');
+              if (_indicator) {
+                ind.style('display', null).attr('class', 'indicator ' + _indicator);
+              } else {
+                ind.style('display', 'none');
+              }
             }
           } else {
             if (visibleChanged) {
@@ -3123,11 +3112,13 @@ dvl.compare = function(acc, reverse) {
     newColumns = [];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
-      newColumns.push(nc = {});
-      nc["class"] = dvl.wrapConstIfNeeded(c["class"]);
-      nc.visible = dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true);
-      nc.hover = dvl.wrapConstIfNeeded(c.hover);
-      nc.value = dvl.wrapConstIfNeeded(c.value);
+      newColumns.push(nc = {
+        id: c.id,
+        "class": dvl.wrapConstIfNeeded(c["class"]),
+        visible: dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true),
+        hover: dvl.wrapConstIfNeeded(c.hover),
+        value: dvl.wrapConstIfNeeded(c.value)
+      });
       listen.push(nc["class"], nc.visible, nc.hover);
       nc.render = c.render || 'text';
       nc.on = {};

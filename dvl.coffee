@@ -2010,75 +2010,58 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({selector, names, values, links, selection, selections, onSelect, onEnter, onLeave, icons, extras, classStr, listClassStr, sortFn}) ->
+dvl.html.list = ({selector, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons, extras, classStr, sortFn}) ->
   throw 'must have selector' unless selector
+  throw 'must have data' unless data
   selection  = dvl.wrapVarIfNeeded(selection, 'selection')
   selections = dvl.wrapVarIfNeeded(selections or [], 'selections')
   sortFn = dvl.wrapConstIfNeeded(sortFn)
 
-  values = dvl.wrapConstIfNeeded(values)
-  names = dvl.wrapConstIfNeeded(names or values)
-  links = dvl.wrapConstIfNeeded(links)
+  data = dvl.wrapConstIfNeeded(data)
+  label = dvl.wrapConstIfNeeded(label or dvl.identity)
+  link = dvl.wrapConstIfNeeded(link)
+  listClass = dvl.wrapConstIfNeeded(listClass)
 
   icons or= []
   for i in icons
     i.position or= 'right'
 
-  if listClassStr?
-    listClassStr = dvl.wrapConstIfNeeded(listClassStr)
+  if listClass?
+    listClass = dvl.wrapConstIfNeeded(listClass)
   else
-    classFn = dvl.def(null, 'class_fn')
-    dvl.register {
-      listen: [selection, selections]
-      change: [classFn]
-      fn: ->
-        _selection  = selection.get()
-        _selections = selections.get()
-
+    listClass = dvl.apply(
+      [selection, selections]
+      (_selection, _selections) ->
         if _selection
           if _selections
-            f = (value) ->
+            return (value) ->
               (if value is _selection  then 'is_selection'  else 'isnt_selection') + ' ' +
               (if value in _selections then 'is_selections' else 'isnt_selections')
           else
-            f = (value) ->
+            return (value) ->
               (if value is _selection  then 'is_selection'  else 'isnt_selection')
         else
           if _selections
-            f = (value) ->
+            return (value) ->
               (if value in _selections then 'is_selections' else 'isnt_selections')
           else
-            f = null
-
-        classFn.set(f).notify()
-        return
-    }
-
-    listClassStr = dvl.gen.fromArray(values, null, classFn)
-
+            return null
+    )
 
   ul = d3.select(selector).append('ul').attr('class', classStr)
 
   dvl.register {
     name: 'update_html_list'
-    listen: [names, values, links]
+    listen: [data, label, link]
     fn: ->
-      len = Math.min(
-        values.len(),
-        names.len(),
-        links.len() or Infinity
-      )
-      len = 1 if len is Infinity
+      _data  = data.get()
+      _label = label.get()
+      _link  = link.get()
+      _class = listClass.get()
 
-      ng = names.gen()
-      vg = values.gen()
-      lg = links.gen()
-      cs = listClassStr.gen()
-
-      onClick = (i) ->
-        val = vg(i)
+      onClick = (val, i) ->
         if onSelect?(val, i) isnt false
-          link = lg(i)
+          linkVal = _link?(val)
           selection.set(val)
 
           sl = (selections.get() or []).slice()
@@ -2095,17 +2078,7 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
           selections.set(sl)
 
           dvl.notify(selection, selections)
-          window.location.href = link if link
-        return
-
-      myOnEnter = (i) ->
-        val = vg(i)
-        onEnter?(val, i)
-        return
-
-      myOnLeave = (i) ->
-        val = vg(i)
-        onLeave?(val, i)
+          window.location.href = linkVal if linkVal
         return
 
       addIcons = (el, position) ->
@@ -2136,7 +2109,7 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
           return
         return
 
-      sel = ul.selectAll('li').data(d3.range(len))
+      sel = ul.selectAll('li').data(_data)
       a = sel.enter().append('li').append('a')
 
       addIcons a, 'left'
@@ -2144,16 +2117,15 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
       addIcons a, 'right'
 
       cont = sel
-        .attr('class', cs)
+        .attr('class', _class)
         .on('click', onClick)
-        .on('mouseover', myOnEnter)
-        .on('mouseout', myOnLeave)
+        .on('mouseover', onEnter)
+        .on('mouseout', onLeave)
         .select('a')
-          .attr('href', lg)
+          .attr('href', _link)
 
 
-      cont.select('span')
-        .text(ng)
+      cont.select('span').text(_label)
 
       sel.exit().remove()
       return
@@ -2161,8 +2133,10 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
 
   dvl.register {
     name: 'update_class_list'
-    listen: [listClassStr]
-    fn: -> ul.selectAll('li').attr('class', listClassStr.gen())
+    listen: [listClass]
+    fn: ->
+      _class = listClass.get()
+      ul.selectAll('li').attr('class', _class)
   }
 
   return {
@@ -2172,17 +2146,20 @@ dvl.html.list = ({selector, names, values, links, selection, selections, onSelec
   }
 
 
-dvl.html.dropdownList = ({selector, names, selectionNames, values, links, selection, selections, onSelect, onEnter, onLeave, classStr, listClassStr, menuAnchor, menuOffset, title, icons, sortFn, keepOnClick}) ->
+dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, selection, selections, onSelect, onEnter, onLeave, classStr, listClassStr, menuAnchor, menuOffset, title, icons, sortFn, keepOnClick}) ->
   throw 'must have selector' unless selector
+  throw 'must have data' unless data
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
   selections = dvl.wrapVarIfNeeded(selections, 'selections')
   menuAnchor = dvl.wrapConstIfNeeded(menuAnchor or 'left')
   menuOffset = dvl.wrapConstIfNeeded(menuOffset or { x:0, y:0 })
 
-  values = dvl.wrapConstIfNeeded(values)
-  names = dvl.wrapConstIfNeeded(names or values)
-  selectionNames = dvl.wrapConstIfNeeded(selectionNames or names)
-  links = if links then dvl.wrapConstIfNeeded(links) else null
+  data = dvl.wrapConstIfNeeded(data)
+  label = dvl.wrapConstIfNeeded(label or dvl.identity)
+  selectionLabel = dvl.wrapConstIfNeeded(selectionLabel or label)
+  link = dvl.wrapConstIfNeeded(link)
+  listClass = if listClass then dvl.wrapConstIfNeeded(listClass) else null
+
   title = dvl.wrapConstIfNeeded(title) if title
   icons or= []
 
@@ -2200,7 +2177,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
 
   valueSpan = selectedDiv.append('span')
 
-  open = () ->
+  open = ->
     sp = $(selectedDiv.node())
     pos = sp.position()
     height = sp.outerHeight(true)
@@ -2219,7 +2196,7 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
     divCont.attr('class', getClass())
     return
 
-  close = () ->
+  close = ->
     menuCont.style('display', 'none')
     menuOpen = false
     divCont.attr('class', getClass())
@@ -2244,9 +2221,9 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
 
   dvl.html.list {
     selector: menuCont.node()
-    names
-    values
-    links
+    data
+    label
+    link
     sortFn
     selection
     selections
@@ -2281,23 +2258,13 @@ dvl.html.dropdownList = ({selector, names, selectionNames, values, links, select
       valueSpan.text(title.get())
     else
       sel = selection.get()
-      if sel?
-        len = values.len()
-        ng = selectionNames.gen()
-        vg = values.gen()
-        i = 0
-        while i < len
-          if vg(i) is sel
-            valueSpan.text(ng(i))
-            return
-          i++
-
-      valueSpan.html('&nbsp;')
+      selLabel = selectionLabel.get()
+      valueSpan.text(selLabel(sel))
     return
 
   dvl.register {
     fn:updateSelection
-    listen:[selection, selectionNames, values, title]
+    listen:[selection, selectionLabel, title]
     name:'selection_updater'
   }
 
@@ -2532,12 +2499,13 @@ do ->
   ##  HTML table header (thead)
   ##
   ##  parent:      Where to append the table.
+  ## ~onClick:     The click handler
   ##  columns:
   ##   ~title:       The title of the column.
   ##   ~class:       The class of the column
   ##   ~tooltip:     The tooltip for the column
   ##   ~visible:     Is this visible
-  ##   ~onClick:     The click handler
+  ##   ~indicator:   The column indicator
   ##
   dvl.html.table.header = ({parent, columns, onClick}) ->
     throw 'there needs to be a parent' unless parent
@@ -2546,16 +2514,26 @@ do ->
     thead = dvl.valueOf(parent).append('thead').append('tr')
 
     listen = [onClick]
+    newColumns = []
     for c in columns
-      c.title = dvl.wrapConstIfNeeded(c.title)
-      c.class = dvl.wrapConstIfNeeded(c.class)
-      c.visible = dvl.wrapConstIfNeeded(c.visible ? true)
-      c.tooltip = dvl.wrapConstIfNeeded(c.tooltip)
-      listen.push c.title, c.class, c.visible, c.tooltip
+      newColumns.push(nc = {
+        id:        c.id
+        title:     dvl.wrapConstIfNeeded(c.title)
+        class:     dvl.wrapConstIfNeeded(c.class)
+        visible:   dvl.wrapConstIfNeeded(c.visible ? true)
+        tooltip:   dvl.wrapConstIfNeeded(c.tooltip)
+        indicator: dvl.wrapConstIfNeeded(c.indicator) if c.indicator
+      })
+      listen.push nc.title, nc.class, nc.visible, nc.tooltip, nc.indicator
+
+    columns = newColumns
 
     # Init step
     sel = thead.selectAll('th').data(columns)
-    sel.enter().append('th').append('span')
+    enterTh = sel.enter().append('th')
+    enterTh.append('span')
+    enterTh.append('div').attr('class', 'indicator').style('display', 'none')
+
     sel.exit().remove()
 
     dvl.register {
@@ -2566,11 +2544,20 @@ do ->
           sel = thead.select("th:nth-child(#{i+1})")
           visibleChanged = c.visible.hasChanged()
           if c.visible.get()
-            sel.select('span').text(c.title.get()) if c.title.hasChanged() or visibleChanged
             sel.attr('class', c.class.get())       if c.class.hasChanged() or visibleChanged
+            sel.attr('title', c.tooltip.get())     if c.tooltip.hasChanged() or visibleChanged
             sel.attr('title', c.tooltip.get())     if c.tooltip.hasChanged() or visibleChanged
             sel.style('display', null)             if visibleChanged
             sel.on('click', (d) -> onClick.get()?(d.id)) if onClick.hasChanged() or visibleChanged
+            sel.select('span').text(c.title.get()) if c.title.hasChanged() or visibleChanged
+
+            if c.indicator and (c.indicator.hasChanged() or visibleChanged)
+              _indicator = c.indicator.get()
+              ind = sel.select('div.indicator')
+              if _indicator
+                ind.style('display', null).attr('class', 'indicator ' + _indicator)
+              else
+                ind.style('display', 'none')
           else
             sel.style('display', 'none')           if visibleChanged
 
@@ -2608,11 +2595,13 @@ do ->
     change = []
     newColumns = []
     for c in columns
-      newColumns.push(nc = {})
-      nc.class = dvl.wrapConstIfNeeded(c.class)
-      nc.visible = dvl.wrapConstIfNeeded(c.visible ? true)
-      nc.hover = dvl.wrapConstIfNeeded(c.hover)
-      nc.value = dvl.wrapConstIfNeeded(c.value)
+      newColumns.push(nc = {
+        id:      c.id
+        class:   dvl.wrapConstIfNeeded(c.class)
+        visible: dvl.wrapConstIfNeeded(c.visible ? true)
+        hover:   dvl.wrapConstIfNeeded(c.hover)
+        value:   dvl.wrapConstIfNeeded(c.value)
+      })
       # don't listen to value which is handled by the render
       listen.push nc.class, nc.visible, nc.hover
 
