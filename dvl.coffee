@@ -2020,7 +2020,6 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
   data = dvl.wrapConstIfNeeded(data)
   label = dvl.wrapConstIfNeeded(label or dvl.identity)
   link = dvl.wrapConstIfNeeded(link)
-  listClass = dvl.wrapConstIfNeeded(listClass)
 
   icons or= []
   for i in icons
@@ -2145,7 +2144,7 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
   }
 
 
-dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, selection, selections, onSelect, onEnter, onLeave, classStr, listClassStr, menuAnchor, menuOffset, title, icons, sortFn, keepOnClick}) ->
+dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, classStr, menuAnchor, menuOffset, title, icons, sortFn, keepOnClick}) ->
   throw 'must have selector' unless selector
   throw 'must have data' unless data
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
@@ -2157,7 +2156,6 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, selection
   label = dvl.wrapConstIfNeeded(label or dvl.identity)
   selectionLabel = dvl.wrapConstIfNeeded(selectionLabel or label)
   link = dvl.wrapConstIfNeeded(link)
-  listClass = if listClass then dvl.wrapConstIfNeeded(listClass) else null
 
   title = dvl.wrapConstIfNeeded(title) if title
   icons or= []
@@ -2223,6 +2221,7 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, selection
     data
     label
     link
+    class: listClass
     sortFn
     selection
     selections
@@ -2230,7 +2229,6 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, selection
     onEnter
     onLeave
     classStr: 'list'
-    listClassStr
     icons
   }
 

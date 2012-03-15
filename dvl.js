@@ -2582,7 +2582,6 @@ dvl.html.list = function(_arg) {
   data = dvl.wrapConstIfNeeded(data);
   label = dvl.wrapConstIfNeeded(label || dvl.identity);
   link = dvl.wrapConstIfNeeded(link);
-  listClass = dvl.wrapConstIfNeeded(listClass);
   icons || (icons = []);
   for (_i = 0, _len = icons.length; _i < _len; _i++) {
     i = icons[_i];
@@ -2710,8 +2709,8 @@ dvl.html.list = function(_arg) {
   };
 };
 dvl.html.dropdownList = function(_arg) {
-  var classStr, close, data, divCont, getClass, icons, keepOnClick, label, link, listClass, listClassStr, menuAnchor, menuCont, menuOffset, menuOpen, myOnSelect, onEnter, onLeave, onSelect, open, selectedDiv, selection, selectionLabel, selections, selector, sortFn, title, updateSelection, valueSpan;
-  selector = _arg.selector, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, classStr = _arg.classStr, listClassStr = _arg.listClassStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, icons = _arg.icons, sortFn = _arg.sortFn, keepOnClick = _arg.keepOnClick;
+  var classStr, close, data, divCont, getClass, icons, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOffset, menuOpen, myOnSelect, onEnter, onLeave, onSelect, open, selectedDiv, selection, selectionLabel, selections, selector, sortFn, title, updateSelection, valueSpan;
+  selector = _arg.selector, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, classStr = _arg.classStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, icons = _arg.icons, sortFn = _arg.sortFn, keepOnClick = _arg.keepOnClick;
   if (!selector) {
     throw 'must have selector';
   }
@@ -2729,7 +2728,6 @@ dvl.html.dropdownList = function(_arg) {
   label = dvl.wrapConstIfNeeded(label || dvl.identity);
   selectionLabel = dvl.wrapConstIfNeeded(selectionLabel || label);
   link = dvl.wrapConstIfNeeded(link);
-  listClass = listClass ? dvl.wrapConstIfNeeded(listClass) : null;
   if (title) {
     title = dvl.wrapConstIfNeeded(title);
   }
@@ -2784,6 +2782,7 @@ dvl.html.dropdownList = function(_arg) {
     data: data,
     label: label,
     link: link,
+    "class": listClass,
     sortFn: sortFn,
     selection: selection,
     selections: selections,
@@ -2791,7 +2790,6 @@ dvl.html.dropdownList = function(_arg) {
     onEnter: onEnter,
     onLeave: onLeave,
     classStr: 'list',
-    listClassStr: listClassStr,
     icons: icons
   });
   $(window).bind('click', function(e) {
