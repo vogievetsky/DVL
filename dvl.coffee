@@ -2050,6 +2050,28 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
 
   ul = d3.select(selector).append('ul').attr('class', classStr)
 
+  onClick = (val, i) ->
+    return if onSelect?(val, i) is false
+    linkVal = link.get()?(val)
+    selection.set(val)
+
+    sl = (selections.get() or []).slice()
+    i = sl.indexOf(val)
+    if i is -1
+      sl.push(val)
+      _sortFn = sortFn.get()
+      if typeof _sortFn is 'function'
+        sl.sort(_sortFn)
+      else
+        sl.sort()
+    else
+      sl.splice(i,1)
+    selections.set(sl)
+
+    dvl.notify(selection, selections)
+    window.location.href = linkVal if linkVal
+    return
+
   dvl.register {
     name: 'update_html_list'
     listen: [data, label, link]
@@ -2059,27 +2081,7 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
       _link  = link.get()
       _class = listClass.get()
 
-      onClick = (val, i) ->
-        if onSelect?(val, i) isnt false
-          linkVal = _link?(val)
-          selection.set(val)
-
-          sl = (selections.get() or []).slice()
-          i = sl.indexOf(val)
-          if i is -1
-            sl.push(val)
-            _sortFn = sortFn.get()
-            if typeof _sortFn is 'function'
-              sl.sort(_sortFn)
-            else
-              sl.sort()
-          else
-            sl.splice(i,1)
-          selections.set(sl)
-
-          dvl.notify(selection, selections)
-          window.location.href = linkVal if linkVal
-        return
+      return unless _data
 
       addIcons = (el, position) ->
         icons.forEach (icon) ->
@@ -2091,16 +2093,13 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
           el.append('div')
             .attr('class', classStr)
             .attr('title', icon.title)
-            .on('click', (i) ->
-              val = values.gen()(i)
+            .on('click', (val, i) ->
               d3.event.stopPropagation() if icon.onSelect?(val, i) is false
               return
-            ).on('mouseover', (i) ->
-              val = values.gen()(i)
+            ).on('mouseover', (val, i) ->
               d3.event.stopPropagation() if icon.onEnter?(val, i) is false
               return
-            ).on('mouseout', (i) ->
-              val = values.gen()(i)
+            ).on('mouseout', (val, i) ->
               d3.event.stopPropagation() if icon.onLeave?(val, i) is false
               return
             ).append('div')
@@ -2279,15 +2278,15 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, selection
 ##
 ##  Select (dropdown box) made with HTML
 ##
-dvl.html.select = ({selector, values, names, selection, onChange, classStr}) ->
+dvl.html.select = ({selector, data, label, selection, onChange, classStr}) ->
   throw 'must have selector' unless selector
+  throw 'must have data' unless data
   selection = dvl.wrapVarIfNeeded(selection, 'selection')
 
-  values = dvl.wrapConstIfNeeded(values)
-  names = dvl.wrapConstIfNeeded(names)
+  data = dvl.wrapConstIfNeeded(data)
+  label = dvl.wrapConstIfNeeded(label or dvl.identity)
 
-  selChange = ->
-    val = selectEl.node().value
+  selChange = (val) ->
     return if onChange?(val) is false
     selection.update(val)
 
@@ -2296,18 +2295,25 @@ dvl.html.select = ({selector, values, names, selection, onChange, classStr}) ->
     .attr('class', classStr or null)
     .on('change', selChange)
 
-  selectEl.selectAll('option')
-    .data(d3.range(values.len()))
-      .enter().append('option')
-        .attr('value', values.gen())
-        .text(names.gen())
-
+  dvl.bind {
+    parent: selectEl
+    self: 'option'
+    data
+    attr: {
+      value: (d,i) -> i
+    }
+    text: label
+  }
 
   dvl.register {
-    listen: [selection]
+    listen: [data, selection]
     fn: ->
-      if selectEl.node().value isnt selection.get()
-        selectEl.node().value = selection.get()
+      _data = data.get()
+      _selection = selection.get()
+      return unless _data and _selection
+      idx = _data.indexOf(_selection)
+      if selectEl.node().value isnt idx
+        selectEl.node().value = idx
       return
   }
 

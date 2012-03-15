@@ -2568,7 +2568,7 @@ dvl.html.out = function(_arg) {
   });
 };
 dvl.html.list = function(_arg) {
-  var classStr, data, extras, i, icons, label, link, listClass, onEnter, onLeave, onSelect, selection, selections, selector, sortFn, ul, _i, _len;
+  var classStr, data, extras, i, icons, label, link, listClass, onClick, onEnter, onLeave, onSelect, selection, selections, selector, sortFn, ul, _i, _len;
   selector = _arg.selector, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, sortFn = _arg.sortFn;
   if (!selector) {
     throw 'must have selector';
@@ -2622,40 +2622,44 @@ dvl.html.list = function(_arg) {
     });
   }
   ul = d3.select(selector).append('ul').attr('class', classStr);
+  onClick = function(val, i) {
+    var linkVal, sl, _base, _sortFn;
+    if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) === false) {
+      return;
+    }
+    linkVal = typeof (_base = link.get()) === "function" ? _base(val) : void 0;
+    selection.set(val);
+    sl = (selections.get() || []).slice();
+    i = sl.indexOf(val);
+    if (i === -1) {
+      sl.push(val);
+      _sortFn = sortFn.get();
+      if (typeof _sortFn === 'function') {
+        sl.sort(_sortFn);
+      } else {
+        sl.sort();
+      }
+    } else {
+      sl.splice(i, 1);
+    }
+    selections.set(sl);
+    dvl.notify(selection, selections);
+    if (linkVal) {
+      window.location.href = linkVal;
+    }
+  };
   dvl.register({
     name: 'update_html_list',
     listen: [data, label, link],
     fn: function() {
-      var a, addIcons, cont, onClick, sel, _class, _data, _label, _link;
+      var a, addIcons, cont, sel, _class, _data, _label, _link;
       _data = data.get();
       _label = label.get();
       _link = link.get();
       _class = listClass.get();
-      onClick = function(val, i) {
-        var linkVal, sl, _sortFn;
-        if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) !== false) {
-          linkVal = typeof _link === "function" ? _link(val) : void 0;
-          selection.set(val);
-          sl = (selections.get() || []).slice();
-          i = sl.indexOf(val);
-          if (i === -1) {
-            sl.push(val);
-            _sortFn = sortFn.get();
-            if (typeof _sortFn === 'function') {
-              sl.sort(_sortFn);
-            } else {
-              sl.sort();
-            }
-          } else {
-            sl.splice(i, 1);
-          }
-          selections.set(sl);
-          dvl.notify(selection, selections);
-          if (linkVal) {
-            window.location.href = linkVal;
-          }
-        }
-      };
+      if (!_data) {
+        return;
+      }
       addIcons = function(el, position) {
         icons.forEach(function(icon) {
           if (icon.position !== position) {
@@ -2665,21 +2669,15 @@ dvl.html.list = function(_arg) {
           if (icon.classStr) {
             classStr += ' ' + icon.classStr;
           }
-          el.append('div').attr('class', classStr).attr('title', icon.title).on('click', function(i) {
-            var val;
-            val = values.gen()(i);
+          el.append('div').attr('class', classStr).attr('title', icon.title).on('click', function(val, i) {
             if ((typeof icon.onSelect === "function" ? icon.onSelect(val, i) : void 0) === false) {
               d3.event.stopPropagation();
             }
-          }).on('mouseover', function(i) {
-            var val;
-            val = values.gen()(i);
+          }).on('mouseover', function(val, i) {
             if ((typeof icon.onEnter === "function" ? icon.onEnter(val, i) : void 0) === false) {
               d3.event.stopPropagation();
             }
-          }).on('mouseout', function(i) {
-            var val;
-            val = values.gen()(i);
+          }).on('mouseout', function(val, i) {
             if ((typeof icon.onLeave === "function" ? icon.onLeave(val, i) : void 0) === false) {
               d3.event.stopPropagation();
             }
@@ -2837,29 +2835,47 @@ dvl.html.dropdownList = function(_arg) {
   };
 };
 dvl.html.select = function(_arg) {
-  var classStr, names, onChange, selChange, selectEl, selection, selector, values;
-  selector = _arg.selector, values = _arg.values, names = _arg.names, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr;
+  var classStr, data, label, onChange, selChange, selectEl, selection, selector;
+  selector = _arg.selector, data = _arg.data, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr;
   if (!selector) {
     throw 'must have selector';
   }
+  if (!data) {
+    throw 'must have data';
+  }
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
-  values = dvl.wrapConstIfNeeded(values);
-  names = dvl.wrapConstIfNeeded(names);
-  selChange = function() {
-    var val;
-    val = selectEl.node().value;
+  data = dvl.wrapConstIfNeeded(data);
+  label = dvl.wrapConstIfNeeded(label || dvl.identity);
+  selChange = function(val) {
     if ((typeof onChange === "function" ? onChange(val) : void 0) === false) {
       return;
     }
     return selection.update(val);
   };
   selectEl = d3.select(selector).append('select').attr('class', classStr || null).on('change', selChange);
-  selectEl.selectAll('option').data(d3.range(values.len())).enter().append('option').attr('value', values.gen()).text(names.gen());
+  dvl.bind({
+    parent: selectEl,
+    self: 'option',
+    data: data,
+    attr: {
+      value: function(d, i) {
+        return i;
+      }
+    },
+    text: label
+  });
   dvl.register({
-    listen: [selection],
+    listen: [data, selection],
     fn: function() {
-      if (selectEl.node().value !== selection.get()) {
-        selectEl.node().value = selection.get();
+      var idx, _data, _selection;
+      _data = data.get();
+      _selection = selection.get();
+      if (!(_data && _selection)) {
+        return;
+      }
+      idx = _data.indexOf(_selection);
+      if (selectEl.node().value !== idx) {
+        selectEl.node().value = idx;
       }
     }
   });
