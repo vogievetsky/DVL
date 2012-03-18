@@ -60,8 +60,9 @@ suite.addBatch({
       assert.strictEqual(v.name(), "some_name");
     },
   },
+});
 
-
+suite.addBatch({
   "constants": {
     "returns the correct init value on nothing": function() {
       var v = dvl.const();

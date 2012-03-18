@@ -270,11 +270,12 @@ dvl.util = {
   }
 };
 (function() {
-  var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, collect_notify, constants, curCollectListener, curNotifyListener, curRecording, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
+  var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, collect_notify, constants, curCollectListener, curNotifyListener, curRecording, default_compare, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
   nextObjId = 1;
   constants = {};
   variables = {};
   curRecording = null;
+  default_compare = dvl.util.isEqual;
   DVLConst = (function() {
     function DVLConst(val) {
       this.value = val != null ? val : null;
@@ -316,6 +317,25 @@ dvl.util = {
     DVLConst.prototype.remove = function() {
       return null;
     };
+    DVLConst.prototype.name = function() {
+      var _ref2;
+      if (arguments.length === 0) {
+        return (_ref2 = this.n) != null ? _ref2 : '<anon_const>';
+      } else {
+        this.n = arguments[0];
+        return this;
+      }
+    };
+    DVLConst.prototype.compare = function() {
+      if (arguments.length) {
+        return this;
+      } else {
+        return default_compare;
+      }
+    };
+    DVLConst.prototype.setGen = function() {
+      return this;
+    };
     DVLConst.prototype.gen = function() {
       var that;
       that = this;
@@ -339,20 +359,8 @@ dvl.util = {
         return Infinity;
       }
     };
-    DVLConst.prototype.name = function() {
-      var _ref2;
-      if (arguments.length === 0) {
-        return (_ref2 = this.n) != null ? _ref2 : '<anon_const>';
-      } else {
-        this.n = arguments[0];
-        return this;
-      }
-    };
     return DVLConst;
   })();
-  dvl["const"] = function(value) {
-    return new DVLConst(value);
-  };
   DVLDef = (function() {
     function DVLDef(val) {
       this.value = val != null ? val : null;
@@ -365,6 +373,7 @@ dvl.util = {
       this.lazy = null;
       this.listeners = [];
       this.changers = [];
+      this.compareFn = default_compare;
       variables[this.id] = this;
       nextObjId++;
       if (curRecording) {
@@ -409,24 +418,8 @@ dvl.util = {
       this.changed = true;
       return this;
     };
-    DVLDef.prototype.setGen = function(g, l) {
-      if (g === null) {
-        l = 0;
-      } else {
-        if (l === void 0) {
-          l = Infinity;
-        }
-      }
-      if (!this.changed) {
-        this.vgenPrev = this.vgen;
-      }
-      this.vgen = g;
-      this.vlen = l;
-      this.changed = true;
-      return this;
-    };
     DVLDef.prototype.update = function(val) {
-      if (dvl.util.isEqual(val, this.value)) {
+      if (this.comapreFn(val, this.value)) {
         return;
       }
       this.set(val);
@@ -443,6 +436,52 @@ dvl.util = {
       } else {
         return this.value;
       }
+    };
+    DVLDef.prototype.notify = function() {
+      return dvl.notify(this);
+    };
+    DVLDef.prototype.remove = function() {
+      if (this.listeners.length > 0) {
+        throw "Cannot remove variable " + this.id + " because it has listeners.";
+      }
+      if (this.changers.length > 0) {
+        throw "Cannot remove variable " + this.id + " because it has changers.";
+      }
+      delete variables[this.id];
+      return null;
+    };
+    DVLDef.prototype.name = function() {
+      var _ref2;
+      if (arguments.length === 0) {
+        return (_ref2 = this.n) != null ? _ref2 : '<anon>';
+      } else {
+        this.n = arguments[0];
+        return this;
+      }
+    };
+    DVLDef.prototype.compare = function() {
+      if (arguments.length) {
+        this.comapreFn = arguments[0];
+        return this;
+      } else {
+        return this.compareFn;
+      }
+    };
+    DVLDef.prototype.setGen = function(g, l) {
+      if (g === null) {
+        l = 0;
+      } else {
+        if (l === void 0) {
+          l = Infinity;
+        }
+      }
+      if (!this.changed) {
+        this.vgenPrev = this.vgen;
+      }
+      this.vgen = g;
+      this.vlen = l;
+      this.changed = true;
+      return this;
     };
     DVLDef.prototype.gen = function() {
       var that;
@@ -483,35 +522,16 @@ dvl.util = {
         }
       }
     };
-    DVLDef.prototype.notify = function() {
-      return dvl.notify(this);
-    };
-    DVLDef.prototype.remove = function() {
-      if (this.listeners.length > 0) {
-        throw "Cannot remove variable " + this.id + " because it has listeners.";
-      }
-      if (this.changers.length > 0) {
-        throw "Cannot remove variable " + this.id + " because it has changers.";
-      }
-      delete variables[this.id];
-      return null;
-    };
-    DVLDef.prototype.name = function() {
-      var _ref2;
-      if (arguments.length === 0) {
-        return (_ref2 = this.n) != null ? _ref2 : '<anon>';
-      } else {
-        this.n = arguments[0];
-        return this;
-      }
-    };
     return DVLDef;
   })();
+  dvl["const"] = function(value) {
+    return new DVLConst(value);
+  };
   dvl.def = function(value) {
     return new DVLDef(value);
   };
   dvl.knows = function(v) {
-    return v && v.id && (variables[v.id] || constants[v.id]);
+    return v instanceof DVLConst || v instanceof DVLDef;
   };
   dvl.wrapConstIfNeeded = function(v, name) {
     if (v === void 0) {

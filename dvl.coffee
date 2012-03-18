@@ -207,6 +207,7 @@ dvl.util = {
   constants = {}
   variables = {}
   curRecording = null
+  default_compare = dvl.util.isEqual
 
   class DVLConst
     constructor: (val) ->
@@ -229,6 +230,15 @@ dvl.util = {
     resetChanged: -> null
     notify: -> null
     remove: -> null
+    name: ->
+      if arguments.length is 0
+        return @n ? '<anon_const>'
+      else
+        @n = arguments[0]
+        return this
+    compare: -> if arguments.length then this else default_compare
+
+    setGen: -> this
     gen: ->
       that = this
       if dvl.typeOf(@value) == 'array'
@@ -241,15 +251,7 @@ dvl.util = {
         @value.length
       else
         Infinity
-    name: ->
-      if arguments.length is 0
-        return @n ? '<anon_const>'
-      else
-        @n = arguments[0]
-        return this
 
-
-  dvl.const = (value) -> new DVLConst(value)
 
   class DVLDef
     constructor: (val) ->
@@ -263,6 +265,7 @@ dvl.util = {
       @lazy = null
       @listeners = []
       @changers = []
+      @compareFn = default_compare
       variables[@id] = this
       nextObjId++
       if curRecording
@@ -296,6 +299,38 @@ dvl.util = {
       @lazy = fn
       @changed = true
       return this
+    update: (val) ->
+      return if @comapreFn(val, @value)
+      this.set(val)
+      dvl.notify(this)
+    get: ->
+      @resolveLazy()
+      return @value
+    getPrev: ->
+      @resolveLazy()
+      if @prev and @changed then @prev else @value
+    notify: ->
+      dvl.notify(this)
+    remove: ->
+      if @listeners.length > 0
+        throw "Cannot remove variable #{@id} because it has listeners."
+      if @changers.length > 0
+        throw "Cannot remove variable #{@id} because it has changers."
+      delete variables[@id]
+      return null
+    name: ->
+      if arguments.length is 0
+        return @n ? '<anon>'
+      else
+        @n = arguments[0]
+        return this
+    compare: ->
+      if arguments.length
+        @comapreFn = arguments[0]
+        return this
+      else
+        return @compareFn
+
     setGen: (g, l) ->
       if g is null
         l = 0
@@ -306,16 +341,6 @@ dvl.util = {
       @vlen = l
       @changed = true
       return this
-    update: (val) ->
-      return if dvl.util.isEqual(val, @value)
-      this.set(val)
-      dvl.notify(this)
-    get: ->
-      @resolveLazy()
-      return @value
-    getPrev: ->
-      @resolveLazy()
-      if @prev and @changed then @prev else @value
     gen: ->
       if @vgen != undefined
         return @vgen
@@ -335,26 +360,12 @@ dvl.util = {
           return if dvl.typeOf(@value) == 'array' then @value.length else Infinity
         else
           return 0
-    notify: ->
-      dvl.notify(this)
-    remove: ->
-      if @listeners.length > 0
-        throw "Cannot remove variable #{@id} because it has listeners."
-      if @changers.length > 0
-        throw "Cannot remove variable #{@id} because it has changers."
-      delete variables[@id]
-      return null
-    name: ->
-      if arguments.length is 0
-        return @n ? '<anon>'
-      else
-        @n = arguments[0]
-        return this
 
-  dvl.def = (value) -> new DVLDef(value)
 
-  dvl.knows = (v) ->
-    return v and v.id and (variables[v.id] or constants[v.id])
+  dvl.const = (value) -> new DVLConst(value)
+  dvl.def   = (value) -> new DVLDef(value)
+
+  dvl.knows = (v) -> v instanceof DVLConst or v instanceof DVLDef
 
   dvl.wrapConstIfNeeded = (v, name) ->
     v = null if v is undefined
