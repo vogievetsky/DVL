@@ -204,7 +204,6 @@ dvl.util = {
 
 (->
   nextObjId = 1
-  constants = {}
   variables = {}
   curRecording = null
   default_compare = dvl.util.isEqual
@@ -214,7 +213,6 @@ dvl.util = {
       @value = val ? null
       @id = nextObjId
       @changed = false
-      constants[@id] = this
       nextObjId += 1
       return this
 
@@ -516,7 +514,7 @@ dvl.util = {
     listenConst = []
     if listen
       for v in listen
-        listenConst.push v if v?.id and constants[v.id]
+        listenConst.push v if v instanceof DVLConst
     listen = uniqById(listen)
     change = uniqById(change)
 
@@ -579,7 +577,6 @@ dvl.util = {
 
     # reset everything
     nextObjId = 1
-    constants = {}
     variables = {}
     registerers = {}
     return

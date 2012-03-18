@@ -270,9 +270,8 @@ dvl.util = {
   }
 };
 (function() {
-  var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, collect_notify, constants, curCollectListener, curNotifyListener, curRecording, default_compare, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
+  var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, collect_notify, curCollectListener, curNotifyListener, curRecording, default_compare, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
   nextObjId = 1;
-  constants = {};
   variables = {};
   curRecording = null;
   default_compare = dvl.util.isEqual;
@@ -281,7 +280,6 @@ dvl.util = {
       this.value = val != null ? val : null;
       this.id = nextObjId;
       this.changed = false;
-      constants[this.id] = this;
       nextObjId += 1;
       return this;
     }
@@ -739,7 +737,7 @@ dvl.util = {
     if (listen) {
       for (_i = 0, _len = listen.length; _i < _len; _i++) {
         v = listen[_i];
-        if ((v != null ? v.id : void 0) && constants[v.id]) {
+        if (v instanceof DVLConst) {
           listenConst.push(v);
         }
       }
@@ -820,7 +818,6 @@ dvl.util = {
       v.listeners = v.changers = null;
     }
     nextObjId = 1;
-    constants = {};
     variables = {};
     registerers = {};
   };
