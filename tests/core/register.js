@@ -340,7 +340,7 @@ suite.addBatch({
 
     "correct post remove": function(t) {
       t.status = '';
-      t.f.remove();
+      t.f.discard();
       t.a.notify();
       assert.strictEqual(t.status, '');
     },

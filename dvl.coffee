@@ -205,15 +205,14 @@ dvl.util = {
 (->
   nextObjId = 1
   variables = {}
-  curRecording = null
+  registerers = {}
+  curBlock = null
   default_compare = dvl.util.isEqual
 
   class DVLConst
     constructor: (val) ->
       @value = val ? null
-      @id = nextObjId
       @changed = false
-      nextObjId += 1
       return this
 
     toString: ->
@@ -227,7 +226,7 @@ dvl.util = {
     hasChanged: -> @changed
     resetChanged: -> null
     notify: -> null
-    remove: -> null
+    discard: -> null
     name: ->
       if arguments.length is 0
         return @n ? '<anon_const>'
@@ -266,8 +265,7 @@ dvl.util = {
       @compareFn = default_compare
       variables[@id] = this
       nextObjId++
-      if curRecording
-        curRecording.vars.push this
+      curBlock.addMemeber(this) if curBlock
       return this
 
     resolveLazy: ->
@@ -298,7 +296,7 @@ dvl.util = {
       @changed = true
       return this
     update: (val) ->
-      return if @comapreFn(val, @value)
+      return if @compareFn(val, @value)
       this.set(val)
       dvl.notify(this)
     get: ->
@@ -309,7 +307,7 @@ dvl.util = {
       if @prev and @changed then @prev else @value
     notify: ->
       dvl.notify(this)
-    remove: ->
+    discard: ->
       if @listeners.length > 0
         throw "Cannot remove variable #{@id} because it has listeners."
       if @changers.length > 0
@@ -360,6 +358,122 @@ dvl.util = {
           return 0
 
 
+  class DVLFunctionObject
+    constructor: (@id, @name, @ctx, @fn, @listen, @change) ->
+      @depends = []
+      @level = 0
+      curBlock.addMemeber(this) if curBlock
+      return this
+
+    addChange: ->
+      uv = uniqById(arguments)
+
+      if uv.length
+        for v in uv
+          @change.push(v)
+          v.changers.push(this)
+          for l in v.listeners
+            l.depends.push(this)
+            @level = Math.max(@level, l.level+1)
+
+        checkForCycle(this)
+        bfsUpdate([this])
+
+      return this
+
+    addListen: ->
+      uv = uniqById(arguments)
+
+      if uv.length
+        for v in uv
+          @listen.push(v)
+          v.listeners.push(this)
+          for c in v.changers
+            @depends.push(c)
+
+        checkForCycle(this)
+        bfsUpdate([this])
+
+      uv = uniqById(arguments, true)
+      start_notify_collect(this)
+      changedSave = []
+      for v in uv
+        changedSave.push(v.changed)
+        v.changed = true
+      @fn.apply(@ctx)
+      for v,i in uv
+        v.changed = changedSave[i]
+      end_notify_collect()
+      return this
+
+    discard: ->
+      # Find the register object
+      delete registerers[@id]
+
+      bfsZero([this])
+
+      queue = []
+      for cv in @change
+        for lf in cv.listeners
+          queue.push lf
+          lf.depends.splice(lf.depends.indexOf(this), 1)
+
+      for v in @change
+        v.changers.splice(v.changers.indexOf(this), 1)
+
+      for v in @listen
+        v.listeners.splice(v.listeners.indexOf(this), 1)
+
+      # I think this hould be queue [ToDo]
+      bfsUpdate(@depends) # do not care if @update gets trashed
+      @change = @listen = @depends = null # cause an error if we hit these
+      return
+
+
+  class DVLBlock
+    constructor: (@name, @parent) ->
+      @owns = {}
+      @parent?.add(this)
+      return
+
+    addMemeber: (thing) ->
+      @owns[thing.id] = thing
+      return this
+
+    removeMemeber: (thing) ->
+      delete @owns[thing.id]
+      return this
+
+    discard: ->
+      @parent?.removeMemeber(this)
+      d.discard() for d in @owns
+      return
+
+
+  dvl.blockFn = ->
+    switch arguments.length
+      when 1 then [fn] = arguments
+      when 2 then [name, fn] = arguments
+      else throw "bad number of arguments"
+
+    return (args...) ->
+      block = new DVLBlock(name, curBlock)
+      ret = fn.apply(this, args)
+      curBlock = block.parent
+      return ret
+
+  dvl.block = ->
+    switch arguments.length
+      when 1 then [fn] = arguments
+      when 2 then [name, fn] = arguments
+      else throw "bad number of arguments"
+
+    block = new DVLBlock(name, curBlock)
+    fn.call(this)
+    curBlock = block.parent
+    return block
+
+
   dvl.const = (value) -> new DVLConst(value)
   dvl.def   = (value) -> new DVLDef(value)
 
@@ -378,8 +492,6 @@ dvl.util = {
       return v.get()
     else
       return v ? null
-
-  registerers = {}
 
   # filter out undefineds and nulls and constants also make unique
   uniqById = (vs, allowConst) ->
@@ -429,79 +541,6 @@ dvl.util = {
         queue.push w
 
     return
-
-
-  class DVLFunctionObject
-    constructor: (@id, @name, @ctx, @fn, @listen, @change) ->
-      @depends = []
-      @level = 0
-      if curRecording
-        curRecording.fns.push this
-      return this
-
-    addChange: ->
-      uv = uniqById(arguments)
-
-      if uv.length
-        for v in uv
-          @change.push(v)
-          v.changers.push(this)
-          for l in v.listeners
-            l.depends.push(this)
-            @level = Math.max(@level, l.level+1)
-
-        checkForCycle(this)
-        bfsUpdate([this])
-
-      return this
-
-    addListen: ->
-      uv = uniqById(arguments)
-
-      if uv.length
-        for v in uv
-          @listen.push(v)
-          v.listeners.push(this)
-          for c in v.changers
-            @depends.push(c)
-
-        checkForCycle(this)
-        bfsUpdate([this])
-
-      uv = uniqById(arguments, true)
-      start_notify_collect(this)
-      changedSave = []
-      for v in uv
-        changedSave.push(v.changed)
-        v.changed = true
-      @fn.apply(@ctx)
-      for v,i in uv
-        v.changed = changedSave[i]
-      end_notify_collect()
-      return this
-
-    remove: ->
-      # Find the register object
-      delete registerers[@id]
-
-      bfsZero([this])
-
-      queue = []
-      for cv in @change
-        for lf in cv.listeners
-          queue.push lf
-          lf.depends.splice(lf.depends.indexOf(this), 1)
-
-      for v in @change
-        v.changers.splice(v.changers.indexOf(this), 1)
-
-      for v in @listen
-        v.listeners.splice(v.listeners.indexOf(this), 1)
-
-      # I think this houldbe queue [ToDo]
-      bfsUpdate(@depends) # do not care if @update gets trashed
-      @change = @listen = @depends = null # cause an error if we hit these
-      return
 
 
   dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
@@ -633,7 +672,7 @@ dvl.util = {
     throw 'bad stuff happened collect' unless curCollectListener
 
     for v in arguments
-      continue unless variables[v.id]
+      continue unless v instanceof DVLDef
       throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
       toNotify.push v
 
@@ -644,7 +683,7 @@ dvl.util = {
     throw 'bad stuff happened within' unless curNotifyListener
 
     for v in arguments
-      continue unless variables[v.id]
+      continue unless v instanceof DVLDef
       throw "changed unregisterd object #{v.id}" if v not in curNotifyListener.change
       changedInNotify.push v
       lastNotifyRun.push v.id
@@ -663,7 +702,7 @@ dvl.util = {
     changedInNotify = []
 
     for v in arguments
-      continue unless variables[v.id]
+      continue unless v instanceof DVLDef
       changedInNotify.push v
       lastNotifyRun.push v.id
       levelPriorityQueue.push l for l in v.listeners
@@ -687,21 +726,6 @@ dvl.util = {
 
 
   dvl.notify = init_notify
-
-  dvl.startRecording = ->
-    throw "already recording" if curRecording
-    curRecording = { fns: [], vars: [] }
-
-  dvl.stopRecording = ->
-    throw "not recording" unless curRecording
-    rec = curRecording
-    curRecording = null
-    rec.remove = ->
-      f.remove() for f in rec.fns
-      v.remove() for v in rec.vars
-      return
-
-    return rec
 
   ######################################################
   ##
@@ -1184,11 +1208,13 @@ dvl.ajax.requester = {
     }
 
 
-  cache: ({max, timeout} = {}) ->
+  cache: ({max, timeout, keyFn} = {}) ->
     max = dvl.wrapConstIfNeeded(max or 100)
     timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
     cache = {}
     count = 0
+    keyFn or= (url, dataVal, method, dataType, contentType, processData) ->
+      return [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@')
 
     trim = ->
       tout = timeout.get()
@@ -1216,7 +1242,7 @@ dvl.ajax.requester = {
     return {
       request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete}) ->
         dataVal = if method isnt 'GET' then dataFn(data) else null
-        key = [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@')
+        key = keyFn(url, dataVal, method, dataType, contentType, processData)
 
         c = cache[key]
         added = false

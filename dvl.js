@@ -29,16 +29,15 @@ function lift(fn) {
     return fn.apply(null, args);
   };
 }
-;var clipId, debug, dvl, dvl_get, dvl_op, fn, k, op_to_lift, _ref;
-var __indexOf = Array.prototype.indexOf || function(item) {
+;
+var clipId, debug, dvl, dvl_get, dvl_op, fn, k, op_to_lift, _ref;
+var __slice = Array.prototype.slice, __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
   }
   return -1;
-}, __slice = Array.prototype.slice;
-if ((_ref = Array.prototype.filter) != null) {
-  _ref;
-} else {
+};
+if ((_ref = Array.prototype.filter) == null) {
   Array.prototype.filter = function(fun, thisp) {
     var res, val, _i, _len;
     if (typeof fun !== 'function') {
@@ -53,7 +52,7 @@ if ((_ref = Array.prototype.filter) != null) {
     }
     return res;
   };
-};
+}
 debug = function() {
   if (!(typeof console !== "undefined" && console !== null ? console.log : void 0)) {
     return;
@@ -270,17 +269,16 @@ dvl.util = {
   }
 };
 (function() {
-  var DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, collect_notify, curCollectListener, curNotifyListener, curRecording, default_compare, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
+  var DVLBlock, DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify;
   nextObjId = 1;
   variables = {};
-  curRecording = null;
+  registerers = {};
+  curBlock = null;
   default_compare = dvl.util.isEqual;
   DVLConst = (function() {
     function DVLConst(val) {
       this.value = val != null ? val : null;
-      this.id = nextObjId;
       this.changed = false;
-      nextObjId += 1;
       return this;
     }
     DVLConst.prototype.toString = function() {
@@ -312,7 +310,7 @@ dvl.util = {
     DVLConst.prototype.notify = function() {
       return null;
     };
-    DVLConst.prototype.remove = function() {
+    DVLConst.prototype.discard = function() {
       return null;
     };
     DVLConst.prototype.name = function() {
@@ -374,8 +372,8 @@ dvl.util = {
       this.compareFn = default_compare;
       variables[this.id] = this;
       nextObjId++;
-      if (curRecording) {
-        curRecording.vars.push(this);
+      if (curBlock) {
+        curBlock.addMemeber(this);
       }
       return this;
     }
@@ -417,7 +415,7 @@ dvl.util = {
       return this;
     };
     DVLDef.prototype.update = function(val) {
-      if (this.comapreFn(val, this.value)) {
+      if (this.compareFn(val, this.value)) {
         return;
       }
       this.set(val);
@@ -438,7 +436,7 @@ dvl.util = {
     DVLDef.prototype.notify = function() {
       return dvl.notify(this);
     };
-    DVLDef.prototype.remove = function() {
+    DVLDef.prototype.discard = function() {
       if (this.listeners.length > 0) {
         throw "Cannot remove variable " + this.id + " because it has listeners.";
       }
@@ -522,6 +520,174 @@ dvl.util = {
     };
     return DVLDef;
   })();
+  DVLFunctionObject = (function() {
+    function DVLFunctionObject(id, name, ctx, fn, listen, change) {
+      this.id = id;
+      this.name = name;
+      this.ctx = ctx;
+      this.fn = fn;
+      this.listen = listen;
+      this.change = change;
+      this.depends = [];
+      this.level = 0;
+      if (curBlock) {
+        curBlock.addMemeber(this);
+      }
+      return this;
+    }
+    DVLFunctionObject.prototype.addChange = function() {
+      var l, uv, v, _i, _j, _len, _len2, _ref2;
+      uv = uniqById(arguments);
+      if (uv.length) {
+        for (_i = 0, _len = uv.length; _i < _len; _i++) {
+          v = uv[_i];
+          this.change.push(v);
+          v.changers.push(this);
+          _ref2 = v.listeners;
+          for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+            l = _ref2[_j];
+            l.depends.push(this);
+            this.level = Math.max(this.level, l.level + 1);
+          }
+        }
+        checkForCycle(this);
+        bfsUpdate([this]);
+      }
+      return this;
+    };
+    DVLFunctionObject.prototype.addListen = function() {
+      var c, changedSave, i, uv, v, _i, _j, _k, _len, _len2, _len3, _len4, _ref2;
+      uv = uniqById(arguments);
+      if (uv.length) {
+        for (_i = 0, _len = uv.length; _i < _len; _i++) {
+          v = uv[_i];
+          this.listen.push(v);
+          v.listeners.push(this);
+          _ref2 = v.changers;
+          for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
+            c = _ref2[_j];
+            this.depends.push(c);
+          }
+        }
+        checkForCycle(this);
+        bfsUpdate([this]);
+      }
+      uv = uniqById(arguments, true);
+      start_notify_collect(this);
+      changedSave = [];
+      for (_k = 0, _len3 = uv.length; _k < _len3; _k++) {
+        v = uv[_k];
+        changedSave.push(v.changed);
+        v.changed = true;
+      }
+      this.fn.apply(this.ctx);
+      for (i = 0, _len4 = uv.length; i < _len4; i++) {
+        v = uv[i];
+        v.changed = changedSave[i];
+      }
+      end_notify_collect();
+      return this;
+    };
+    DVLFunctionObject.prototype.discard = function() {
+      var cv, lf, queue, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref2, _ref3, _ref4, _ref5;
+      delete registerers[this.id];
+      bfsZero([this]);
+      queue = [];
+      _ref2 = this.change;
+      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+        cv = _ref2[_i];
+        _ref3 = cv.listeners;
+        for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
+          lf = _ref3[_j];
+          queue.push(lf);
+          lf.depends.splice(lf.depends.indexOf(this), 1);
+        }
+      }
+      _ref4 = this.change;
+      for (_k = 0, _len3 = _ref4.length; _k < _len3; _k++) {
+        v = _ref4[_k];
+        v.changers.splice(v.changers.indexOf(this), 1);
+      }
+      _ref5 = this.listen;
+      for (_l = 0, _len4 = _ref5.length; _l < _len4; _l++) {
+        v = _ref5[_l];
+        v.listeners.splice(v.listeners.indexOf(this), 1);
+      }
+      bfsUpdate(this.depends);
+      this.change = this.listen = this.depends = null;
+    };
+    return DVLFunctionObject;
+  })();
+  DVLBlock = (function() {
+    function DVLBlock(name, parent) {
+      var _ref2;
+      this.name = name;
+      this.parent = parent;
+      this.owns = {};
+      if ((_ref2 = this.parent) != null) {
+        _ref2.add(this);
+      }
+      return;
+    }
+    DVLBlock.prototype.addMemeber = function(thing) {
+      this.owns[thing.id] = thing;
+      return this;
+    };
+    DVLBlock.prototype.removeMemeber = function(thing) {
+      delete this.owns[thing.id];
+      return this;
+    };
+    DVLBlock.prototype.discard = function() {
+      var d, _i, _len, _ref2, _ref3;
+      if ((_ref2 = this.parent) != null) {
+        _ref2.removeMemeber(this);
+      }
+      _ref3 = this.owns;
+      for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
+        d = _ref3[_i];
+        d.discard();
+      }
+    };
+    return DVLBlock;
+  })();
+  dvl.blockFn = function() {
+    var fn, name;
+    switch (arguments.length) {
+      case 1:
+        fn = arguments[0];
+        break;
+      case 2:
+        name = arguments[0], fn = arguments[1];
+        break;
+      default:
+        throw "bad number of arguments";
+    }
+    return function() {
+      var args, block, ret;
+      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      block = new DVLBlock(name, curBlock);
+      ret = fn.apply(this, args);
+      curBlock = block.parent;
+      return ret;
+    };
+  };
+  dvl.block = function() {
+    var block, fn, name;
+    switch (arguments.length) {
+      case 1:
+        fn = arguments[0];
+        break;
+      case 2:
+        name = arguments[0], fn = arguments[1];
+        break;
+      default:
+        throw "bad number of arguments";
+    }
+    block = new DVLBlock(name, curBlock);
+    fn.call(this);
+    curBlock = block.parent;
+    return block;
+  };
   dvl["const"] = function(value) {
     return new DVLConst(value);
   };
@@ -558,7 +724,6 @@ dvl.util = {
       return v != null ? v : null;
     }
   };
-  registerers = {};
   uniqById = function(vs, allowConst) {
     var res, seen, v, _i, _len;
     res = [];
@@ -620,104 +785,6 @@ dvl.util = {
       }
     }
   };
-  DVLFunctionObject = (function() {
-    function DVLFunctionObject(id, name, ctx, fn, listen, change) {
-      this.id = id;
-      this.name = name;
-      this.ctx = ctx;
-      this.fn = fn;
-      this.listen = listen;
-      this.change = change;
-      this.depends = [];
-      this.level = 0;
-      if (curRecording) {
-        curRecording.fns.push(this);
-      }
-      return this;
-    }
-    DVLFunctionObject.prototype.addChange = function() {
-      var l, uv, v, _i, _j, _len, _len2, _ref2;
-      uv = uniqById(arguments);
-      if (uv.length) {
-        for (_i = 0, _len = uv.length; _i < _len; _i++) {
-          v = uv[_i];
-          this.change.push(v);
-          v.changers.push(this);
-          _ref2 = v.listeners;
-          for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
-            l = _ref2[_j];
-            l.depends.push(this);
-            this.level = Math.max(this.level, l.level + 1);
-          }
-        }
-        checkForCycle(this);
-        bfsUpdate([this]);
-      }
-      return this;
-    };
-    DVLFunctionObject.prototype.addListen = function() {
-      var c, changedSave, i, uv, v, _i, _j, _k, _len, _len2, _len3, _len4, _ref2;
-      uv = uniqById(arguments);
-      if (uv.length) {
-        for (_i = 0, _len = uv.length; _i < _len; _i++) {
-          v = uv[_i];
-          this.listen.push(v);
-          v.listeners.push(this);
-          _ref2 = v.changers;
-          for (_j = 0, _len2 = _ref2.length; _j < _len2; _j++) {
-            c = _ref2[_j];
-            this.depends.push(c);
-          }
-        }
-        checkForCycle(this);
-        bfsUpdate([this]);
-      }
-      uv = uniqById(arguments, true);
-      start_notify_collect(this);
-      changedSave = [];
-      for (_k = 0, _len3 = uv.length; _k < _len3; _k++) {
-        v = uv[_k];
-        changedSave.push(v.changed);
-        v.changed = true;
-      }
-      this.fn.apply(this.ctx);
-      for (i = 0, _len4 = uv.length; i < _len4; i++) {
-        v = uv[i];
-        v.changed = changedSave[i];
-      }
-      end_notify_collect();
-      return this;
-    };
-    DVLFunctionObject.prototype.remove = function() {
-      var cv, lf, queue, v, _i, _j, _k, _l, _len, _len2, _len3, _len4, _ref2, _ref3, _ref4, _ref5;
-      delete registerers[this.id];
-      bfsZero([this]);
-      queue = [];
-      _ref2 = this.change;
-      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-        cv = _ref2[_i];
-        _ref3 = cv.listeners;
-        for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
-          lf = _ref3[_j];
-          queue.push(lf);
-          lf.depends.splice(lf.depends.indexOf(this), 1);
-        }
-      }
-      _ref4 = this.change;
-      for (_k = 0, _len3 = _ref4.length; _k < _len3; _k++) {
-        v = _ref4[_k];
-        v.changers.splice(v.changers.indexOf(this), 1);
-      }
-      _ref5 = this.listen;
-      for (_l = 0, _len4 = _ref5.length; _l < _len4; _l++) {
-        v = _ref5[_l];
-        v.listeners.splice(v.listeners.indexOf(this), 1);
-      }
-      bfsUpdate(this.depends);
-      this.change = this.listen = this.depends = null;
-    };
-    return DVLFunctionObject;
-  })();
   dvl.register = function(_arg) {
     var c, cf, change, changedSave, ctx, cv, fn, fo, force, i, id, l, lf, listen, listenConst, lv, name, noRun, v, _i, _j, _k, _l, _len, _len10, _len11, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _len9, _m, _n, _o, _p, _q, _ref2, _ref3;
     ctx = _arg.ctx, fn = _arg.fn, listen = _arg.listen, change = _arg.change, name = _arg.name, force = _arg.force, noRun = _arg.noRun;
@@ -874,7 +941,7 @@ dvl.util = {
     }
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
-      if (!variables[v.id]) {
+      if (!(v instanceof DVLDef)) {
         continue;
       }
       if (__indexOf.call(curCollectListener.change, v) < 0) {
@@ -890,7 +957,7 @@ dvl.util = {
     }
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
-      if (!variables[v.id]) {
+      if (!(v instanceof DVLDef)) {
         continue;
       }
       if (__indexOf.call(curNotifyListener.change, v) < 0) {
@@ -917,7 +984,7 @@ dvl.util = {
     changedInNotify = [];
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
-      if (!variables[v.id]) {
+      if (!(v instanceof DVLDef)) {
         continue;
       }
       changedInNotify.push(v);
@@ -951,37 +1018,6 @@ dvl.util = {
     }
   };
   dvl.notify = init_notify;
-  dvl.startRecording = function() {
-    if (curRecording) {
-      throw "already recording";
-    }
-    return curRecording = {
-      fns: [],
-      vars: []
-    };
-  };
-  dvl.stopRecording = function() {
-    var rec;
-    if (!curRecording) {
-      throw "not recording";
-    }
-    rec = curRecording;
-    curRecording = null;
-    rec.remove = function() {
-      var f, v, _i, _j, _len, _len2, _ref2, _ref3;
-      _ref2 = rec.fns;
-      for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-        f = _ref2[_i];
-        f.remove();
-      }
-      _ref3 = rec.vars;
-      for (_j = 0, _len2 = _ref3.length; _j < _len2; _j++) {
-        v = _ref3[_j];
-        v.remove();
-      }
-    };
-    return rec;
-  };
   dvl.graphToDot = function(lastTrace, showId) {
     var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, _i, _j, _k, _len, _len2, _len3, _name, _ref2, _ref3;
     execOrder = {};
@@ -1534,12 +1570,15 @@ dvl.ajax.requester = {
     };
   },
   cache: function(_arg) {
-    var cache, count, max, timeout, trim, _ref2;
-    _ref2 = _arg != null ? _arg : {}, max = _ref2.max, timeout = _ref2.timeout;
+    var cache, count, keyFn, max, timeout, trim, _ref2;
+    _ref2 = _arg != null ? _arg : {}, max = _ref2.max, timeout = _ref2.timeout, keyFn = _ref2.keyFn;
     max = dvl.wrapConstIfNeeded(max || 100);
     timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
     cache = {};
     count = 0;
+    keyFn || (keyFn = function(url, dataVal, method, dataType, contentType, processData) {
+      return [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@');
+    });
     trim = function() {
       var cutoff, d, m, newCache, oldestQuery, oldestTime, q, tout, _results;
       tout = timeout.get();
@@ -1581,7 +1620,7 @@ dvl.ajax.requester = {
         var added, c, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, key, method, outstanding, processData, url;
         url = _arg2.url, data = _arg2.data, dataFn = _arg2.dataFn, method = _arg2.method, dataType = _arg2.dataType, contentType = _arg2.contentType, processData = _arg2.processData, fn = _arg2.fn, outstanding = _arg2.outstanding, complete = _arg2.complete;
         dataVal = method !== 'GET' ? dataFn(data) : null;
-        key = [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@');
+        key = keyFn(url, dataVal, method, dataType, contentType, processData);
         c = cache[key];
         added = false;
         if (!c) {
@@ -2952,11 +2991,9 @@ dvl.compare = function(acc, reverse) {
     compareList = [sortOn, sortDir];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
-            if ((_ref3 = c.sortable) != null) {
-        _ref3;
-      } else {
+      if ((_ref3 = c.sortable) == null) {
         c.sortable = true;
-      };
+      }
       if (c.sortable) {
         if (c.compare != null) {
           comp = dvl.wrapConstIfNeeded(c.compare);
@@ -3298,11 +3335,9 @@ dvl.compare = function(acc, reverse) {
     sparkline: function(_arg) {
       var height, padding, width, x, y;
       width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
-            if (padding != null) {
-        padding;
-      } else {
+      if (padding == null) {
         padding = 0;
-      };
+      }
       return function(selection, value) {
         var dataFn, lineFn, svg;
         lineFn = dvl.apply({
