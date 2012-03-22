@@ -2319,9 +2319,12 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr}) ->
   data = dvl.wrapConstIfNeeded(data)
   label = dvl.wrapConstIfNeeded(label or dvl.identity)
 
-  selChange = (val) ->
+  selChange = ->
+    i = selectEl.property('value')
+    val = data.get()[i]
     return if onChange?(val) is false
     selection.update(val)
+    return
 
   selectEl = d3.select(selector)
     .append('select')
@@ -2349,10 +2352,6 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr}) ->
         selectEl.node().value = idx
       return
   }
-
-
-  #updateSelection = () ->
-  #  selectEl
 
   selChange()
   #dvl.register({fn: updateSelection, listen:[], change:[selection]})
@@ -2605,7 +2604,6 @@ do ->
     }
 
     return
-
 
   ##-------------------------------------------------------
   ##

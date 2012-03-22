@@ -2902,11 +2902,14 @@ dvl.html.select = function(_arg) {
   selection = dvl.wrapVarIfNeeded(selection, 'selection');
   data = dvl.wrapConstIfNeeded(data);
   label = dvl.wrapConstIfNeeded(label || dvl.identity);
-  selChange = function(val) {
+  selChange = function() {
+    var i, val;
+    i = selectEl.property('value');
+    val = data.get()[i];
     if ((typeof onChange === "function" ? onChange(val) : void 0) === false) {
       return;
     }
-    return selection.update(val);
+    selection.update(val);
   };
   selectEl = d3.select(selector).append('select').attr('class', classStr || null).on('change', selChange);
   dvl.bind({
