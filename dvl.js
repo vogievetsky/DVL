@@ -1576,8 +1576,8 @@ dvl.ajax.requester = {
     timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
     cache = {};
     count = 0;
-    keyFn || (keyFn = function(url, dataVal, method, dataType, contentType, processData) {
-      return [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@');
+    keyFn || (keyFn = function(url, data, method, dataType, contentType, processData) {
+      return [url, dvl.util.strObj(data), method, dataType, contentType, processData].join('@@');
     });
     trim = function() {
       var cutoff, d, m, newCache, oldestQuery, oldestTime, q, tout, _results;
@@ -1620,7 +1620,7 @@ dvl.ajax.requester = {
         var added, c, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, key, method, outstanding, processData, url;
         url = _arg2.url, data = _arg2.data, dataFn = _arg2.dataFn, method = _arg2.method, dataType = _arg2.dataType, contentType = _arg2.contentType, processData = _arg2.processData, fn = _arg2.fn, outstanding = _arg2.outstanding, complete = _arg2.complete;
         dataVal = method !== 'GET' ? dataFn(data) : null;
-        key = keyFn(url, dataVal, method, dataType, contentType, processData);
+        key = keyFn(url, data, method, dataType, contentType, processData);
         c = cache[key];
         added = false;
         if (!c) {
@@ -2646,7 +2646,9 @@ dvl.html.list = function(_arg) {
   if (listClass != null) {
     listClass = dvl.wrapConstIfNeeded(listClass);
   } else {
-    listClass = dvl.apply([selection, selections], function(_selection, _selections) {
+    listClass = dvl.apply([selection, selections], {
+      allowNull: true
+    }, function(_selection, _selections) {
       if (_selection) {
         if (_selections) {
           return function(value) {
@@ -3075,6 +3077,7 @@ dvl.compare = function(acc, reverse) {
     });
     dvl.html.table.body({
       parent: table,
+      classStr: 'data',
       data: data,
       rowClass: rowClass,
       rowLimit: rowLimit,
@@ -3161,15 +3164,15 @@ dvl.compare = function(acc, reverse) {
     });
   };
   dvl.html.table.body = function(_arg) {
-    var c, change, columns, compare, data, k, listen, nc, newColumns, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2, _ref3;
-    parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns;
+    var c, change, classStr, columns, compare, data, k, listen, nc, newColumns, onRow, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2, _ref3;
+    parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, classStr = _arg.classStr, rowLimit = _arg.rowLimit, columns = _arg.columns, onRow = _arg.on;
     if (!parent) {
       throw 'there needs to be a parent';
     }
     if (!data) {
       throw 'there needs to be data';
     }
-    tbody = dvl.valueOf(parent).append('tbody');
+    tbody = dvl.valueOf(parent).append('tbody').attr('class', classStr);
     compare = dvl.wrapConstIfNeeded(compare);
     if (rowClass != null) {
       rowClass = dvl.wrapConstIfNeeded(rowClass);
@@ -3177,6 +3180,12 @@ dvl.compare = function(acc, reverse) {
     rowLimit = dvl.wrapConstIfNeeded(rowLimit);
     listen = [data, compare, rowClass, rowLimit];
     change = [];
+    for (k in onRow) {
+      v = onRow[k];
+      v = dvl.wrapConstIfNeeded(v);
+      listen.push(v);
+      onRow[k] = v;
+    }
     newColumns = [];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
@@ -3205,7 +3214,7 @@ dvl.compare = function(acc, reverse) {
       listen: listen,
       change: change,
       fn: function() {
-        var c, colSel, dataSorted, i, k, newRows, rowSel, sel, v, visibleChanged, _compare, _len2, _ref4, _rowClass, _rowLimit;
+        var c, colSel, dataSorted, enterRowSel, i, k, newRows, rowSel, sel, v, visibleChanged, _compare, _len2, _ref4, _rowClass, _rowLimit;
         dataSorted = data.get() || [];
         _compare = compare.get();
         if (_compare) {
@@ -3216,11 +3225,16 @@ dvl.compare = function(acc, reverse) {
           dataSorted = dataSorted.slice(0, _rowLimit);
         }
         rowSel = tbody.selectAll('tr').data(dataSorted);
-        newRows = !rowSel.enter().append('tr').empty();
+        enterRowSel = rowSel.enter().append('tr');
+        newRows = !enterRowSel.empty();
         rowSel.exit().remove();
         if (rowClass) {
           _rowClass = rowClass.get();
           rowSel.attr('class', _rowClass);
+        }
+        for (k in onRow) {
+          v = onRow[k];
+          rowSel.on(k, v.get());
         }
         colSel = rowSel.selectAll('td').data(columns);
         colSel.enter().append('td');

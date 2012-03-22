@@ -1213,8 +1213,8 @@ dvl.ajax.requester = {
     timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
     cache = {}
     count = 0
-    keyFn or= (url, dataVal, method, dataType, contentType, processData) ->
-      return [url, dvl.util.strObj(dataVal), method, dataType, contentType, processData].join('@@')
+    keyFn or= (url, data, method, dataType, contentType, processData) ->
+      return [url, dvl.util.strObj(data), method, dataType, contentType, processData].join('@@')
 
     trim = ->
       tout = timeout.get()
@@ -1242,7 +1242,7 @@ dvl.ajax.requester = {
     return {
       request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete}) ->
         dataVal = if method isnt 'GET' then dataFn(data) else null
-        key = keyFn(url, dataVal, method, dataType, contentType, processData)
+        key = keyFn(url, data, method, dataType, contentType, processData)
 
         c = cache[key]
         added = false
@@ -2064,6 +2064,7 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
   else
     listClass = dvl.apply(
       [selection, selections]
+      allowNull: true
       (_selection, _selections) ->
         if _selection
           if _selections
@@ -2522,6 +2523,7 @@ do ->
 
     dvl.html.table.body {
       parent: table
+      classStr: 'data'
       data
       rowClass
       rowLimit
@@ -2621,16 +2623,22 @@ do ->
   ##   ~visible:     This this column shown?
   ##    on:          Whatever on events you want
   ##
-  dvl.html.table.body = ({parent, data, compare, rowClass, rowLimit, columns}) ->
+  dvl.html.table.body = ({parent, data, compare, rowClass, classStr, rowLimit, columns, on:onRow}) ->
     throw 'there needs to be a parent' unless parent
     throw 'there needs to be data' unless data
-    tbody = dvl.valueOf(parent).append('tbody')
+    tbody = dvl.valueOf(parent).append('tbody').attr('class', classStr)
 
     compare = dvl.wrapConstIfNeeded(compare)
     rowClass = dvl.wrapConstIfNeeded(rowClass) if rowClass?
     rowLimit = dvl.wrapConstIfNeeded(rowLimit)
     listen = [data, compare, rowClass, rowLimit]
     change = []
+
+    for k,v of onRow
+      v = dvl.wrapConstIfNeeded(v)
+      listen.push v
+      onRow[k] = v
+
     newColumns = []
     for c in columns
       newColumns.push(nc = {
@@ -2669,11 +2677,15 @@ do ->
         dataSorted = dataSorted.slice(0, _rowLimit) if _rowLimit?
 
         rowSel = tbody.selectAll('tr').data(dataSorted)
-        newRows = not rowSel.enter().append('tr').empty()
+        enterRowSel = rowSel.enter().append('tr')
+        newRows = not enterRowSel.empty()
         rowSel.exit().remove()
         if rowClass
           _rowClass = rowClass.get()
           rowSel.attr('class', _rowClass)
+
+        for k,v of onRow
+          rowSel.on(k, v.get())
 
         colSel = rowSel.selectAll('td').data(columns)
         colSel.enter().append('td')
