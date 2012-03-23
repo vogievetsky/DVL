@@ -834,7 +834,7 @@ dvl.acc = (column) ->
 ##
 ##  Displays the object value with a message whenever the object changes.
 ##
-dvl.debug = () ->
+dvl.debug = ->
   if arguments.length is 1
     obj = dvl.wrapConstIfNeeded(arguments[0])
     note = obj.name() + ':'
