@@ -1130,23 +1130,16 @@ dvl.acc = function(column) {
   return acc;
 };
 dvl.debug = function() {
-  var dbgPrint, genStr, note, obj;
-  genStr = function(o) {
-    if (o != null ? o.vgen : void 0) {
-      return "[gen:" + (o.len()) + "]";
-    } else {
-      return '';
-    }
-  };
+  var dbgPrint, note, obj;
   if (arguments.length === 1) {
     obj = dvl.wrapConstIfNeeded(arguments[0]);
-    note = obj.name + ':';
+    note = obj.name() + ':';
   } else {
-    note = arguments[0];
     obj = dvl.wrapConstIfNeeded(arguments[1]);
+    note = arguments[0];
   }
   dbgPrint = function() {
-    return debug(note, obj.get(), genStr(obj));
+    return debug(note, obj.get());
   };
   dvl.register({
     fn: dbgPrint,

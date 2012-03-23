@@ -835,17 +835,15 @@ dvl.acc = (column) ->
 ##  Displays the object value with a message whenever the object changes.
 ##
 dvl.debug = () ->
-  genStr = (o) -> if o?.vgen then "[gen:#{o.len()}]" else ''
-
-  if arguments.length == 1
+  if arguments.length is 1
     obj = dvl.wrapConstIfNeeded(arguments[0])
-    note = obj.name + ':'
+    note = obj.name() + ':'
   else
-    note = arguments[0]
     obj = dvl.wrapConstIfNeeded(arguments[1])
+    note = arguments[0]
 
   dbgPrint = ->
-    debug note, obj.get(), genStr(obj)
+    debug note, obj.get()
 
   dvl.register({fn:dbgPrint, listen:[obj], name:'debug'})
   return obj
