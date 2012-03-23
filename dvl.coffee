@@ -1174,11 +1174,13 @@ dvl.ajax.requester = {
 
           ajax = null
           complete(null, resVal)
+          return
 
         getError = (xhr, textStatus) ->
           return if textStatus is "abort"
           ajax = null
-          complete(textStatus, null)
+          complete(xhr.responseText or textStatus, null)
+          return
 
         ajax = jQuery.ajax {
           url
@@ -1271,7 +1273,7 @@ dvl.ajax.requester = {
             c.ajax = null
             delete cache[key]
             count--
-            cb(textStatus, null) for cb in c.waiting
+            cb(xhr.responseText or textStatus, null) for cb in c.waiting
             delete c.waiting
             return
 
