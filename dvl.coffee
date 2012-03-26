@@ -1648,12 +1648,10 @@ dvl.scale = {}
 
 # dvl.bind # --------------------------------------------------
 do ->
-  # {parent, self, data, join, attr, style, text, html, on, transition, transitionExit}
   id_class_spliter = /(?=[#.:])/
   def_data_fn = dvl.const((d) -> [d])
-  dvl.bind = (args) ->
-    throw "'parent' not defiend" unless args.parent
-    self = args.self
+  dvl.bind = ({parent, self, data, join, attr, style, text, html, on:argsOn, transition, transitionExit}) ->
+    throw "'parent' not defiend" unless parent
     throw "'self' not defiend" unless typeof self is 'string'
     parts = self.split(id_class_spliter)
     nodeType = parts.shift()
@@ -1670,21 +1668,21 @@ do ->
 
     staticClass = staticClass.join(' ')
 
-    parent = dvl.wrapConstIfNeeded(args.parent)
-    data = dvl.wrapConstIfNeeded(args.data or def_data_fn)
-    join = dvl.wrapConstIfNeeded(args.join)
-    text = if args.text then dvl.wrapConstIfNeeded(args.text) else null
-    html = if args.html then dvl.wrapConstIfNeeded(args.html) else null
-    transition = dvl.wrapConstIfNeeded(args.transition)
-    transitionExit = dvl.wrapConstIfNeeded(args.transitionExit)
+    parent = dvl.wrapConstIfNeeded(parent)
+    data = dvl.wrapConstIfNeeded(data or def_data_fn)
+    join = dvl.wrapConstIfNeeded(join)
+    text = if text then dvl.wrapConstIfNeeded(text) else null
+    html = if html then dvl.wrapConstIfNeeded(html) else null
+    transition = dvl.wrapConstIfNeeded(transition)
+    transitionExit = dvl.wrapConstIfNeeded(transitionExit)
 
     listen = [parent, data, join, text, html, transition, transitionExit]
 
     attrList = {}
-    for k, v of args.attr
+    for k, v of attr
       v = dvl.wrapConstIfNeeded(v)
       if k is 'class' and staticClass
-        v = dvl.op.concat(v, ' ' + staticClass)
+        v = dvl.op.concat(staticClass + ' ', v)
 
       listen.push(v)
       attrList[k] = v
@@ -1693,18 +1691,18 @@ do ->
       attrList['class'] = dvl.const(staticClass)
 
     styleList = {}
-    for k, v of args.style
+    for k, v of style
       v = dvl.wrapConstIfNeeded(v)
       listen.push(v)
       styleList[k] = v
 
     onList = {}
-    for k, v of args.on
+    for k, v of argsOn
       v = dvl.wrapConstIfNeeded(v)
       listen.push(v)
       onList[k] = v
 
-    out = dvl.def(null, 'selection')
+    out = dvl.def().name('selection')
 
     dvl.register {
       listen
@@ -1786,6 +1784,86 @@ do ->
     return out
 
 
+  dvl.bindSingle = ({parent, self, datum, attr, style, text, html, on:argsOn, transition}) ->
+    if typeof self is 'string'
+      throw "'parent' not defiend for string self" unless parent
+      parts = self.split(id_class_spliter)
+      nodeType = parts.shift()
+      staticId = null
+      staticClass = []
+      for part in parts
+        switch part[0]
+          when '#'
+            staticId = part.substring(1)
+          when '.'
+            staticClass.push part.substring(1)
+          else
+            throw "not currently supported in 'self' (#{part})"
+
+      staticClass = staticClass.join(' ')
+
+      self = parent.append(nodeType)
+      self.attr('id', staticId) is staticId
+      self.attr('class', staticClass) is staticClass
+
+    self = dvl.wrapVarIfNeeded(self)
+
+    datum = dvl.wrapConstIfNeeded(datum)
+    text = if text then dvl.wrapConstIfNeeded(text) else null
+    html = if html then dvl.wrapConstIfNeeded(html) else null
+    transition = dvl.wrapConstIfNeeded(transition)
+
+    listen = [datum, text, html, transition]
+
+    attrList = {}
+    for k, v of attr
+      v = dvl.wrapConstIfNeeded(v)
+      if k is 'class' and staticClass
+        v = dvl.op.concat(staticClass + ' ', v)
+
+      listen.push(v)
+      attrList[k] = v
+
+    styleList = {}
+    for k, v of style
+      v = dvl.wrapConstIfNeeded(v)
+      listen.push(v)
+      styleList[k] = v
+
+    onList = {}
+    for k, v of argsOn
+      v = dvl.wrapConstIfNeeded(v)
+      listen.push(v)
+      onList[k] = v
+
+    dvl.register {
+      listen
+      change: [self]
+      fn: ->
+        sel = self.get()
+        _datum = datum.get()
+        force = datum.hasChanged()
+        sel.datum(_datum) if force
+
+        for k, v of attrList
+          sel.attr(k, v.get()) if v.hasChanged() or force
+
+        for k, v of styleList
+          sel.style(k, v.get()) if v.hasChanged() or force
+
+        for k, v of onList
+          sel.on(k, v.get()) if v.hasChanged() or force
+
+        sel.text(text.get()) if text and (text.hasChanged() or force)
+        sel.html(html.get()) if html and (html.hasChanged() or force)
+
+        self.notify() if force
+        return
+    }
+
+    return self
+
+
 dvl.chain = (f, h) ->
   f = dvl.wrapConstIfNeeded(f)
   h = dvl.wrapConstIfNeeded(h)
@@ -1810,76 +1888,76 @@ dvl.chain = (f, h) ->
   return out
 
 
+do ->
+  dvl_get = (v) -> v.get()
+  dvl.op = dvl_op = (fn) ->
+    liftedFn = lift(fn)
+    return (args...) ->
+      args = args.map(dvl.wrapConstIfNeeded)
+      out = dvl.def(null, 'out')
 
-dvl_get = (v) -> v.get()
-dvl.op = dvl_op = (fn) ->
-  liftedFn = lift(fn)
-  return (args...) ->
-    args = args.map(dvl.wrapConstIfNeeded)
-    out = dvl.def(null, 'out')
+      dvl.register {
+        listen: args
+        change: [out]
+        fn: ->
+          out.set(liftedFn.apply(null, args.map(dvl_get)))
+          dvl.notify(out)
+          return
+      }
 
-    dvl.register {
-      listen: args
-      change: [out]
-      fn: ->
-        out.set(liftedFn.apply(null, args.map(dvl_get)))
-        dvl.notify(out)
-        return
-    }
+      return out
 
-    return out
+  op_to_lift = {
+    'or': ->
+      for arg in arguments
+        return arg if arg
+      return false
 
-op_to_lift = {
-  'or': ->
-    for arg in arguments
-      return arg if arg
-    return false
+    'add': ->
+      sum = 0
+      for arg in arguments
+        if arg?
+          sum += arg
+        else
+          return null
+      return sum
 
-  'add': ->
-    sum = 0
-    for arg in arguments
-      if arg?
-        sum += arg
-      else
-        return null
-    return sum
+    'sub': ->
+      sum = 0
+      mult = 1
+      for arg in arguments
+        if arg?
+          sum += arg * mult
+          mult = -1
+        else
+          return null
+      return sum
 
-  'sub': ->
-    sum = 0
-    mult = 1
-    for arg in arguments
-      if arg?
-        sum += arg * mult
-        mult = -1
-      else
-        return null
-    return sum
+    'list': (args...) ->
+      for arg in args
+        return null unless arg?
+      return args
 
-  'list': (args...) ->
-    for arg in args
-      return null unless arg?
-    return args
+    'concat': (args...) ->
+      for arg in args
+        return null unless arg?
+      return args.join('')
 
-  'concat': (args...) ->
-    for arg in args
-      return null unless arg?
-    return args.join('')
+    'iff': (cond, truthy, falsy) ->
+      return if cond then truthy else falsy
 
-  'iff': (cond, truthy, falsy) ->
-    return if cond then truthy else falsy
+    'iffEq': (lhs, rhs, truthy, falsy) ->
+      return if lhs is rhs then truthy else falsy
 
-  'iffEq': (lhs, rhs, truthy, falsy) ->
-    return if lhs is rhs then truthy else falsy
+    'iffLt': (lhs, rhs, truthy, falsy) ->
+      return if lhs < rhs then truthy else falsy
 
-  'iffLt': (lhs, rhs, truthy, falsy) ->
-    return if lhs < rhs then truthy else falsy
+    'makeTranslate': (x, y) ->
+      return if x? and y? then "translate(#{x},#{y})" else null
+  }
 
-  'makeTranslate': (x, y) ->
-    return if x? and y? then "translate(#{x},#{y})" else null
-}
-
-dvl_op[k] = dvl_op(fn) for k, fn of op_to_lift
-
+  dvl_op[k] = dvl_op(fn) for k, fn of op_to_lift
+  return
 
 
 clipId = 0
@@ -2432,7 +2510,7 @@ dvl.compare = (acc, reverse) ->
 ##
 do ->
   default_compare_modes = ['up', 'down']
-  dvl.html.table = ({parent, data, sort, classStr, rowClass, rowLimit, columns}) ->
+  dvl.html.table = ({parent, data, sort, classStr, rowClass, rowLimit, columns, on:onRow}) ->
     table = dvl.valueOf(parent)
       .append('table')
       .attr('class', classStr)
@@ -2528,6 +2606,7 @@ do ->
       rowLimit
       columns: bodyCol
       compare
+      on:      onRow
     }
 
     return {}
