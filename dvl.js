@@ -29,15 +29,16 @@ function lift(fn) {
     return fn.apply(null, args);
   };
 }
-;
-var clipId, debug, dvl, _ref;
+;var clipId, debug, dvl, _ref;
 var __slice = Array.prototype.slice, __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
   }
   return -1;
 };
-if ((_ref = Array.prototype.filter) == null) {
+if ((_ref = Array.prototype.filter) != null) {
+  _ref;
+} else {
   Array.prototype.filter = function(fun, thisp) {
     var res, val, _i, _len;
     if (typeof fun !== 'function') {
@@ -52,7 +53,7 @@ if ((_ref = Array.prototype.filter) == null) {
     }
     return res;
   };
-}
+};
 debug = function() {
   if (!(typeof console !== "undefined" && console !== null ? console.log : void 0)) {
     return;
@@ -3090,9 +3091,11 @@ dvl.compare = function(acc, reverse) {
     compareList = [sortOn, sortDir];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
-      if ((_ref3 = c.sortable) == null) {
+            if ((_ref3 = c.sortable) != null) {
+        _ref3;
+      } else {
         c.sortable = true;
-      }
+      };
       if (c.sortable) {
         if (c.compare != null) {
           comp = dvl.wrapConstIfNeeded(c.compare);
@@ -3384,6 +3387,7 @@ dvl.compare = function(acc, reverse) {
           if ((_selection != null) && _value) {
             _selection.text(_value);
           }
+          return selection;
         }
       });
     },
@@ -3397,6 +3401,7 @@ dvl.compare = function(acc, reverse) {
           if ((_selection != null) && _value) {
             _selection.html(_value);
           }
+          return selection;
         }
       });
     },
@@ -3404,7 +3409,7 @@ dvl.compare = function(acc, reverse) {
       var href;
       href = _arg.href;
       return function(selection, value) {
-        dvl.bind({
+        return dvl.bind({
           parent: selection,
           self: 'a.link',
           attr: {
@@ -3414,20 +3419,8 @@ dvl.compare = function(acc, reverse) {
         });
       };
     },
-    spanLink: function(_arg) {
-      var click, titleGen;
-      click = _arg.click;
-      titleGen = dvl.wrapConstIfNeeded(titleGen);
-      return function(sel, value) {
-        sel = sel.selectAll('span').data(function(d) {
-          return [d];
-        });
-        sel.enter().append('span').attr('class', 'span_link');
-        sel.html(value).on('click', click);
-      };
-    },
     img: function(selection, value) {
-      dvl.bind({
+      return dvl.bind({
         parent: selection,
         self: 'img',
         attr: {
@@ -3436,7 +3429,7 @@ dvl.compare = function(acc, reverse) {
       });
     },
     imgDiv: function(selection, value) {
-      dvl.bind({
+      return dvl.bind({
         parent: selection,
         self: 'div',
         attr: {
@@ -3447,9 +3440,11 @@ dvl.compare = function(acc, reverse) {
     sparkline: function(_arg) {
       var height, padding, width, x, y;
       width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
-      if (padding == null) {
+            if (padding != null) {
+        padding;
+      } else {
         padding = 0;
-      }
+      };
       return function(selection, value) {
         var dataFn, lineFn, svg;
         lineFn = dvl.apply({
@@ -3490,7 +3485,7 @@ dvl.compare = function(acc, reverse) {
             height: height
           }
         });
-        dvl.bind({
+        return dvl.bind({
           parent: svg,
           self: 'path',
           data: function(d) {
