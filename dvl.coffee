@@ -2823,7 +2823,7 @@ do ->
           _value = value.get()
           if _selection? and _value
             _selection.text(_value)
-          return
+          return selection
       }
       return
 
@@ -2835,13 +2835,13 @@ do ->
           _value = value.get()
           if _selection? and _value
             _selection.html(_value)
-          return
+          return selection
       }
       return
 
 
     aLink: ({href}) -> (selection, value) ->
-      dvl.bind {
+      return dvl.bind {
         parent: selection
         self: 'a.link'
         attr: {
@@ -2849,35 +2849,24 @@ do ->
         }
         text: value
       }
-      return
-
-    spanLink: ({click}) ->
-      titleGen = dvl.wrapConstIfNeeded(titleGen)
-      return (sel, value) ->
-        sel = sel.selectAll('span').data((d) -> [d])
-        sel.enter().append('span').attr('class', 'span_link')
-        sel.html(value).on('click', click)
-        return
 
     img: (selection, value) ->
-      dvl.bind {
+      return dvl.bind {
         parent: selection
         self: 'img'
         attr: {
           src: value
         }
       }
-      return
 
     imgDiv: (selection, value) ->
-      dvl.bind {
+      return dvl.bind {
         parent: selection
         self: 'div'
         attr: {
           class: value
         }
       }
-      return
 
     sparkline: ({width, height, x, y, padding}) ->
       padding ?= 0
@@ -2907,7 +2896,7 @@ do ->
           }
         }
 
-        dvl.bind {
+        return dvl.bind {
           parent: svg
           self: 'path'
           data: (d) -> [d]
@@ -2915,5 +2904,4 @@ do ->
             d: lineFn
           }
         }
-        return
   }
