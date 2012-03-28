@@ -457,7 +457,7 @@ dvl.util = {
     };
     DVLDef.prototype.compare = function() {
       if (arguments.length) {
-        this.comapreFn = arguments[0];
+        this.compareFn = arguments[0];
         return this;
       } else {
         return this.compareFn;
@@ -1148,17 +1148,17 @@ dvl.debug = function() {
   });
   return obj;
 };
-dvl.apply = function() {
+dvl.apply = dvl.applyValid = function() {
   var allowNull, args, fn, invalid, name, out, update, _ref2, _ref3;
   switch (arguments.length) {
     case 1:
-      _ref2 = arguments[0], fn = _ref2.fn, args = _ref2.args, out = _ref2.out, name = _ref2.name, invalid = _ref2.invalid, allowNull = _ref2.allowNull, update = _ref2.update;
+      _ref2 = arguments[0], fn = _ref2.fn, args = _ref2.args, name = _ref2.name, invalid = _ref2.invalid, allowNull = _ref2.allowNull, update = _ref2.update;
       break;
     case 2:
       args = arguments[0], fn = arguments[1];
       break;
     case 3:
-      args = arguments[0], _ref3 = arguments[1], out = _ref3.out, name = _ref3.name, invalid = _ref3.invalid, allowNull = _ref3.allowNull, update = _ref3.update, fn = arguments[2];
+      args = arguments[0], _ref3 = arguments[1], name = _ref3.name, invalid = _ref3.invalid, allowNull = _ref3.allowNull, update = _ref3.update, fn = arguments[2];
       break;
     default:
       throw "incorect number of arguments";
@@ -1169,7 +1169,7 @@ dvl.apply = function() {
   }
   args = args.map(dvl.wrapConstIfNeeded);
   invalid = dvl.wrapConstIfNeeded(invalid != null ? invalid : null);
-  out = dvl.wrapVarIfNeeded(out != null ? out : invalid.get(), name || 'apply_out');
+  out = dvl.def(invalid.get()).name(name || 'apply_out');
   dvl.register({
     name: (name || 'apply') + '_fn',
     listen: args.concat([fn, invalid]),
@@ -1199,13 +1199,36 @@ dvl.apply = function() {
         r = invalid.get();
       }
       if (update) {
-        return out.update(r);
+        out.update(r);
       } else {
-        return out.set(r).notify();
+        out.set(r).notify();
       }
     }
   });
   return out;
+};
+dvl.applyAlways = function() {
+  var args, fn, name, update, _ref2, _ref3;
+  switch (arguments.length) {
+    case 1:
+      _ref2 = arguments[0], fn = _ref2.fn, args = _ref2.args, name = _ref2.name, update = _ref2.update;
+      break;
+    case 2:
+      args = arguments[0], fn = arguments[1];
+      break;
+    case 3:
+      args = arguments[0], _ref3 = arguments[1], name = _ref3.name, update = _ref3.update, fn = arguments[2];
+      break;
+    default:
+      throw "incorect number of arguments";
+  }
+  return dvl.apply({
+    args: args,
+    allowNull: true,
+    fn: fn,
+    name: name,
+    update: update
+  });
 };
 dvl.random = function(options) {
   var gen, int, max, min, random, walk;
@@ -1311,7 +1334,7 @@ dvl.recorder = function(options) {
 };
 (function() {
   var ajaxManagers, makeManager, nextGroupId, normalRequester, outstanding;
-  outstanding = dvl.def(0, 'json_outstanding');
+  outstanding = dvl.def(0).name('json_outstanding');
   ajaxManagers = [];
   normalRequester = null;
   makeManager = function() {
@@ -1777,9 +1800,7 @@ dvl.data.min = function(data, acc) {
   return dvl.apply({
     args: [data, acc],
     update: true,
-    fn: function(data, acc) {
-      return d3.min(data, acc);
-    }
+    fn: d3.min
   });
 };
 dvl.data.max = function(data, acc) {
@@ -1787,257 +1808,60 @@ dvl.data.max = function(data, acc) {
   return dvl.apply({
     args: [data, acc],
     update: true,
-    fn: function(data, acc) {
-      return d3.max(data, acc);
-    }
+    fn: d3.max
   });
 };
 dvl.scale = {};
-(function() {
-  dvl.scale.linear = function(options) {
-    var change, dom, domainFrom, domainTo, formatRef, invertRef, listenData, makeScale, makeScaleFn, makeScaleFnEmpty, makeScaleFnSingle, name, numTicks, optDomain, padding, rangeFrom, rangeTo, scaleRef, ticksRef, updateData, _i, _len;
-    if (!options) {
-      throw 'no options in scale';
+dvl.scale.linear = function(options) {
+  var change, dom, domainFrom, domainTo, formatRef, invertRef, listenData, makeScale, makeScaleFn, makeScaleFnEmpty, makeScaleFnSingle, name, numTicks, optDomain, padding, rangeFrom, rangeTo, scaleRef, ticksRef, updateData, _i, _len;
+  if (!options) {
+    throw 'no options in scale';
+  }
+  name = options.name || 'linear_scale';
+  rangeFrom = options.rangeFrom || 0;
+  rangeFrom = dvl.wrapConstIfNeeded(rangeFrom);
+  rangeTo = options.rangeTo || 0;
+  rangeTo = dvl.wrapConstIfNeeded(rangeTo);
+  padding = options.padding || 0;
+  numTicks = options.numTicks || 10;
+  numTicks = dvl.wrapConstIfNeeded(numTicks);
+  optDomain = options.domain;
+  if (!optDomain) {
+    throw 'no domain object';
+  }
+  switch (dvl.typeOf(optDomain)) {
+    case 'array':
+      if (!(optDomain.length > 0)) {
+        throw 'empty domain given to scale';
+      }
+      break;
+    case 'object':
+      optDomain = [optDomain];
+      break;
+    default:
+      throw 'invalid domian type';
+  }
+  domainFrom = null;
+  domainTo = null;
+  scaleRef = dvl.def().name(name + '_fn');
+  invertRef = dvl.def().name(name + '_invert');
+  ticksRef = dvl.def().name(name + '_ticks');
+  formatRef = dvl.def().name(name + '_format');
+  makeScale = function() {
+    if (domainFrom < domainTo) {
+      return makeScaleFn();
+    } else if (domainFrom === domainTo) {
+      return makeScaleFnSingle();
+    } else {
+      return makeScaleFnEmpty();
     }
-    name = options.name || 'linear_scale';
-    rangeFrom = options.rangeFrom || 0;
-    rangeFrom = dvl.wrapConstIfNeeded(rangeFrom);
-    rangeTo = options.rangeTo || 0;
-    rangeTo = dvl.wrapConstIfNeeded(rangeTo);
-    padding = options.padding || 0;
-    numTicks = options.numTicks || 10;
-    numTicks = dvl.wrapConstIfNeeded(numTicks);
-    optDomain = options.domain;
-    if (!optDomain) {
-      throw 'no domain object';
-    }
-    switch (dvl.typeOf(optDomain)) {
-      case 'array':
-        if (!(optDomain.length > 0)) {
-          throw 'empty domain given to scale';
-        }
-        break;
-      case 'object':
-        optDomain = [optDomain];
-        break;
-      default:
-        throw 'invalid domian type';
-    }
-    domainFrom = null;
-    domainTo = null;
-    scaleRef = dvl.def().name(name + '_fn');
-    invertRef = dvl.def().name(name + '_invert');
-    ticksRef = dvl.def().name(name + '_ticks');
-    formatRef = dvl.def().name(name + '_format');
-    makeScale = function() {
-      if (domainFrom < domainTo) {
-        return makeScaleFn();
-      } else if (domainFrom === domainTo) {
-        return makeScaleFnSingle();
-      } else {
-        return makeScaleFnEmpty();
-      }
-    };
-    makeScaleFn = function() {
-      var isColor, rf, rt, s;
-      isColor = typeof (rangeFrom.get()) === 'string';
-      rf = rangeFrom.get();
-      rt = rangeTo.get();
-      if (!isColor) {
-        if (rt > rf) {
-          rf += padding;
-          rt -= padding;
-        } else {
-          rf -= padding;
-          rt += padding;
-        }
-      }
-      s = pv.Scale.linear().domain(domainFrom, domainTo).range(rf, rt);
-      if (isColor) {
-        scaleRef.set(function(x) {
-          return s(x).color;
-        });
-      } else {
-        scaleRef.set(s);
-      }
-      invertRef.set(s.invert);
-      ticksRef.setLazy(function() {
-        return s.ticks(numTicks.get());
-      });
-      formatRef.set(s.tickFormat);
-      dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-    };
-    makeScaleFnSingle = function() {
-      var avg, isColor, rf, rt;
-      isColor = typeof (rangeFrom.get()) === 'string';
-      rf = rangeFrom.get();
-      rt = rangeTo.get();
-      if (!isColor) {
-        if (rt > rf) {
-          rf += padding;
-          rt -= padding;
-        } else {
-          rf -= padding;
-          rt += padding;
-        }
-      }
-      avg = (rf + rt) / 2;
-      scaleRef.set(function() {
-        return avg;
-      });
-      invertRef.set(function() {
-        return domainFrom;
-      });
-      ticksRef.set([domainFrom]);
-      formatRef.set(function(x) {
-        return '';
-      });
-      dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-    };
-    makeScaleFnEmpty = function() {
-      scaleRef.set(null);
-      invertRef.set(null);
-      ticksRef.set(null);
-      formatRef.set(null);
-      dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-    };
-    updateData = function() {
-      var a, acc, d0, data, dn, dom, f, max, min, mm, t, _i, _len;
-      min = +Infinity;
-      max = -Infinity;
-      for (_i = 0, _len = optDomain.length; _i < _len; _i++) {
-        dom = optDomain[_i];
-        if (dom.data) {
-          data = dom.data.get();
-          if (data !== null) {
-            acc = dom.acc || dvl.identity;
-            a = acc.get();
-            if (dvl.typeOf(data) !== 'array') {
-              data = a(data);
-              a = function(x) {
-                return x;
-              };
-            }
-            if (data.length > 0) {
-              if (dom.sorted) {
-                d0 = a(data[0], 0);
-                dn = a(data[data.length - 1], data.length - 1);
-                if (d0 < min) {
-                  min = d0;
-                }
-                if (dn < min) {
-                  min = dn;
-                }
-                if (max < d0) {
-                  max = d0;
-                }
-                if (max < dn) {
-                  max = dn;
-                }
-              } else {
-                mm = dvl.util.getMinMax(data, a);
-                if (mm.min < min) {
-                  min = mm.min;
-                }
-                if (max < mm.max) {
-                  max = mm.max;
-                }
-              }
-            }
-          }
-        } else {
-          f = dom.from.get();
-          t = dom.to.get();
-          if ((f != null) && (t != null)) {
-            if (f < min) {
-              min = f;
-            }
-            if (max < t) {
-              max = t;
-            }
-          }
-        }
-      }
-      if (options.anchor) {
-        if (0 < min) {
-          min = 0;
-        }
-        if (max < 0) {
-          max = 0;
-        }
-      }
-      if (options.scaleMin !== void 0) {
-        min *= options.scaleMin;
-      }
-      if (options.scaleMax !== void 0) {
-        max *= options.scaleMax;
-      }
-      if (min <= max) {
-        if (domainFrom !== min || domainTo !== max) {
-          domainFrom = min;
-          domainTo = max;
-          makeScale();
-        }
-      } else {
-        domainFrom = NaN;
-        domainTo = NaN;
-        makeScale();
-      }
-    };
-    listenData = [];
-    for (_i = 0, _len = optDomain.length; _i < _len; _i++) {
-      dom = optDomain[_i];
-      if (dom.data) {
-        listenData.push(dom.data, dom.acc);
-      } else {
-        listenData.push(dom.from, dom.to);
-      }
-    }
-    change = [scaleRef, invertRef, ticksRef, formatRef];
-    dvl.register({
-      fn: makeScale,
-      listen: [rangeFrom, rangeTo, numTicks],
-      change: change,
-      name: name + '_range_change',
-      noRun: true
-    });
-    dvl.register({
-      fn: updateData,
-      listen: listenData,
-      change: change,
-      name: name + '_data_change'
-    });
-    return {
-      scale: scaleRef,
-      invert: invertRef,
-      ticks: ticksRef,
-      format: formatRef
-    };
   };
-  return dvl.scale.ordinal = function(options) {
-    var bandRef, domain, formatRef, makeScaleFn, makeScaleFnEmpty, name, optDomain, padding, rangeFrom, rangeTo, scaleRef, ticksRef, updateData;
-    if (!options) {
-      throw 'no options in scale';
-    }
-    name = options.name || 'ordinal_scale';
-    rangeFrom = options.rangeFrom || 0;
-    rangeFrom = dvl.wrapConstIfNeeded(rangeFrom);
-    rangeTo = options.rangeTo || 0;
-    rangeTo = dvl.wrapConstIfNeeded(rangeTo);
-    padding = options.padding || 0;
-    optDomain = options.domain;
-    if (!optDomain) {
-      throw 'no domain object';
-    }
-    domain = null;
-    scaleRef = dvl.def(null, name + '_fn');
-    ticksRef = dvl.def(null, name + '_ticks');
-    formatRef = dvl.def(null, name + '_format');
-    bandRef = dvl.def(0, name + '_band');
-    makeScaleFn = function() {
-      var rf, rt, s;
-      rf = rangeFrom.get();
-      rt = rangeTo.get();
+  makeScaleFn = function() {
+    var isColor, rf, rt, s;
+    isColor = typeof (rangeFrom.get()) === 'string';
+    rf = rangeFrom.get();
+    rt = rangeTo.get();
+    if (!isColor) {
       if (rt > rf) {
         rf += padding;
         rt -= padding;
@@ -2045,67 +1869,259 @@ dvl.scale = {};
         rf -= padding;
         rt += padding;
       }
-      s = pv.Scale.ordinal().domain(domain).split(rf, rt);
+    }
+    s = pv.Scale.linear().domain(domainFrom, domainTo).range(rf, rt);
+    if (isColor) {
+      scaleRef.set(function(x) {
+        return s(x).color;
+      });
+    } else {
       scaleRef.set(s);
-      ticksRef.set(domain);
-      formatRef.set(s.tickFormat);
-      bandRef.set(Math.abs(rt - rf) / domain.length);
-      dvl.notify(scaleRef, ticksRef, formatRef, bandRef);
-    };
-    makeScaleFnEmpty = function() {
-      scaleRef.set(null);
-      ticksRef.set(null);
-      formatRef.set(null);
-      bandRef.set(0);
-      dvl.notify(scaleRef, ticksRef, formatRef, bandRef);
-    };
-    updateData = function() {
-      var a;
-      domain = optDomain.data.get();
-      if (!domain) {
-        makeScaleFnEmpty();
-        return;
-      }
-      if (optDomain.acc) {
-        a = optDomain.acc.get();
-        domain = domain.map(a);
-      }
-      if (optDomain.sort) {
-        if (!(optDomain.acc || optDomain.uniq)) {
-          domain = domain.slice();
-        }
-        domain.sort();
-      }
-      if (optDomain.uniq) {
-        domain = dvl.util.uniq(domain);
-      }
-      if (domain.length > 0) {
-        makeScaleFn();
-      } else {
-        makeScaleFnEmpty();
-      }
-    };
-    dvl.register({
-      fn: makeScaleFn,
-      listen: [rangeFrom, rangeTo],
-      change: [scaleRef, ticksRef, formatRef, bandRef],
-      name: name + '_range_change',
-      noRun: true
+    }
+    invertRef.set(s.invert);
+    ticksRef.setLazy(function() {
+      return s.ticks(numTicks.get());
     });
-    dvl.register({
-      fn: updateData,
-      listen: [optDomain.data, optDomain.acc],
-      change: [scaleRef, ticksRef, formatRef, bandRef],
-      name: name + '_data_change'
-    });
-    return {
-      scale: scaleRef,
-      ticks: ticksRef,
-      format: formatRef,
-      band: bandRef
-    };
+    formatRef.set(s.tickFormat);
+    dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
   };
-})();
+  makeScaleFnSingle = function() {
+    var avg, isColor, rf, rt;
+    isColor = typeof (rangeFrom.get()) === 'string';
+    rf = rangeFrom.get();
+    rt = rangeTo.get();
+    if (!isColor) {
+      if (rt > rf) {
+        rf += padding;
+        rt -= padding;
+      } else {
+        rf -= padding;
+        rt += padding;
+      }
+    }
+    avg = (rf + rt) / 2;
+    scaleRef.set(function() {
+      return avg;
+    });
+    invertRef.set(function() {
+      return domainFrom;
+    });
+    ticksRef.set([domainFrom]);
+    formatRef.set(function(x) {
+      return '';
+    });
+    dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
+  };
+  makeScaleFnEmpty = function() {
+    scaleRef.set(null);
+    invertRef.set(null);
+    ticksRef.set(null);
+    formatRef.set(null);
+    dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
+  };
+  updateData = function() {
+    var a, acc, d0, data, dn, dom, f, max, min, mm, t, _i, _len;
+    min = +Infinity;
+    max = -Infinity;
+    for (_i = 0, _len = optDomain.length; _i < _len; _i++) {
+      dom = optDomain[_i];
+      if (dom.data) {
+        data = dom.data.get();
+        if (data !== null) {
+          acc = dom.acc || dvl.identity;
+          a = acc.get();
+          if (dvl.typeOf(data) !== 'array') {
+            data = a(data);
+            a = function(x) {
+              return x;
+            };
+          }
+          if (data.length > 0) {
+            if (dom.sorted) {
+              d0 = a(data[0], 0);
+              dn = a(data[data.length - 1], data.length - 1);
+              if (d0 < min) {
+                min = d0;
+              }
+              if (dn < min) {
+                min = dn;
+              }
+              if (max < d0) {
+                max = d0;
+              }
+              if (max < dn) {
+                max = dn;
+              }
+            } else {
+              mm = dvl.util.getMinMax(data, a);
+              if (mm.min < min) {
+                min = mm.min;
+              }
+              if (max < mm.max) {
+                max = mm.max;
+              }
+            }
+          }
+        }
+      } else {
+        f = dom.from.get();
+        t = dom.to.get();
+        if ((f != null) && (t != null)) {
+          if (f < min) {
+            min = f;
+          }
+          if (max < t) {
+            max = t;
+          }
+        }
+      }
+    }
+    if (options.anchor) {
+      if (0 < min) {
+        min = 0;
+      }
+      if (max < 0) {
+        max = 0;
+      }
+    }
+    if (options.scaleMin !== void 0) {
+      min *= options.scaleMin;
+    }
+    if (options.scaleMax !== void 0) {
+      max *= options.scaleMax;
+    }
+    if (min <= max) {
+      if (domainFrom !== min || domainTo !== max) {
+        domainFrom = min;
+        domainTo = max;
+        makeScale();
+      }
+    } else {
+      domainFrom = NaN;
+      domainTo = NaN;
+      makeScale();
+    }
+  };
+  listenData = [];
+  for (_i = 0, _len = optDomain.length; _i < _len; _i++) {
+    dom = optDomain[_i];
+    if (dom.data) {
+      listenData.push(dom.data, dom.acc);
+    } else {
+      listenData.push(dom.from, dom.to);
+    }
+  }
+  change = [scaleRef, invertRef, ticksRef, formatRef];
+  dvl.register({
+    fn: makeScale,
+    listen: [rangeFrom, rangeTo, numTicks],
+    change: change,
+    name: name + '_range_change',
+    noRun: true
+  });
+  dvl.register({
+    fn: updateData,
+    listen: listenData,
+    change: change,
+    name: name + '_data_change'
+  });
+  return {
+    scale: scaleRef,
+    invert: invertRef,
+    ticks: ticksRef,
+    format: formatRef
+  };
+};
+dvl.scale.ordinal = function(options) {
+  var bandRef, domain, formatRef, makeScaleFn, makeScaleFnEmpty, name, optDomain, padding, rangeFrom, rangeTo, scaleRef, ticksRef, updateData;
+  if (!options) {
+    throw 'no options in scale';
+  }
+  name = options.name || 'ordinal_scale';
+  rangeFrom = options.rangeFrom || 0;
+  rangeFrom = dvl.wrapConstIfNeeded(rangeFrom);
+  rangeTo = options.rangeTo || 0;
+  rangeTo = dvl.wrapConstIfNeeded(rangeTo);
+  padding = options.padding || 0;
+  optDomain = options.domain;
+  if (!optDomain) {
+    throw 'no domain object';
+  }
+  domain = null;
+  scaleRef = dvl.def(null, name + '_fn');
+  ticksRef = dvl.def(null, name + '_ticks');
+  formatRef = dvl.def(null, name + '_format');
+  bandRef = dvl.def(0, name + '_band');
+  makeScaleFn = function() {
+    var rf, rt, s;
+    rf = rangeFrom.get();
+    rt = rangeTo.get();
+    if (rt > rf) {
+      rf += padding;
+      rt -= padding;
+    } else {
+      rf -= padding;
+      rt += padding;
+    }
+    s = pv.Scale.ordinal().domain(domain).split(rf, rt);
+    scaleRef.set(s);
+    ticksRef.set(domain);
+    formatRef.set(s.tickFormat);
+    bandRef.set(Math.abs(rt - rf) / domain.length);
+    dvl.notify(scaleRef, ticksRef, formatRef, bandRef);
+  };
+  makeScaleFnEmpty = function() {
+    scaleRef.update(null);
+    ticksRef.update(null);
+    formatRef.update(null);
+    bandRef.update(0);
+  };
+  updateData = function() {
+    var a;
+    domain = optDomain.data.get();
+    if (!domain) {
+      makeScaleFnEmpty();
+      return;
+    }
+    if (optDomain.acc) {
+      a = optDomain.acc.get();
+      domain = domain.map(a);
+    }
+    if (optDomain.sort) {
+      if (!(optDomain.acc || optDomain.uniq)) {
+        domain = domain.slice();
+      }
+      domain.sort();
+    }
+    if (optDomain.uniq) {
+      domain = dvl.util.uniq(domain);
+    }
+    if (domain.length > 0) {
+      makeScaleFn();
+    } else {
+      makeScaleFnEmpty();
+    }
+  };
+  dvl.register({
+    fn: makeScaleFn,
+    listen: [rangeFrom, rangeTo],
+    change: [scaleRef, ticksRef, formatRef, bandRef],
+    name: name + '_range_change',
+    noRun: true
+  });
+  dvl.register({
+    fn: updateData,
+    listen: [optDomain.data, optDomain.acc],
+    change: [scaleRef, ticksRef, formatRef, bandRef],
+    name: name + '_data_change'
+  });
+  return {
+    scale: scaleRef,
+    ticks: ticksRef,
+    format: formatRef,
+    band: bandRef
+  };
+};
 (function() {
   var def_data_fn, id_class_spliter;
   id_class_spliter = /(?=[#.:])/;

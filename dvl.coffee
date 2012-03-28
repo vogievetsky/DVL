@@ -322,7 +322,7 @@ dvl.util = {
         return this
     compare: ->
       if arguments.length
-        @comapreFn = arguments[0]
+        @compareFn = arguments[0]
         return this
       else
         return @compareFn
@@ -853,14 +853,14 @@ dvl.debug = ->
 ##
 ##  Sets up a pipline stage that automaticaly applies the given function.
 ##
-dvl.apply = ->
+dvl.apply = dvl.applyValid = ->
   switch arguments.length
     when 1
-      [{fn, args, out, name, invalid, allowNull, update}] = arguments
+      [{fn, args, name, invalid, allowNull, update}] = arguments
     when 2
       [args, fn] = arguments
     when 3
-      [args, {out, name, invalid, allowNull, update}, fn] = arguments
+      [args, {name, invalid, allowNull, update}, fn] = arguments
     else
       throw "incorect number of arguments"
 
@@ -869,7 +869,7 @@ dvl.apply = ->
   args = args.map(dvl.wrapConstIfNeeded)
   invalid = dvl.wrapConstIfNeeded(invalid ? null)
 
-  out = dvl.wrapVarIfNeeded(out ? invalid.get(), name or 'apply_out')
+  out = dvl.def(invalid.get()).name(name or 'apply_out')
 
   dvl.register {
     name: (name or 'apply')+'_fn'
@@ -895,8 +895,30 @@ dvl.apply = ->
         out.update(r)
       else
         out.set(r).notify()
+
+      return
   }
   return out
+
+
+dvl.applyAlways = ->
+  switch arguments.length
+    when 1
+      [{fn, args, name, update}] = arguments
+    when 2
+      [args, fn] = arguments
+    when 3
+      [args, {name, update}, fn] = arguments
+    else
+      throw "incorect number of arguments"
+
+  return dvl.apply {
+    args
+    allowNull: true
+    fn
+    name
+    update
+  }
 
 
 dvl.random = (options) ->
@@ -994,7 +1016,7 @@ dvl.recorder = (options) ->
 ##  fn:   a function to apply to the recived input.
 ##
 (->
-  outstanding = dvl.def(0, 'json_outstanding')
+  outstanding = dvl.def(0).name('json_outstanding')
   ajaxManagers = []
   normalRequester = null
 
@@ -1379,7 +1401,7 @@ dvl.data.min = (data, acc) ->
   return dvl.apply {
     args: [data, acc]
     update: true
-    fn: (data, acc) -> d3.min(data, acc)
+    fn: d3.min
   }
 
 dvl.data.max = (data, acc) ->
@@ -1387,264 +1409,263 @@ dvl.data.max = (data, acc) ->
   return dvl.apply {
     args: [data, acc]
     update: true
-    fn: (data, acc) -> d3.max(data, acc)
+    fn: d3.max
   }
 
 # Scales # ------------------------------------------------
 
 dvl.scale = {}
 
-(->
-  dvl.scale.linear = (options) ->
-    throw 'no options in scale' unless options
-    name = options.name or 'linear_scale'
 
-    rangeFrom = options.rangeFrom || 0
-    rangeFrom = dvl.wrapConstIfNeeded(rangeFrom)
+dvl.scale.linear = (options) ->
+  throw 'no options in scale' unless options
+  name = options.name or 'linear_scale'
 
-    rangeTo = options.rangeTo || 0
-    rangeTo = dvl.wrapConstIfNeeded(rangeTo)
+  rangeFrom = options.rangeFrom || 0
+  rangeFrom = dvl.wrapConstIfNeeded(rangeFrom)
 
-    padding = options.padding || 0
+  rangeTo = options.rangeTo || 0
+  rangeTo = dvl.wrapConstIfNeeded(rangeTo)
 
-    numTicks = options.numTicks || 10
-    numTicks = dvl.wrapConstIfNeeded(numTicks)
+  padding = options.padding || 0
 
-    optDomain = options.domain
-    throw 'no domain object' unless optDomain
+  numTicks = options.numTicks || 10
+  numTicks = dvl.wrapConstIfNeeded(numTicks)
 
-    switch dvl.typeOf optDomain
-      when 'array'
-        throw 'empty domain given to scale' unless optDomain.length > 0
-      when 'object'
-        optDomain = [optDomain]
-      else
-        throw 'invalid domian type'
+  optDomain = options.domain
+  throw 'no domain object' unless optDomain
 
-    domainFrom = null
-    domainTo   = null
-    scaleRef  = dvl.def().name(name + '_fn')
-    invertRef = dvl.def().name(name + '_invert')
-    ticksRef  = dvl.def().name(name + '_ticks')
-    formatRef = dvl.def().name(name + '_format')
+  switch dvl.typeOf optDomain
+    when 'array'
+      throw 'empty domain given to scale' unless optDomain.length > 0
+    when 'object'
+      optDomain = [optDomain]
+    else
+      throw 'invalid domian type'
 
-    makeScale = () ->
-      if domainFrom < domainTo
-        makeScaleFn()
-      else if domainFrom is domainTo
-        makeScaleFnSingle()
-      else
-        makeScaleFnEmpty()
+  domainFrom = null
+  domainTo   = null
+  scaleRef  = dvl.def().name(name + '_fn')
+  invertRef = dvl.def().name(name + '_invert')
+  ticksRef  = dvl.def().name(name + '_ticks')
+  formatRef = dvl.def().name(name + '_format')
 
-    makeScaleFn = () ->
-      isColor = typeof(rangeFrom.get()) == 'string'
-      rf = rangeFrom.get()
-      rt = rangeTo.get()
-      if not isColor
-        if rt > rf
-          rf += padding
-          rt -= padding
-        else
-          rf -= padding
-          rt += padding
-      s = pv.Scale.linear().domain(domainFrom, domainTo).range(rf, rt)
-      if isColor
-        # We are mapping colors so extract the color form the object
-        scaleRef.set((x) -> s(x).color)
-      else
-        scaleRef.set(s)
+  makeScale = () ->
+    if domainFrom < domainTo
+      makeScaleFn()
+    else if domainFrom is domainTo
+      makeScaleFnSingle()
+    else
+      makeScaleFnEmpty()
 
-      invertRef.set(s.invert)
-      ticksRef.setLazy(-> s.ticks(numTicks.get()))
-      formatRef.set(s.tickFormat)
-      dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-      return
-
-    makeScaleFnSingle = ->
-      isColor = typeof(rangeFrom.get()) == 'string'
-      rf = rangeFrom.get()
-      rt = rangeTo.get()
-      if not isColor
-        if rt > rf
-          rf += padding
-          rt -= padding
-        else
-          rf -= padding
-          rt += padding
-      avg = (rf + rt) / 2
-      scaleRef.set(-> avg)
-      invertRef.set(-> domainFrom)
-      ticksRef.set([domainFrom])
-      formatRef.set((x) -> '')
-      dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-      return
-
-    makeScaleFnEmpty = () ->
-      scaleRef.set(null)
-      invertRef.set(null)
-      ticksRef.set(null)
-      formatRef.set(null)
-      dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-      return
-
-    updateData = () ->
-      min = +Infinity
-      max = -Infinity
-      for dom in optDomain
-        if dom.data
-          data = dom.data.get()
-
-          if data != null
-            acc = dom.acc || dvl.identity
-            a = acc.get()
-
-            if dvl.typeOf(data) isnt 'array'
-              # ToDo: make this nicer
-              data = a(data)
-              a = (x) -> x
-
-            if data.length > 0
-              if dom.sorted
-                d0 = a(data[0], 0)
-                dn = a(data[data.length - 1], data.length - 1)
-                min = d0 if d0 < min
-                min = dn if dn < min
-                max = d0 if max < d0
-                max = dn if max < dn
-              else
-                mm = dvl.util.getMinMax(data, a)
-                min = mm.min if mm.min < min
-                max = mm.max if max < mm.max
-
-        else
-          f = dom.from.get()
-          t = dom.to.get()
-          if f? and t?
-            min = f if f < min
-            max = t if max < t
-
-      if options.anchor
-        min = 0 if 0 < min
-        max = 0 if max < 0
-
-      if options.scaleMin != undefined
-        min *= options.scaleMin
-
-      if options.scaleMax != undefined
-        max *= options.scaleMax
-
-
-      if min <= max
-        if domainFrom != min or domainTo != max
-          domainFrom = min
-          domainTo = max
-          makeScale()
-      else
-        domainFrom = NaN
-        domainTo = NaN
-        makeScale()
-
-      return
-
-    listenData = []
-    for dom in optDomain
-      if dom.data
-        listenData.push(dom.data, dom.acc)
-      else
-        listenData.push(dom.from, dom.to)
-
-    change = [scaleRef, invertRef, ticksRef, formatRef]
-    dvl.register({fn:makeScale, listen:[rangeFrom, rangeTo, numTicks], change:change, name:name + '_range_change', noRun:true})
-    dvl.register({fn:updateData, listen:listenData, change:change, name:name + '_data_change'})
-
-    # return
-    scale:  scaleRef
-    invert: invertRef
-    ticks:  ticksRef
-    format: formatRef
-
-
-  dvl.scale.ordinal = (options) ->
-    throw 'no options in scale' unless options
-    name = options.name or 'ordinal_scale'
-
-    rangeFrom = options.rangeFrom || 0
-    rangeFrom = dvl.wrapConstIfNeeded(rangeFrom)
-
-    rangeTo = options.rangeTo || 0
-    rangeTo = dvl.wrapConstIfNeeded(rangeTo)
-
-    padding = options.padding || 0
-
-    optDomain = options.domain
-    throw 'no domain object' unless optDomain
-
-    domain = null
-    scaleRef  = dvl.def(null, name + '_fn')
-    ticksRef  = dvl.def(null, name + '_ticks')
-    formatRef = dvl.def(null, name + '_format')
-    bandRef   = dvl.def(0,    name + '_band')
-
-    makeScaleFn = () ->
-      rf = rangeFrom.get()
-      rt = rangeTo.get()
+  makeScaleFn = () ->
+    isColor = typeof(rangeFrom.get()) == 'string'
+    rf = rangeFrom.get()
+    rt = rangeTo.get()
+    if not isColor
       if rt > rf
         rf += padding
         rt -= padding
       else
         rf -= padding
         rt += padding
-      s = pv.Scale.ordinal().domain(domain).split(rf, rt)
+    s = pv.Scale.linear().domain(domainFrom, domainTo).range(rf, rt)
+    if isColor
+      # We are mapping colors so extract the color form the object
+      scaleRef.set((x) -> s(x).color)
+    else
       scaleRef.set(s)
-      ticksRef.set(domain)
-      formatRef.set(s.tickFormat)
-      bandRef.set(Math.abs(rt - rf) / domain.length)
-      dvl.notify(scaleRef, ticksRef, formatRef, bandRef)
-      return
 
-    makeScaleFnEmpty = () ->
-      scaleRef.set(null)
-      ticksRef.set(null)
-      formatRef.set(null)
-      bandRef.set(0)
-      dvl.notify(scaleRef, ticksRef, formatRef, bandRef)
-      return
+    invertRef.set(s.invert)
+    ticksRef.setLazy(-> s.ticks(numTicks.get()))
+    formatRef.set(s.tickFormat)
+    dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
+    return
 
-    updateData = () ->
-      domain = optDomain.data.get()
-
-      if not domain
-        makeScaleFnEmpty()
-        return
-
-      if optDomain.acc
-        a = optDomain.acc.get()
-        domain = domain.map(a);
-
-      if optDomain.sort
-        # Sorting changes the data in place so copy the data if we have not done so already
-        domain = domain.slice() unless optDomain.acc or optDomain.uniq
-        domain.sort()
-
-      if optDomain.uniq
-        domain = dvl.util.uniq(domain);
-
-      if domain.length > 0
-        makeScaleFn()
+  makeScaleFnSingle = ->
+    isColor = typeof(rangeFrom.get()) == 'string'
+    rf = rangeFrom.get()
+    rt = rangeTo.get()
+    if not isColor
+      if rt > rf
+        rf += padding
+        rt -= padding
       else
-        makeScaleFnEmpty()
+        rf -= padding
+        rt += padding
+    avg = (rf + rt) / 2
+    scaleRef.set(-> avg)
+    invertRef.set(-> domainFrom)
+    ticksRef.set([domainFrom])
+    formatRef.set((x) -> '')
+    dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
+    return
 
+  makeScaleFnEmpty = () ->
+    scaleRef.set(null)
+    invertRef.set(null)
+    ticksRef.set(null)
+    formatRef.set(null)
+    dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
+    return
+
+  updateData = () ->
+    min = +Infinity
+    max = -Infinity
+    for dom in optDomain
+      if dom.data
+        data = dom.data.get()
+
+        if data != null
+          acc = dom.acc || dvl.identity
+          a = acc.get()
+
+          if dvl.typeOf(data) isnt 'array'
+            # ToDo: make this nicer
+            data = a(data)
+            a = (x) -> x
+
+          if data.length > 0
+            if dom.sorted
+              d0 = a(data[0], 0)
+              dn = a(data[data.length - 1], data.length - 1)
+              min = d0 if d0 < min
+              min = dn if dn < min
+              max = d0 if max < d0
+              max = dn if max < dn
+            else
+              mm = dvl.util.getMinMax(data, a)
+              min = mm.min if mm.min < min
+              max = mm.max if max < mm.max
+
+      else
+        f = dom.from.get()
+        t = dom.to.get()
+        if f? and t?
+          min = f if f < min
+          max = t if max < t
+
+    if options.anchor
+      min = 0 if 0 < min
+      max = 0 if max < 0
+
+    if options.scaleMin != undefined
+      min *= options.scaleMin
+
+    if options.scaleMax != undefined
+      max *= options.scaleMax
+
+
+    if min <= max
+      if domainFrom != min or domainTo != max
+        domainFrom = min
+        domainTo = max
+        makeScale()
+    else
+      domainFrom = NaN
+      domainTo = NaN
+      makeScale()
+
+    return
+
+  listenData = []
+  for dom in optDomain
+    if dom.data
+      listenData.push(dom.data, dom.acc)
+    else
+      listenData.push(dom.from, dom.to)
+
+  change = [scaleRef, invertRef, ticksRef, formatRef]
+  dvl.register({fn:makeScale, listen:[rangeFrom, rangeTo, numTicks], change:change, name:name + '_range_change', noRun:true})
+  dvl.register({fn:updateData, listen:listenData, change:change, name:name + '_data_change'})
+
+  # return
+  scale:  scaleRef
+  invert: invertRef
+  ticks:  ticksRef
+  format: formatRef
+
+
+dvl.scale.ordinal = (options) ->
+  throw 'no options in scale' unless options
+  name = options.name or 'ordinal_scale'
+
+  rangeFrom = options.rangeFrom || 0
+  rangeFrom = dvl.wrapConstIfNeeded(rangeFrom)
+
+  rangeTo = options.rangeTo || 0
+  rangeTo = dvl.wrapConstIfNeeded(rangeTo)
+
+  padding = options.padding || 0
+
+  optDomain = options.domain
+  throw 'no domain object' unless optDomain
+
+  domain = null
+  scaleRef  = dvl.def(null, name + '_fn')
+  ticksRef  = dvl.def(null, name + '_ticks')
+  formatRef = dvl.def(null, name + '_format')
+  bandRef   = dvl.def(0,    name + '_band')
+
+  makeScaleFn = () ->
+    rf = rangeFrom.get()
+    rt = rangeTo.get()
+    if rt > rf
+      rf += padding
+      rt -= padding
+    else
+      rf -= padding
+      rt += padding
+    s = pv.Scale.ordinal().domain(domain).split(rf, rt)
+    scaleRef.set(s)
+    ticksRef.set(domain)
+    formatRef.set(s.tickFormat)
+    bandRef.set(Math.abs(rt - rf) / domain.length)
+    dvl.notify(scaleRef, ticksRef, formatRef, bandRef)
+    return
+
+  makeScaleFnEmpty = () ->
+    scaleRef.update(null)
+    ticksRef.update(null)
+    formatRef.update(null)
+    bandRef.update(0)
+    return
+
+  updateData = () ->
+    domain = optDomain.data.get()
+
+    if not domain
+      makeScaleFnEmpty()
       return
 
-    dvl.register({fn:makeScaleFn, listen:[rangeFrom, rangeTo], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_range_change', noRun:true})
-    dvl.register({fn:updateData, listen:[optDomain.data, optDomain.acc], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_data_change'})
+    if optDomain.acc
+      a = optDomain.acc.get()
+      domain = domain.map(a);
 
-    # return
-    scale: scaleRef
-    ticks: ticksRef
-    format: formatRef
-    band: bandRef
-)()
+    if optDomain.sort
+      # Sorting changes the data in place so copy the data if we have not done so already
+      domain = domain.slice() unless optDomain.acc or optDomain.uniq
+      domain.sort()
+
+    if optDomain.uniq
+      domain = dvl.util.uniq(domain);
+
+    if domain.length > 0
+      makeScaleFn()
+    else
+      makeScaleFnEmpty()
+
+    return
+
+  dvl.register({fn:makeScaleFn, listen:[rangeFrom, rangeTo], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_range_change', noRun:true})
+  dvl.register({fn:updateData, listen:[optDomain.data, optDomain.acc], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_data_change'})
+
+  # return
+  scale: scaleRef
+  ticks: ticksRef
+  format: formatRef
+  band: bandRef
+
 
 # dvl.bind # --------------------------------------------------
 do ->
