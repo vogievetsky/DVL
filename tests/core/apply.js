@@ -28,25 +28,25 @@ suite.addBatch({
 
     "correct initial run": function(t) {
       assert.strictEqual(t.runs, 1);
-      assert.strictEqual(t.b.get(), 21);
+      assert.strictEqual(t.b.value(), 21);
     },
 
     "correct next run": function(t) {
-      t.a.set(4).notify()
+      t.a.value(4)
       assert.strictEqual(t.runs, 2);
-      assert.strictEqual(t.b.get(), 28);
+      assert.strictEqual(t.b.value(), 28);
     },
 
     "correct invalid": function(t) {
-      t.a.set(null).notify();
+      t.a.value(null)
       assert.strictEqual(t.runs, 2);
-      assert.strictEqual(t.b.get(), 10);
+      assert.strictEqual(t.b.value(), 10);
     },
 
     "correct on invalid change": function(t) {
-      t.invalid.set(20).notify();
+      t.invalid.value(20)
       assert.strictEqual(t.runs, 2);
-      assert.strictEqual(t.b.get(), 20);
+      assert.strictEqual(t.b.value(), 20);
     },
   },
 
@@ -69,11 +69,11 @@ suite.addBatch({
   //   "always unchaged": function(t) {
   //     assert.strictEqual(t.runs, 1);
 
-  //     t.a.set(4);
+  //     t.a.value(4);
   //     dvl.notify(t.a);
   //     assert.strictEqual(t.runs, 1);
 
-  //     t.a.set(4).notify();
+  //     t.a.value(4).notify();
   //     assert.strictEqual(t.runs, 1);
 
   //     t.a.notify();
@@ -105,7 +105,7 @@ suite.addBatch({
   //   },
 
   //   "correct next run": function(t) {
-  //     t.a.set(4).notify();
+  //     t.a.value(4).notify();
   //     assert.strictEqual(t.runs, 1);
   //   }
   // },
@@ -123,7 +123,7 @@ suite.addBatch({
   //       listen: [t.a],
   //       change: [t.b],
   //       fn: function() {
-  //         t.b.set(t.a.get() * 5).notify();
+  //         t.b.value(t.a.value() * 5).notify();
   //         t.runs++;
   //       }
   //     });
@@ -133,13 +133,13 @@ suite.addBatch({
 
   //   "correct initial run": function(t) {
   //     assert.strictEqual(t.runs, 1);
-  //     assert.strictEqual(t.b.get(), 15);
+  //     assert.strictEqual(t.b.value(), 15);
   //   },
 
   //   "correct next run": function(t) {
-  //     t.a.set(4).notify();
+  //     t.a.value(4).notify();
   //     assert.strictEqual(t.runs, 2);
-  //     assert.strictEqual(t.b.get(), 20);
+  //     assert.strictEqual(t.b.value(), 20);
   //   }
   // },
 
@@ -156,7 +156,7 @@ suite.addBatch({
   //       listen: [t.a],
   //       change: [t.b],
   //       fn: function() {
-  //         t.b.set(t.a.get() * 5).notify();
+  //         t.b.value(t.a.value() * 5).notify();
   //         t.runs++;
   //       }
   //     });

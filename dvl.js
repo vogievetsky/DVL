@@ -29,16 +29,15 @@ function lift(fn) {
     return fn.apply(null, args);
   };
 }
-;var clipId, debug, dvl, _ref;
+;
+var clipId, dvl, _ref;
 var __slice = Array.prototype.slice, __indexOf = Array.prototype.indexOf || function(item) {
   for (var i = 0, l = this.length; i < l; i++) {
     if (this[i] === item) return i;
   }
   return -1;
 };
-if ((_ref = Array.prototype.filter) != null) {
-  _ref;
-} else {
+if ((_ref = Array.prototype.filter) == null) {
   Array.prototype.filter = function(fun, thisp) {
     var res, val, _i, _len;
     if (typeof fun !== 'function') {
@@ -53,14 +52,7 @@ if ((_ref = Array.prototype.filter) != null) {
     }
     return res;
   };
-};
-debug = function() {
-  if (!(typeof console !== "undefined" && console !== null ? console.log : void 0)) {
-    return;
-  }
-  console.log.apply(console, arguments);
-  return arguments[0];
-};
+}
 dvl = {
   version: '1.0.0'
 };
@@ -275,17 +267,26 @@ dvl.util = {
   variables = {};
   registerers = {};
   curBlock = null;
-  default_compare = dvl.util.isEqual;
+  default_compare = function(a, b) {
+    return a === b;
+  };
   DVLConst = (function() {
     function DVLConst(val) {
-      this.value = val != null ? val : null;
+      this.v = val != null ? val : null;
       this.changed = false;
       return this;
     }
     DVLConst.prototype.toString = function() {
       var tag;
       tag = this.n ? this.n + ':' : '';
-      return "[" + this.tag + this.value + "]";
+      return "[" + this.tag + this.v + "]";
+    };
+    DVLConst.prototype.value = function(val) {
+      if (arguments.length) {
+        return this;
+      } else {
+        return this.v;
+      }
     };
     DVLConst.prototype.set = function() {
       return this;
@@ -297,10 +298,10 @@ dvl.util = {
       return this;
     };
     DVLConst.prototype.get = function() {
-      return this.value;
+      return this.v;
     };
     DVLConst.prototype.getPrev = function() {
-      return this.value;
+      return this.v;
     };
     DVLConst.prototype.hasChanged = function() {
       return this.changed;
@@ -336,7 +337,7 @@ dvl.util = {
     DVLConst.prototype.gen = function() {
       var that;
       that = this;
-      if (dvl.typeOf(this.value) === 'array') {
+      if (dvl.typeOf(this.v) === 'array') {
         return function(i) {
           return that.value[i];
         };
@@ -350,8 +351,8 @@ dvl.util = {
       return this.gen(i);
     };
     DVLConst.prototype.len = function() {
-      if (dvl.typeOf(this.value) === 'array') {
-        return this.value.length;
+      if (dvl.typeOf(this.v) === 'array') {
+        return this.v.length;
       } else {
         return Infinity;
       }
@@ -360,7 +361,7 @@ dvl.util = {
   })();
   DVLDef = (function() {
     function DVLDef(val) {
-      this.value = val != null ? val : null;
+      this.v = val != null ? val : null;
       this.id = nextObjId;
       this.prev = null;
       this.changed = false;
@@ -383,14 +384,14 @@ dvl.util = {
       if (this.lazy) {
         val = this.lazy();
         this.prev = val;
-        this.value = val;
+        this.val = val;
         this.lazy = null;
       }
     };
     DVLDef.prototype.toString = function() {
       var tag;
       tag = this.n ? this.n + ':' : '';
-      return "[" + this.tag + this.value + "]";
+      return "[" + this.tag + this.val + "]";
     };
     DVLDef.prototype.hasChanged = function() {
       return this.changed;
@@ -399,12 +400,25 @@ dvl.util = {
       this.changed = false;
       return this;
     };
+    DVLDef.prototype.value = function(val) {
+      if (arguments.length) {
+        val = val != null ? val : null;
+        if (!this.compareFn(val, this.v)) {
+          this.set(val);
+          dvl.notify(this);
+        }
+        return this;
+      } else {
+        this.resolveLazy();
+        return this.v;
+      }
+    };
     DVLDef.prototype.set = function(val) {
       val = val != null ? val : null;
       if (!this.changed) {
-        this.prev = this.value;
+        this.prev = this.v;
       }
-      this.value = val;
+      this.v = val;
       this.vgen = void 0;
       this.changed = true;
       this.lazy = null;
@@ -416,22 +430,22 @@ dvl.util = {
       return this;
     };
     DVLDef.prototype.update = function(val) {
-      if (this.compareFn(val, this.value)) {
-        return;
+      if (!dvl.util.isEqual(val, this.v)) {
+        this.set(val);
+        dvl.notify(this);
       }
-      this.set(val);
-      return dvl.notify(this);
+      return this;
     };
     DVLDef.prototype.get = function() {
       this.resolveLazy();
-      return this.value;
+      return this.v;
     };
     DVLDef.prototype.getPrev = function() {
       this.resolveLazy();
       if (this.prev && this.changed) {
         return this.prev;
       } else {
-        return this.value;
+        return this.v;
       }
     };
     DVLDef.prototype.notify = function() {
@@ -486,7 +500,7 @@ dvl.util = {
         return this.vgen;
       } else {
         that = this;
-        if (dvl.typeOf(this.value) === 'array') {
+        if (dvl.typeOf(this.v) === 'array') {
           return function(i) {
             return that.value[i];
           };
@@ -508,9 +522,9 @@ dvl.util = {
       if (this.vlen >= 0) {
         return this.vlen;
       } else {
-        if (this.value != null) {
-          if (dvl.typeOf(this.value) === 'array') {
-            return this.value.length;
+        if (this.v != null) {
+          if (dvl.typeOf(this.v) === 'array') {
+            return this.v.length;
           } else {
             return Infinity;
           }
@@ -698,7 +712,7 @@ dvl.util = {
   dvl.knows = function(v) {
     return v instanceof DVLConst || v instanceof DVLDef;
   };
-  dvl.wrapConstIfNeeded = function(v, name) {
+  dvl.wrap = dvl.wrapConstIfNeeded = function(v, name) {
     if (v === void 0) {
       v = null;
     }
@@ -708,7 +722,7 @@ dvl.util = {
       return dvl["const"](v).name(name);
     }
   };
-  dvl.wrapVarIfNeeded = function(v, name) {
+  dvl.wrapVar = dvl.wrapVarIfNeeded = function(v, name) {
     if (v === void 0) {
       v = null;
     }
@@ -1131,7 +1145,14 @@ dvl.acc = function(column) {
   return acc;
 };
 dvl.debug = function() {
-  var dbgPrint, note, obj;
+  var note, obj, print;
+  print = function() {
+    if (!(typeof console !== "undefined" && console !== null ? console.log : void 0)) {
+      return;
+    }
+    console.log.apply(console, arguments);
+    return arguments[0];
+  };
   if (arguments.length === 1) {
     obj = dvl.wrapConstIfNeeded(arguments[0]);
     note = obj.name() + ':';
@@ -1139,36 +1160,44 @@ dvl.debug = function() {
     obj = dvl.wrapConstIfNeeded(arguments[1]);
     note = arguments[0];
   }
-  dbgPrint = function() {
-    return debug(note, obj.get());
-  };
   dvl.register({
-    fn: dbgPrint,
     listen: [obj],
-    name: 'debug'
+    fn: function() {
+      return print(note, obj.get());
+    }
   });
   return obj;
 };
 dvl.apply = dvl.applyValid = function() {
-  var allowNull, args, fn, invalid, name, out, update, _ref2, _ref3;
+  var allowNull, arg0, args, argsType, fn, invalid, name, out, update, _ref2;
   switch (arguments.length) {
     case 1:
-      _ref2 = arguments[0], fn = _ref2.fn, args = _ref2.args, name = _ref2.name, invalid = _ref2.invalid, allowNull = _ref2.allowNull, update = _ref2.update;
+      arg0 = arguments[0];
+      if (typeof arg0 === 'function') {
+        fn = arg0;
+      } else {
+        fn = arg0.fn, args = arg0.args, name = arg0.name, invalid = arg0.invalid, allowNull = arg0.allowNull, update = arg0.update;
+      }
       break;
     case 2:
       args = arguments[0], fn = arguments[1];
       break;
     case 3:
-      args = arguments[0], _ref3 = arguments[1], name = _ref3.name, invalid = _ref3.invalid, allowNull = _ref3.allowNull, update = _ref3.update, fn = arguments[2];
+      args = arguments[0], _ref2 = arguments[1], name = _ref2.name, invalid = _ref2.invalid, allowNull = _ref2.allowNull, update = _ref2.update, fn = arguments[2];
       break;
     default:
       throw "incorect number of arguments";
   }
   fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
-  if (dvl.typeOf(args) !== 'array') {
-    args = [args];
+  argsType = dvl.typeOf(args);
+  if (argsType === 'undefined') {
+    args = [];
+  } else {
+    if (argsType !== 'array') {
+      args = [args];
+    }
+    args = args.map(dvl.wrapConstIfNeeded);
   }
-  args = args.map(dvl.wrapConstIfNeeded);
   invalid = dvl.wrapConstIfNeeded(invalid != null ? invalid : null);
   out = dvl.def(invalid.get()).name(name || 'apply_out');
   dvl.register({
@@ -1209,16 +1238,21 @@ dvl.apply = dvl.applyValid = function() {
   return out;
 };
 dvl.applyAlways = function() {
-  var args, fn, name, update, _ref2, _ref3;
+  var arg0, args, fn, name, update, _ref2;
   switch (arguments.length) {
     case 1:
-      _ref2 = arguments[0], fn = _ref2.fn, args = _ref2.args, name = _ref2.name, update = _ref2.update;
+      arg0 = arguments[0];
+      if (typeof arg0 === 'function') {
+        fn = arg0;
+      } else {
+        fn = arg0.fn, args = arg0.args, name = arg0.name, update = arg0.update;
+      }
       break;
     case 2:
       args = arguments[0], fn = arguments[1];
       break;
     case 3:
-      args = arguments[0], _ref3 = arguments[1], name = _ref3.name, update = _ref3.update, fn = arguments[2];
+      args = arguments[0], _ref2 = arguments[1], name = _ref2.name, update = _ref2.update, fn = arguments[2];
       break;
     default:
       throw "incorect number of arguments";
@@ -1361,7 +1395,7 @@ dvl.recorder = function(options) {
           delete q.resVal;
         }
       }
-      return dvl.notify.apply(null, notify);
+      dvl.notify.apply(null, notify);
     };
     getData = function(err, resVal) {
       var q;
@@ -1378,7 +1412,7 @@ dvl.recorder = function(options) {
       }
       q.status = 'ready';
       q.curAjax = null;
-      return maybeDone(this.request);
+      maybeDone(this.request);
     };
     makeRequest = function(q, request) {
       var ctx, _data, _dataFn, _dataType, _method, _url;
@@ -1402,7 +1436,7 @@ dvl.recorder = function(options) {
         if (q.invalidOnLoad.get()) {
           q.res.update(null);
         }
-        return q.curAjax = q.requester.request({
+        q.curAjax = q.requester.request({
           url: _url,
           data: _data,
           dataFn: _dataFn,
@@ -1417,7 +1451,7 @@ dvl.recorder = function(options) {
           }
         });
       } else {
-        return getData.call(ctx, null, null);
+        getData.call(ctx, null, null);
       }
     };
     inputChange = function() {
@@ -1812,317 +1846,6 @@ dvl.data.max = function(data, acc) {
     fn: d3.max
   });
 };
-dvl.scale = {};
-dvl.scale.linear = function(options) {
-  var change, dom, domainFrom, domainTo, formatRef, invertRef, listenData, makeScale, makeScaleFn, makeScaleFnEmpty, makeScaleFnSingle, name, numTicks, optDomain, padding, rangeFrom, rangeTo, scaleRef, ticksRef, updateData, _i, _len;
-  if (!options) {
-    throw 'no options in scale';
-  }
-  name = options.name || 'linear_scale';
-  rangeFrom = options.rangeFrom || 0;
-  rangeFrom = dvl.wrapConstIfNeeded(rangeFrom);
-  rangeTo = options.rangeTo || 0;
-  rangeTo = dvl.wrapConstIfNeeded(rangeTo);
-  padding = options.padding || 0;
-  numTicks = options.numTicks || 10;
-  numTicks = dvl.wrapConstIfNeeded(numTicks);
-  optDomain = options.domain;
-  if (!optDomain) {
-    throw 'no domain object';
-  }
-  switch (dvl.typeOf(optDomain)) {
-    case 'array':
-      if (!(optDomain.length > 0)) {
-        throw 'empty domain given to scale';
-      }
-      break;
-    case 'object':
-      optDomain = [optDomain];
-      break;
-    default:
-      throw 'invalid domian type';
-  }
-  domainFrom = null;
-  domainTo = null;
-  scaleRef = dvl.def().name(name + '_fn');
-  invertRef = dvl.def().name(name + '_invert');
-  ticksRef = dvl.def().name(name + '_ticks');
-  formatRef = dvl.def().name(name + '_format');
-  makeScale = function() {
-    if (domainFrom < domainTo) {
-      return makeScaleFn();
-    } else if (domainFrom === domainTo) {
-      return makeScaleFnSingle();
-    } else {
-      return makeScaleFnEmpty();
-    }
-  };
-  makeScaleFn = function() {
-    var isColor, rf, rt, s;
-    isColor = typeof (rangeFrom.get()) === 'string';
-    rf = rangeFrom.get();
-    rt = rangeTo.get();
-    if (!isColor) {
-      if (rt > rf) {
-        rf += padding;
-        rt -= padding;
-      } else {
-        rf -= padding;
-        rt += padding;
-      }
-    }
-    s = pv.Scale.linear().domain(domainFrom, domainTo).range(rf, rt);
-    if (isColor) {
-      scaleRef.set(function(x) {
-        return s(x).color;
-      });
-    } else {
-      scaleRef.set(s);
-    }
-    invertRef.set(s.invert);
-    ticksRef.setLazy(function() {
-      return s.ticks(numTicks.get());
-    });
-    formatRef.set(s.tickFormat);
-    dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-  };
-  makeScaleFnSingle = function() {
-    var avg, isColor, rf, rt;
-    isColor = typeof (rangeFrom.get()) === 'string';
-    rf = rangeFrom.get();
-    rt = rangeTo.get();
-    if (!isColor) {
-      if (rt > rf) {
-        rf += padding;
-        rt -= padding;
-      } else {
-        rf -= padding;
-        rt += padding;
-      }
-    }
-    avg = (rf + rt) / 2;
-    scaleRef.set(function() {
-      return avg;
-    });
-    invertRef.set(function() {
-      return domainFrom;
-    });
-    ticksRef.set([domainFrom]);
-    formatRef.set(function(x) {
-      return '';
-    });
-    dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-  };
-  makeScaleFnEmpty = function() {
-    scaleRef.set(null);
-    invertRef.set(null);
-    ticksRef.set(null);
-    formatRef.set(null);
-    dvl.notify(scaleRef, invertRef, ticksRef, formatRef);
-  };
-  updateData = function() {
-    var a, acc, d0, data, dn, dom, f, max, min, mm, t, _i, _len;
-    min = +Infinity;
-    max = -Infinity;
-    for (_i = 0, _len = optDomain.length; _i < _len; _i++) {
-      dom = optDomain[_i];
-      if (dom.data) {
-        data = dom.data.get();
-        if (data !== null) {
-          acc = dom.acc || dvl.identity;
-          a = acc.get();
-          if (dvl.typeOf(data) !== 'array') {
-            data = a(data);
-            a = function(x) {
-              return x;
-            };
-          }
-          if (data.length > 0) {
-            if (dom.sorted) {
-              d0 = a(data[0], 0);
-              dn = a(data[data.length - 1], data.length - 1);
-              if (d0 < min) {
-                min = d0;
-              }
-              if (dn < min) {
-                min = dn;
-              }
-              if (max < d0) {
-                max = d0;
-              }
-              if (max < dn) {
-                max = dn;
-              }
-            } else {
-              mm = dvl.util.getMinMax(data, a);
-              if (mm.min < min) {
-                min = mm.min;
-              }
-              if (max < mm.max) {
-                max = mm.max;
-              }
-            }
-          }
-        }
-      } else {
-        f = dom.from.get();
-        t = dom.to.get();
-        if ((f != null) && (t != null)) {
-          if (f < min) {
-            min = f;
-          }
-          if (max < t) {
-            max = t;
-          }
-        }
-      }
-    }
-    if (options.anchor) {
-      if (0 < min) {
-        min = 0;
-      }
-      if (max < 0) {
-        max = 0;
-      }
-    }
-    if (options.scaleMin !== void 0) {
-      min *= options.scaleMin;
-    }
-    if (options.scaleMax !== void 0) {
-      max *= options.scaleMax;
-    }
-    if (min <= max) {
-      if (domainFrom !== min || domainTo !== max) {
-        domainFrom = min;
-        domainTo = max;
-        makeScale();
-      }
-    } else {
-      domainFrom = NaN;
-      domainTo = NaN;
-      makeScale();
-    }
-  };
-  listenData = [];
-  for (_i = 0, _len = optDomain.length; _i < _len; _i++) {
-    dom = optDomain[_i];
-    if (dom.data) {
-      listenData.push(dom.data, dom.acc);
-    } else {
-      listenData.push(dom.from, dom.to);
-    }
-  }
-  change = [scaleRef, invertRef, ticksRef, formatRef];
-  dvl.register({
-    fn: makeScale,
-    listen: [rangeFrom, rangeTo, numTicks],
-    change: change,
-    name: name + '_range_change',
-    noRun: true
-  });
-  dvl.register({
-    fn: updateData,
-    listen: listenData,
-    change: change,
-    name: name + '_data_change'
-  });
-  return {
-    scale: scaleRef,
-    invert: invertRef,
-    ticks: ticksRef,
-    format: formatRef
-  };
-};
-dvl.scale.ordinal = function(options) {
-  var bandRef, domain, formatRef, makeScaleFn, makeScaleFnEmpty, name, optDomain, padding, rangeFrom, rangeTo, scaleRef, ticksRef, updateData;
-  if (!options) {
-    throw 'no options in scale';
-  }
-  name = options.name || 'ordinal_scale';
-  rangeFrom = options.rangeFrom || 0;
-  rangeFrom = dvl.wrapConstIfNeeded(rangeFrom);
-  rangeTo = options.rangeTo || 0;
-  rangeTo = dvl.wrapConstIfNeeded(rangeTo);
-  padding = options.padding || 0;
-  optDomain = options.domain;
-  if (!optDomain) {
-    throw 'no domain object';
-  }
-  domain = null;
-  scaleRef = dvl.def(null, name + '_fn');
-  ticksRef = dvl.def(null, name + '_ticks');
-  formatRef = dvl.def(null, name + '_format');
-  bandRef = dvl.def(0, name + '_band');
-  makeScaleFn = function() {
-    var rf, rt, s;
-    rf = rangeFrom.get();
-    rt = rangeTo.get();
-    if (rt > rf) {
-      rf += padding;
-      rt -= padding;
-    } else {
-      rf -= padding;
-      rt += padding;
-    }
-    s = pv.Scale.ordinal().domain(domain).split(rf, rt);
-    scaleRef.set(s);
-    ticksRef.set(domain);
-    formatRef.set(s.tickFormat);
-    bandRef.set(Math.abs(rt - rf) / domain.length);
-    dvl.notify(scaleRef, ticksRef, formatRef, bandRef);
-  };
-  makeScaleFnEmpty = function() {
-    scaleRef.update(null);
-    ticksRef.update(null);
-    formatRef.update(null);
-    bandRef.update(0);
-  };
-  updateData = function() {
-    var a;
-    domain = optDomain.data.get();
-    if (!domain) {
-      makeScaleFnEmpty();
-      return;
-    }
-    if (optDomain.acc) {
-      a = optDomain.acc.get();
-      domain = domain.map(a);
-    }
-    if (optDomain.sort) {
-      if (!(optDomain.acc || optDomain.uniq)) {
-        domain = domain.slice();
-      }
-      domain.sort();
-    }
-    if (optDomain.uniq) {
-      domain = dvl.util.uniq(domain);
-    }
-    if (domain.length > 0) {
-      makeScaleFn();
-    } else {
-      makeScaleFnEmpty();
-    }
-  };
-  dvl.register({
-    fn: makeScaleFn,
-    listen: [rangeFrom, rangeTo],
-    change: [scaleRef, ticksRef, formatRef, bandRef],
-    name: name + '_range_change',
-    noRun: true
-  });
-  dvl.register({
-    fn: updateData,
-    listen: [optDomain.data, optDomain.acc],
-    change: [scaleRef, ticksRef, formatRef, bandRef],
-    name: name + '_data_change'
-  });
-  return {
-    scale: scaleRef,
-    ticks: ticksRef,
-    format: formatRef,
-    band: bandRef
-  };
-};
 (function() {
   var def_data_fn, id_class_spliter;
   id_class_spliter = /(?=[#.:])/;
@@ -2348,7 +2071,7 @@ dvl.scale.ordinal = function(options) {
         }
       }
       staticClass = staticClass.join(' ');
-      self = parent.append(nodeType);
+      self = dvl.valueOf(parent).append(nodeType);
       self.attr('id', staticId) === staticId;
       self.attr('class', staticClass) === staticClass;
     }
@@ -2429,22 +2152,21 @@ dvl.chain = function(f, h) {
   var out;
   f = dvl.wrapConstIfNeeded(f);
   h = dvl.wrapConstIfNeeded(h);
-  out = dvl.def(null, 'chain');
+  out = dvl.def().name('chain');
   dvl.register({
     listen: [f, h],
     change: [out],
     fn: function() {
       var _f, _h;
-      _f = f.get();
-      _h = h.get();
+      _f = f.value();
+      _h = h.value();
       if (_f && _h) {
-        out.set(function(x) {
+        out.value(function(x) {
           return _h(_f(x));
         });
       } else {
-        out.set(null);
+        out.value(null);
       }
-      dvl.notify(out);
     }
   });
   return out;
@@ -3052,41 +2774,38 @@ dvl.html.select = function(_arg) {
   selChange();
   return selection;
 };
-dvl.compare = function(acc, reverse) {
+dvl.compare = function(acc, reverse, ignoreCase) {
   acc = dvl.wrapConstIfNeeded(acc || dvl.ident);
   reverse = dvl.wrapConstIfNeeded(reverse || false);
+  ignoreCase = dvl.wrapConstIfNeeded(ignoreCase || false);
   return dvl.apply({
-    args: [acc, reverse],
-    fn: function(acc, reverse) {
-      if (reverse) {
-        return function(a, b) {
-          var t, va, vb;
-          va = acc(a);
-          vb = acc(b);
-          t = typeof va;
-          if (t === 'string') {
-            return vb.localeCompare(va);
-          } else if (t === 'number') {
-            return vb - va;
-          } else {
-            throw "bad sorting type " + t;
-          }
-        };
-      } else {
-        return function(a, b) {
-          var t, va, vb;
-          va = acc(a);
-          vb = acc(b);
-          t = typeof va;
-          if (t === 'string') {
-            return va.localeCompare(vb);
-          } else if (t === 'number') {
-            return va - vb;
-          } else {
-            throw "bad sorting type " + t;
-          }
-        };
-      }
+    args: [acc, reverse, ignoreCase],
+    fn: function(acc, reverse, ignoreCase) {
+      var numCmp, strCmp, toStr;
+      toStr = ignoreCase ? function(x) {
+        return String(x).toLowerCase();
+      } : String;
+      numCmp = reverse ? function(a, b) {
+        return b - a;
+      } : function(a, b) {
+        return a - b;
+      };
+      strCmp = reverse ? function(a, b) {
+        return toStr(b).localeCompare(toStr(a));
+      } : function(a, b) {
+        return toStr(a).localeCompare(toStr(b));
+      };
+      return function(a, b) {
+        var t, va, vb;
+        va = acc(a);
+        vb = acc(b);
+        t = typeof va;
+        if (t === 'number') {
+          return numCmp(va, vb);
+        } else {
+          return strCmp(va, vb);
+        }
+      };
     }
   });
 };
@@ -3094,9 +2813,15 @@ dvl.compare = function(acc, reverse) {
   var default_compare_modes;
   default_compare_modes = ['up', 'down'];
   dvl.html.table = function(_arg) {
-    var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, onRow, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref2, _ref3, _ref4;
+    var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, onRow, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref2, _ref3;
     parent = _arg.parent, data = _arg.data, sort = _arg.sort, classStr = _arg.classStr, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns, onRow = _arg.on;
-    table = dvl.valueOf(parent).append('table').attr('class', classStr);
+    table = dvl.bindSingle({
+      parent: parent,
+      self: 'table',
+      attr: {
+        "class": classStr
+      }
+    });
     sort = sort || {};
     sortOn = dvl.wrapVarIfNeeded(sort.on);
     sortDir = dvl.wrapVarIfNeeded(sort.dir);
@@ -3107,11 +2832,6 @@ dvl.compare = function(acc, reverse) {
     compareList = [sortOn, sortDir];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
-            if ((_ref3 = c.sortable) != null) {
-        _ref3;
-      } else {
-        c.sortable = true;
-      };
       if (c.sortable) {
         if (c.compare != null) {
           comp = dvl.wrapConstIfNeeded(c.compare);
@@ -3120,7 +2840,7 @@ dvl.compare = function(acc, reverse) {
         }
         compareMap[c.id] = comp;
         compareList.push(comp);
-        if (!((_ref4 = c.compareModes) != null ? _ref4[0] : void 0)) {
+        if (!((_ref3 = c.compareModes) != null ? _ref3[0] : void 0)) {
           c.compareModes = default_compare_modes;
         }
       }
@@ -3146,11 +2866,11 @@ dvl.compare = function(acc, reverse) {
       listen: compareList,
       change: [compare],
       fn: function() {
-        var cmp, oldCmp, _ref5, _sortDir, _sortOn;
+        var cmp, oldCmp, _ref4, _sortDir, _sortOn;
         _sortOn = sortOn.get();
         _sortDir = sortDir.get();
         if (_sortOn != null) {
-          cmp = (_ref5 = compareMap[_sortOn]) != null ? _ref5.get() : void 0;
+          cmp = (_ref4 = compareMap[_sortOn]) != null ? _ref4.get() : void 0;
           if (cmp && _sortDir === 'down') {
             oldCmp = cmp;
             cmp = function(a, b) {
@@ -3241,6 +2961,7 @@ dvl.compare = function(acc, reverse) {
           sel = thead.select("th:nth-child(" + (i + 1) + ")");
           visibleChanged = c.visible.hasChanged();
           if (c.visible.get()) {
+            sel.datum(c);
             if (c["class"].hasChanged() || visibleChanged) {
               sel.attr('class', c["class"].get());
             }
@@ -3323,7 +3044,7 @@ dvl.compare = function(acc, reverse) {
         listen.push(v);
         nc.on[k] = v;
       }
-      change.push(nc.selection = dvl.def(null).name("" + c.id + "_selection"));
+      change.push(nc.selection = dvl.def().name("" + c.id + "_selection"));
     }
     columns = newColumns;
     dvl.register({
@@ -3331,7 +3052,7 @@ dvl.compare = function(acc, reverse) {
       listen: listen,
       change: change,
       fn: function() {
-        var c, colSel, dataSorted, enterRowSel, i, k, newRows, rowSel, sel, v, visibleChanged, _compare, _len2, _ref4, _rowClass, _rowLimit;
+        var c, colSel, dataSorted, enterRowSel, i, k, rowSel, sel, v, visibleChanged, _compare, _len2, _ref4, _rowClass, _rowLimit;
         dataSorted = data.get() || [];
         _compare = compare.get();
         if (_compare) {
@@ -3343,7 +3064,6 @@ dvl.compare = function(acc, reverse) {
         }
         rowSel = tbody.selectAll('tr').data(dataSorted);
         enterRowSel = rowSel.enter().append('tr');
-        newRows = !enterRowSel.empty();
         rowSel.exit().remove();
         if (rowClass) {
           _rowClass = rowClass.get();
@@ -3359,7 +3079,7 @@ dvl.compare = function(acc, reverse) {
         for (i = 0, _len2 = columns.length; i < _len2; i++) {
           c = columns[i];
           sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted);
-          visibleChanged = c.visible.hasChanged() || newRows;
+          visibleChanged = c.visible.hasChanged() || data.hasChanged();
           if (c.visible.get()) {
             if (c["class"].hasChanged() || visibleChanged) {
               sel.attr('class', c["class"].get());
@@ -3456,11 +3176,9 @@ dvl.compare = function(acc, reverse) {
     sparkline: function(_arg) {
       var height, padding, width, x, y;
       width = _arg.width, height = _arg.height, x = _arg.x, y = _arg.y, padding = _arg.padding;
-            if (padding != null) {
-        padding;
-      } else {
+      if (padding == null) {
         padding = 0;
-      };
+      }
       return function(selection, value) {
         var dataFn, lineFn, svg;
         lineFn = dvl.apply({

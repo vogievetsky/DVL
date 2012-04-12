@@ -47,12 +47,6 @@ Array::filter ?= (fun, thisp) ->
   return res
 
 
-debug = ->
-  return unless console?.log
-  console.log.apply(console, arguments)
-  return arguments[0]
-
-
 dvl = { version: '1.0.0' }
 this.dvl = dvl
 if typeof module isnt 'undefined' and module.exports
@@ -207,22 +201,26 @@ dvl.util = {
   variables = {}
   registerers = {}
   curBlock = null
-  default_compare = dvl.util.isEqual
+  default_compare = (a, b) -> a is b
 
   class DVLConst
     constructor: (val) ->
-      @value = val ? null
+      @v = val ? null
       @changed = false
       return this
 
     toString: ->
       tag = if @n then @n + ':' else ''
-      return "[#{@tag}#{@value}]"
+      return "[#{@tag}#{@v}]"
+
+    value: (val) ->
+      return if arguments.length then this else @v
+
     set: -> this
     setLazy: -> this
     update: -> this
-    get: -> @value
-    getPrev: -> @value
+    get: -> @v
+    getPrev: -> @v
     hasChanged: -> @changed
     resetChanged: -> null
     notify: -> null
@@ -238,21 +236,21 @@ dvl.util = {
     setGen: -> this
     gen: ->
       that = this
-      if dvl.typeOf(@value) == 'array'
+      if dvl.typeOf(@v) == 'array'
         (i) -> that.value[i]
       else
         () -> that.value
     genPrev: (i) -> @gen(i)
     len: ->
-      if dvl.typeOf(@value) == 'array'
-        @value.length
+      if dvl.typeOf(@v) == 'array'
+        @v.length
       else
         Infinity
 
 
   class DVLDef
     constructor: (val) ->
-      @value = val ? null
+      @v = val ? null
       @id = nextObjId
       @prev = null
       @changed = false
@@ -272,21 +270,35 @@ dvl.util = {
       if @lazy
         val = @lazy()
         @prev = val
-        @value = val
+        @val = val
         @lazy = null
       return
 
     toString: ->
       tag = if @n then @n + ':' else ''
-      return "[#{@tag}#{@value}]"
+      return "[#{@tag}#{@val}]"
+
     hasChanged: -> @changed
+
     resetChanged: ->
       @changed = false
       return this
+
+    value: (val) ->
+      if arguments.length
+        val = val ? null
+        if not @compareFn(val, @v)
+          this.set(val)
+          dvl.notify(this)
+        return this
+      else
+        @resolveLazy()
+        return @v
+
     set: (val) ->
       val = val ? null
-      @prev = @value unless @changed
-      @value = val
+      @prev = @v unless @changed
+      @v = val
       @vgen = undefined
       @changed = true
       @lazy = null
@@ -296,15 +308,16 @@ dvl.util = {
       @changed = true
       return this
     update: (val) ->
-      return if @compareFn(val, @value)
-      this.set(val)
-      dvl.notify(this)
+      if not dvl.util.isEqual(val, @v)
+        this.set(val)
+        dvl.notify(this)
+      return this
     get: ->
       @resolveLazy()
-      return @value
+      return @v
     getPrev: ->
       @resolveLazy()
-      if @prev and @changed then @prev else @value
+      if @prev and @changed then @prev else @v
     notify: ->
       dvl.notify(this)
     discard: ->
@@ -342,7 +355,7 @@ dvl.util = {
         return @vgen
       else
         that = this
-        if dvl.typeOf(@value) == 'array'
+        if dvl.typeOf(@v) == 'array'
           return ((i) -> that.value[i])
         else
           return (-> that.value)
@@ -352,8 +365,8 @@ dvl.util = {
       if @vlen >= 0
         return @vlen
       else
-        if @value?
-          return if dvl.typeOf(@value) == 'array' then @value.length else Infinity
+        if @v?
+          return if dvl.typeOf(@v) == 'array' then @v.length else Infinity
         else
           return 0
 
@@ -479,10 +492,12 @@ dvl.util = {
 
   dvl.knows = (v) -> v instanceof DVLConst or v instanceof DVLDef
 
+  dvl.wrap =
   dvl.wrapConstIfNeeded = (v, name) ->
     v = null if v is undefined
     if dvl.knows(v) then v else dvl.const(v).name(name)
 
+  dvl.wrapVar =
   dvl.wrapVarIfNeeded = (v, name) ->
     v = null if v is undefined
     if dvl.knows(v) then v else dvl.def(v).name(name)
@@ -835,6 +850,11 @@ dvl.acc = (column) ->
 ##  Displays the object value with a message whenever the object changes.
 ##
 dvl.debug = ->
+  print = ->
+    return unless console?.log
+    console.log.apply(console, arguments)
+    return arguments[0]
+
   if arguments.length is 1
     obj = dvl.wrapConstIfNeeded(arguments[0])
     note = obj.name() + ':'
@@ -842,10 +862,10 @@ dvl.debug = ->
     obj = dvl.wrapConstIfNeeded(arguments[1])
     note = arguments[0]
 
-  dbgPrint = ->
-    debug note, obj.get()
-
-  dvl.register({fn:dbgPrint, listen:[obj], name:'debug'})
+  dvl.register {
+    listen: [obj]
+    fn: -> print note, obj.get()
+  }
   return obj
 
 
@@ -856,7 +876,11 @@ dvl.debug = ->
 dvl.apply = dvl.applyValid = ->
   switch arguments.length
     when 1
-      [{fn, args, name, invalid, allowNull, update}] = arguments
+      arg0 = arguments[0]
+      if typeof arg0 is 'function'
+        fn = arg0
+      else
+        {fn, args, name, invalid, allowNull, update} = arg0
     when 2
       [args, fn] = arguments
     when 3
@@ -865,8 +889,14 @@ dvl.apply = dvl.applyValid = ->
       throw "incorect number of arguments"
 
   fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
-  args = [args] unless dvl.typeOf(args) is 'array'
-  args = args.map(dvl.wrapConstIfNeeded)
+
+  argsType = dvl.typeOf(args)
+  if argsType is 'undefined'
+    args = []
+  else
+    args = [args] unless argsType is 'array'
+    args = args.map(dvl.wrapConstIfNeeded)
+
   invalid = dvl.wrapConstIfNeeded(invalid ? null)
 
   out = dvl.def(invalid.get()).name(name or 'apply_out')
@@ -904,7 +934,11 @@ dvl.apply = dvl.applyValid = ->
 dvl.applyAlways = ->
   switch arguments.length
     when 1
-      [{fn, args, name, update}] = arguments
+      arg0 = arguments[0]
+      if typeof arg0 is 'function'
+        fn = arg0
+      else
+        {fn, args, name, update} = arg0
     when 2
       [args, fn] = arguments
     when 3
@@ -1038,6 +1072,7 @@ dvl.recorder = (options) ->
           delete q.resVal
 
       dvl.notify.apply(null, notify)
+      return
 
     getData = (err, resVal) ->
       q = this.q
@@ -1052,6 +1087,7 @@ dvl.recorder = (options) ->
       q.curAjax = null
 
       maybeDone(this.request)
+      return
 
     makeRequest = (q, request) ->
       _url = q.url.get()
@@ -1087,6 +1123,8 @@ dvl.recorder = (options) ->
 
       else
         getData.call(ctx, null, null)
+
+      return
 
     inputChange = ->
       bundle = []
@@ -1412,261 +1450,6 @@ dvl.data.max = (data, acc) ->
     fn: d3.max
   }
 
-# Scales # ------------------------------------------------
-
-dvl.scale = {}
-
-
-dvl.scale.linear = (options) ->
-  throw 'no options in scale' unless options
-  name = options.name or 'linear_scale'
-
-  rangeFrom = options.rangeFrom || 0
-  rangeFrom = dvl.wrapConstIfNeeded(rangeFrom)
-
-  rangeTo = options.rangeTo || 0
-  rangeTo = dvl.wrapConstIfNeeded(rangeTo)
-
-  padding = options.padding || 0
-
-  numTicks = options.numTicks || 10
-  numTicks = dvl.wrapConstIfNeeded(numTicks)
-
-  optDomain = options.domain
-  throw 'no domain object' unless optDomain
-
-  switch dvl.typeOf optDomain
-    when 'array'
-      throw 'empty domain given to scale' unless optDomain.length > 0
-    when 'object'
-      optDomain = [optDomain]
-    else
-      throw 'invalid domian type'
-
-  domainFrom = null
-  domainTo   = null
-  scaleRef  = dvl.def().name(name + '_fn')
-  invertRef = dvl.def().name(name + '_invert')
-  ticksRef  = dvl.def().name(name + '_ticks')
-  formatRef = dvl.def().name(name + '_format')
-
-  makeScale = () ->
-    if domainFrom < domainTo
-      makeScaleFn()
-    else if domainFrom is domainTo
-      makeScaleFnSingle()
-    else
-      makeScaleFnEmpty()
-
-  makeScaleFn = () ->
-    isColor = typeof(rangeFrom.get()) == 'string'
-    rf = rangeFrom.get()
-    rt = rangeTo.get()
-    if not isColor
-      if rt > rf
-        rf += padding
-        rt -= padding
-      else
-        rf -= padding
-        rt += padding
-    s = pv.Scale.linear().domain(domainFrom, domainTo).range(rf, rt)
-    if isColor
-      # We are mapping colors so extract the color form the object
-      scaleRef.set((x) -> s(x).color)
-    else
-      scaleRef.set(s)
-
-    invertRef.set(s.invert)
-    ticksRef.setLazy(-> s.ticks(numTicks.get()))
-    formatRef.set(s.tickFormat)
-    dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-    return
-
-  makeScaleFnSingle = ->
-    isColor = typeof(rangeFrom.get()) == 'string'
-    rf = rangeFrom.get()
-    rt = rangeTo.get()
-    if not isColor
-      if rt > rf
-        rf += padding
-        rt -= padding
-      else
-        rf -= padding
-        rt += padding
-    avg = (rf + rt) / 2
-    scaleRef.set(-> avg)
-    invertRef.set(-> domainFrom)
-    ticksRef.set([domainFrom])
-    formatRef.set((x) -> '')
-    dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-    return
-
-  makeScaleFnEmpty = () ->
-    scaleRef.set(null)
-    invertRef.set(null)
-    ticksRef.set(null)
-    formatRef.set(null)
-    dvl.notify(scaleRef, invertRef, ticksRef, formatRef)
-    return
-
-  updateData = () ->
-    min = +Infinity
-    max = -Infinity
-    for dom in optDomain
-      if dom.data
-        data = dom.data.get()
-
-        if data != null
-          acc = dom.acc || dvl.identity
-          a = acc.get()
-
-          if dvl.typeOf(data) isnt 'array'
-            # ToDo: make this nicer
-            data = a(data)
-            a = (x) -> x
-
-          if data.length > 0
-            if dom.sorted
-              d0 = a(data[0], 0)
-              dn = a(data[data.length - 1], data.length - 1)
-              min = d0 if d0 < min
-              min = dn if dn < min
-              max = d0 if max < d0
-              max = dn if max < dn
-            else
-              mm = dvl.util.getMinMax(data, a)
-              min = mm.min if mm.min < min
-              max = mm.max if max < mm.max
-
-      else
-        f = dom.from.get()
-        t = dom.to.get()
-        if f? and t?
-          min = f if f < min
-          max = t if max < t
-
-    if options.anchor
-      min = 0 if 0 < min
-      max = 0 if max < 0
-
-    if options.scaleMin != undefined
-      min *= options.scaleMin
-
-    if options.scaleMax != undefined
-      max *= options.scaleMax
-
-
-    if min <= max
-      if domainFrom != min or domainTo != max
-        domainFrom = min
-        domainTo = max
-        makeScale()
-    else
-      domainFrom = NaN
-      domainTo = NaN
-      makeScale()
-
-    return
-
-  listenData = []
-  for dom in optDomain
-    if dom.data
-      listenData.push(dom.data, dom.acc)
-    else
-      listenData.push(dom.from, dom.to)
-
-  change = [scaleRef, invertRef, ticksRef, formatRef]
-  dvl.register({fn:makeScale, listen:[rangeFrom, rangeTo, numTicks], change:change, name:name + '_range_change', noRun:true})
-  dvl.register({fn:updateData, listen:listenData, change:change, name:name + '_data_change'})
-
-  # return
-  scale:  scaleRef
-  invert: invertRef
-  ticks:  ticksRef
-  format: formatRef
-
-
-dvl.scale.ordinal = (options) ->
-  throw 'no options in scale' unless options
-  name = options.name or 'ordinal_scale'
-
-  rangeFrom = options.rangeFrom || 0
-  rangeFrom = dvl.wrapConstIfNeeded(rangeFrom)
-
-  rangeTo = options.rangeTo || 0
-  rangeTo = dvl.wrapConstIfNeeded(rangeTo)
-
-  padding = options.padding || 0
-
-  optDomain = options.domain
-  throw 'no domain object' unless optDomain
-
-  domain = null
-  scaleRef  = dvl.def(null, name + '_fn')
-  ticksRef  = dvl.def(null, name + '_ticks')
-  formatRef = dvl.def(null, name + '_format')
-  bandRef   = dvl.def(0,    name + '_band')
-
-  makeScaleFn = () ->
-    rf = rangeFrom.get()
-    rt = rangeTo.get()
-    if rt > rf
-      rf += padding
-      rt -= padding
-    else
-      rf -= padding
-      rt += padding
-    s = pv.Scale.ordinal().domain(domain).split(rf, rt)
-    scaleRef.set(s)
-    ticksRef.set(domain)
-    formatRef.set(s.tickFormat)
-    bandRef.set(Math.abs(rt - rf) / domain.length)
-    dvl.notify(scaleRef, ticksRef, formatRef, bandRef)
-    return
-
-  makeScaleFnEmpty = () ->
-    scaleRef.update(null)
-    ticksRef.update(null)
-    formatRef.update(null)
-    bandRef.update(0)
-    return
-
-  updateData = () ->
-    domain = optDomain.data.get()
-
-    if not domain
-      makeScaleFnEmpty()
-      return
-
-    if optDomain.acc
-      a = optDomain.acc.get()
-      domain = domain.map(a);
-
-    if optDomain.sort
-      # Sorting changes the data in place so copy the data if we have not done so already
-      domain = domain.slice() unless optDomain.acc or optDomain.uniq
-      domain.sort()
-
-    if optDomain.uniq
-      domain = dvl.util.uniq(domain);
-
-    if domain.length > 0
-      makeScaleFn()
-    else
-      makeScaleFnEmpty()
-
-    return
-
-  dvl.register({fn:makeScaleFn, listen:[rangeFrom, rangeTo], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_range_change', noRun:true})
-  dvl.register({fn:updateData, listen:[optDomain.data, optDomain.acc], change:[scaleRef, ticksRef, formatRef, bandRef], name:name + '_data_change'})
-
-  # return
-  scale: scaleRef
-  ticks: ticksRef
-  format: formatRef
-  band: bandRef
-
-
 # dvl.bind # --------------------------------------------------
 do ->
   id_class_spliter = /(?=[#.:])/
@@ -1823,7 +1606,7 @@ do ->
 
       staticClass = staticClass.join(' ')
 
-      self = parent.append(nodeType)
+      self = dvl.valueOf(parent).append(nodeType)
       self.attr('id', staticId) is staticId
       self.attr('class', staticClass) is staticClass
 
@@ -1889,23 +1672,20 @@ dvl.chain = (f, h) ->
   f = dvl.wrapConstIfNeeded(f)
   h = dvl.wrapConstIfNeeded(h)
 
-  out = dvl.def(null, 'chain')
+  out = dvl.def().name('chain')
 
   dvl.register {
     listen: [f, h]
     change: [out]
     fn: ->
-      _f = f.get()
-      _h = h.get()
+      _f = f.value()
+      _h = h.value()
       if _f and _h
-        out.set((x) -> _h(_f(x)))
+        out.value((x) -> _h(_f(x)))
       else
-        out.set(null)
-
-      dvl.notify(out)
+        out.value(null)
       return
   }
-
   return out
 
 
@@ -2458,34 +2238,31 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr}) ->
 
 
 
-dvl.compare = (acc, reverse) ->
-  acc = dvl.wrapConstIfNeeded(acc || dvl.ident)
-  reverse = dvl.wrapConstIfNeeded(reverse || false)
+dvl.compare = (acc, reverse, ignoreCase) ->
+  acc = dvl.wrapConstIfNeeded(acc or dvl.ident)
+  reverse = dvl.wrapConstIfNeeded(reverse or false)
+  ignoreCase = dvl.wrapConstIfNeeded(ignoreCase or false)
   return dvl.apply {
-    args: [acc, reverse]
-    fn: (acc, reverse) ->
-      if reverse
-        return (a,b) ->
-          va = acc(a)
-          vb = acc(b)
-          t = typeof va
-          if t is 'string'
-            return vb.localeCompare(va)
-          else if t is 'number'
-            return vb - va
-          else
-            throw "bad sorting type #{t}"
+    args: [acc, reverse, ignoreCase]
+    fn: (acc, reverse, ignoreCase) ->
+      toStr = if ignoreCase then (x) -> String(x).toLowerCase() else String
+
+      numCmp = if reverse
+        (a,b) -> b - a
       else
-        return (a,b) ->
-          va = acc(a)
-          vb = acc(b)
-          t = typeof va
-          if t is 'string'
-            return va.localeCompare(vb)
-          else if t is 'number'
-            return va - vb
-          else
-            throw "bad sorting type #{t}"  }
+        (a,b) -> a - b
+
+      strCmp = if reverse
+        (a,b) -> toStr(b).localeCompare(toStr(a))
+      else
+        (a,b) -> toStr(a).localeCompare(toStr(b))
+
+      return (a,b) ->
+        va = acc(a)
+        vb = acc(b)
+        t = typeof va
+        return if t is 'number' then numCmp(va,vb) else strCmp(va,vb)
+  }
 
 
 ##-------------------------------------------------------
@@ -2532,9 +2309,13 @@ dvl.compare = (acc, reverse) ->
 do ->
   default_compare_modes = ['up', 'down']
   dvl.html.table = ({parent, data, sort, classStr, rowClass, rowLimit, columns, on:onRow}) ->
-    table = dvl.valueOf(parent)
-      .append('table')
-      .attr('class', classStr)
+    table = dvl.bindSingle {
+      parent
+      self: 'table'
+      attr: {
+        class: classStr
+      }
+    }
 
     sort = sort or {}
     sortOn = dvl.wrapVarIfNeeded(sort.on)
@@ -2546,7 +2327,6 @@ do ->
     compareMap = {}
     compareList = [sortOn, sortDir]
     for c in columns
-      c.sortable ?= true
       if c.sortable
         if c.compare?
           comp = dvl.wrapConstIfNeeded(c.compare)
@@ -2683,6 +2463,7 @@ do ->
           sel = thead.select("th:nth-child(#{i+1})")
           visibleChanged = c.visible.hasChanged()
           if c.visible.get()
+            sel.datum(c)
             sel.attr('class', c.class.get())       if c.class.hasChanged() or visibleChanged
             sel.attr('title', c.tooltip.get())     if c.tooltip.hasChanged() or visibleChanged
             sel.attr('title', c.tooltip.get())     if c.tooltip.hasChanged() or visibleChanged
@@ -2757,7 +2538,7 @@ do ->
         listen.push v
         nc.on[k] = v
 
-      change.push(nc.selection = dvl.def(null).name("#{c.id}_selection"))
+      change.push(nc.selection = dvl.def().name("#{c.id}_selection"))
 
     columns = newColumns
 
@@ -2776,7 +2557,6 @@ do ->
 
         rowSel = tbody.selectAll('tr').data(dataSorted)
         enterRowSel = rowSel.enter().append('tr')
-        newRows = not enterRowSel.empty()
         rowSel.exit().remove()
         if rowClass
           _rowClass = rowClass.get()
@@ -2791,7 +2571,7 @@ do ->
 
         for c,i in columns
           sel = tbody.selectAll("td:nth-child(#{i+1})").data(dataSorted)
-          visibleChanged = c.visible.hasChanged() or newRows
+          visibleChanged = c.visible.hasChanged() or data.hasChanged()
           if c.visible.get()
             sel.attr('class', c.class.get()) if c.class.hasChanged() or visibleChanged
             sel.attr('title', c.hover.get()) if c.hover.hasChanged() or visibleChanged
