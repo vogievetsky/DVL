@@ -492,13 +492,13 @@ dvl.util = {
 
   dvl.knows = (v) -> v instanceof DVLConst or v instanceof DVLDef
 
-  dvl.wrap =
-  dvl.wrapConstIfNeeded = (v, name) ->
+  dvl.wrapConstIfNeeded =
+  dvl.wrap = (v, name) ->
     v = null if v is undefined
     if dvl.knows(v) then v else dvl.const(v).name(name)
 
-  dvl.wrapVar =
-  dvl.wrapVarIfNeeded = (v, name) ->
+  dvl.wrapVarIfNeeded =
+  dvl.wrapVar = (v, name) ->
     v = null if v is undefined
     if dvl.knows(v) then v else dvl.def(v).name(name)
 
@@ -825,7 +825,7 @@ dvl.identity = dvl.const(dvl.ident).name('identity')
 
 
 dvl.acc = (column) ->
-  column = dvl.wrapConstIfNeeded(column);
+  column = dvl.wrap(column);
   acc = dvl.def().name("acc")
 
   makeAcc = ->
@@ -856,10 +856,10 @@ dvl.debug = ->
     return arguments[0]
 
   if arguments.length is 1
-    obj = dvl.wrapConstIfNeeded(arguments[0])
+    obj = dvl.wrap(arguments[0])
     note = obj.name() + ':'
   else
-    obj = dvl.wrapConstIfNeeded(arguments[1])
+    obj = dvl.wrap(arguments[1])
     note = arguments[0]
 
   dvl.register {
@@ -888,16 +888,16 @@ dvl.apply = dvl.applyValid = ->
     else
       throw "incorect number of arguments"
 
-  fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
+  fn = dvl.wrap(fn or dvl.identity)
 
   argsType = dvl.typeOf(args)
   if argsType is 'undefined'
     args = []
   else
     args = [args] unless argsType is 'array'
-    args = args.map(dvl.wrapConstIfNeeded)
+    args = args.map(dvl.wrap)
 
-  invalid = dvl.wrapConstIfNeeded(invalid ? null)
+  invalid = dvl.wrap(invalid ? null)
 
   out = dvl.def(invalid.get()).name(name or 'apply_out')
 
@@ -984,7 +984,7 @@ dvl.random = (options) ->
 
 dvl.arrayTick = (data, options) ->
   throw 'dvl.arrayTick: no data' unless data
-  data = dvl.wrapConstIfNeeded(data)
+  data = dvl.wrap(data)
 
   point = options.start or 0
   move = options.move or 1
@@ -1006,13 +1006,13 @@ dvl.arrayTick = (data, options) ->
 
 
 dvl.recorder = (options) ->
-  array = dvl.wrapVarIfNeeded(options.array or [], options.name or 'recorder_array')
+  array = dvl.wrapVar(options.array or [], options.name or 'recorder_array')
 
   data = options.data
-  fn = dvl.wrapConstIfNeeded(options.fn or dvl.identity)
+  fn = dvl.wrap(options.fn or dvl.identity)
   throw 'it does not make sense not to have data' unless dvl.knows(data)
 
-  max = dvl.wrapConstIfNeeded(options.max or +Infinity)
+  max = dvl.wrap(options.max or +Infinity)
   i = 0
 
   record = ->
@@ -1191,14 +1191,14 @@ dvl.recorder = (options) ->
   dvl.ajax = ({url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, groupId, requester, name}) ->
     throw 'it does not make sense to not have a url' unless url
     throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
-    url  = dvl.wrapConstIfNeeded(url)
-    data = dvl.wrapConstIfNeeded(data)
-    dataFn = dvl.wrapConstIfNeeded(dataFn or dvl.indentity)
-    method = dvl.wrapConstIfNeeded(method or 'GET')
-    type = dvl.wrapConstIfNeeded(type or 'json')
-    contentType = dvl.wrapConstIfNeeded(contentType or 'application/x-www-form-urlencoded')
-    processData = dvl.wrapConstIfNeeded(processData ? true)
-    invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad or false)
+    url  = dvl.wrap(url)
+    data = dvl.wrap(data)
+    dataFn = dvl.wrap(dataFn or dvl.indentity)
+    method = dvl.wrap(method or 'GET')
+    type = dvl.wrap(type or 'json')
+    contentType = dvl.wrap(contentType or 'application/x-www-form-urlencoded')
+    processData = dvl.wrap(processData ? true)
+    invalidOnLoad = dvl.wrap(invalidOnLoad or false)
     name or= 'ajax_data'
 
     groupId = dvl.ajax.getGroupId() unless groupId?
@@ -1269,8 +1269,8 @@ dvl.ajax.requester = {
 
 
   cache: ({max, timeout, keyFn} = {}) ->
-    max = dvl.wrapConstIfNeeded(max or 100)
-    timeout = dvl.wrapConstIfNeeded(timeout or 30*60*1000)
+    max = dvl.wrap(max or 100)
+    timeout = dvl.wrap(timeout or 30*60*1000)
     cache = {}
     count = 0
     keyFn or= (url, data, method, dataType, contentType, processData) ->
@@ -1385,9 +1385,9 @@ dvl.ajax.requester = {
 
 dvl.snap = ({data, acc, value, trim, name}) ->
   throw 'No data given' unless data
-  acc = dvl.wrapConstIfNeeded(acc or dvl.identity)
-  value = dvl.wrapConstIfNeeded(value)
-  trim = dvl.wrapConstIfNeeded(trim or false)
+  acc = dvl.wrap(acc or dvl.identity)
+  value = dvl.wrap(value)
+  trim = dvl.wrap(trim or false)
   name or= 'snaped_data'
 
   out = dvl.def(null).name(name)
@@ -1472,19 +1472,19 @@ do ->
 
     staticClass = staticClass.join(' ')
 
-    parent = dvl.wrapConstIfNeeded(parent)
-    data = dvl.wrapConstIfNeeded(data or def_data_fn)
-    join = dvl.wrapConstIfNeeded(join)
-    text = if text then dvl.wrapConstIfNeeded(text) else null
-    html = if html then dvl.wrapConstIfNeeded(html) else null
-    transition = dvl.wrapConstIfNeeded(transition)
-    transitionExit = dvl.wrapConstIfNeeded(transitionExit)
+    parent = dvl.wrap(parent)
+    data = dvl.wrap(data or def_data_fn)
+    join = dvl.wrap(join)
+    text = if text then dvl.wrap(text) else null
+    html = if html then dvl.wrap(html) else null
+    transition = dvl.wrap(transition)
+    transitionExit = dvl.wrap(transitionExit)
 
     listen = [parent, data, join, text, html, transition, transitionExit]
 
     attrList = {}
     for k, v of attr
-      v = dvl.wrapConstIfNeeded(v)
+      v = dvl.wrap(v)
       if k is 'class' and staticClass
         v = dvl.op.concat(staticClass + ' ', v)
 
@@ -1496,13 +1496,13 @@ do ->
 
     styleList = {}
     for k, v of style
-      v = dvl.wrapConstIfNeeded(v)
+      v = dvl.wrap(v)
       listen.push(v)
       styleList[k] = v
 
     onList = {}
     for k, v of argsOn
-      v = dvl.wrapConstIfNeeded(v)
+      v = dvl.wrap(v)
       listen.push(v)
       onList[k] = v
 
@@ -1610,18 +1610,18 @@ do ->
       self.attr('id', staticId) is staticId
       self.attr('class', staticClass) is staticClass
 
-    self = dvl.wrapVarIfNeeded(self)
+    self = dvl.wrapVar(self)
 
-    datum = dvl.wrapConstIfNeeded(datum)
-    text = if text then dvl.wrapConstIfNeeded(text) else null
-    html = if html then dvl.wrapConstIfNeeded(html) else null
-    transition = dvl.wrapConstIfNeeded(transition)
+    datum = dvl.wrap(datum)
+    text = if text then dvl.wrap(text) else null
+    html = if html then dvl.wrap(html) else null
+    transition = dvl.wrap(transition)
 
     listen = [datum, text, html, transition]
 
     attrList = {}
     for k, v of attr
-      v = dvl.wrapConstIfNeeded(v)
+      v = dvl.wrap(v)
       if k is 'class' and staticClass
         v = dvl.op.concat(staticClass + ' ', v)
 
@@ -1630,13 +1630,13 @@ do ->
 
     styleList = {}
     for k, v of style
-      v = dvl.wrapConstIfNeeded(v)
+      v = dvl.wrap(v)
       listen.push(v)
       styleList[k] = v
 
     onList = {}
     for k, v of argsOn
-      v = dvl.wrapConstIfNeeded(v)
+      v = dvl.wrap(v)
       listen.push(v)
       onList[k] = v
 
@@ -1669,8 +1669,8 @@ do ->
 
 
 dvl.chain = (f, h) ->
-  f = dvl.wrapConstIfNeeded(f)
-  h = dvl.wrapConstIfNeeded(h)
+  f = dvl.wrap(f)
+  h = dvl.wrap(h)
 
   out = dvl.def().name('chain')
 
@@ -1694,7 +1694,7 @@ do ->
   dvl.op = dvl_op = (fn) ->
     liftedFn = lift(fn)
     return (args...) ->
-      args = args.map(dvl.wrapConstIfNeeded)
+      args = args.map(dvl.wrap)
       out = dvl.def(null, 'out')
 
       dvl.register {
@@ -1764,8 +1764,8 @@ do ->
 clipId = 0
 dvl.svg or= {}
 dvl.svg.clipPath = ({parent, x, y, width, height}) ->
-  x = dvl.wrapConstIfNeeded(x or 0)
-  y = dvl.wrapConstIfNeeded(y or 0)
+  x = dvl.wrap(x or 0)
+  y = dvl.wrap(y or 0)
 
   clipId++
   myId = "cp#{clipId}"
@@ -1792,10 +1792,10 @@ dvl.svg.clipPath = ({parent, x, y, width, height}) ->
 
 dvl.misc = {}
 dvl.misc.mouse = (element, out) ->
-  element = dvl.wrapConstIfNeeded(element)
-  width   = dvl.wrapConstIfNeeded(width)
-  height  = dvl.wrapConstIfNeeded(height)
-  out     = dvl.wrapVarIfNeeded(out, 'mouse')
+  element = dvl.wrap(element)
+  width   = dvl.wrap(width)
+  height  = dvl.wrap(height)
+  out     = dvl.wrapVar(out, 'mouse')
 
   recorder = ->
     _element = element.get()
@@ -1818,8 +1818,8 @@ dvl.misc.mouse = (element, out) ->
 
 
 dvl.misc.delay = (data, time = 1) ->
-  data = dvl.wrapConstIfNeeded(data)
-  time = dvl.wrapConstIfNeeded(time)
+  data = dvl.wrap(data)
+  time = dvl.wrap(time)
   timer = null
   out = dvl.def()
 
@@ -1848,9 +1848,9 @@ dvl.html = {}
 ##  Capture the size of something in HTML
 ##
 dvl.html.resizer = ({selector, out, dimension, fn}) ->
-  out = dvl.wrapVarIfNeeded(out)
-  dimension = dvl.wrapConstIfNeeded(dimension or 'width')
-  fn = dvl.wrapConstIfNeeded(fn or dvl.identity)
+  out = dvl.wrapVar(out)
+  dimension = dvl.wrap(dimension or 'width')
+  fn = dvl.wrap(fn or dvl.identity)
 
   onResize = ->
     _dimension = dimension.get()
@@ -1880,21 +1880,21 @@ dvl.html.resizer = ({selector, out, dimension, fn}) ->
 ##
 dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, text}) ->
   throw 'must have data' unless data
-  data = dvl.wrapConstIfNeeded(data)
+  data = dvl.wrap(data)
   format = format ? fn
 
   throw 'must have selector' unless selector
-  selector = dvl.wrapConstIfNeeded(selector)
+  selector = dvl.wrap(selector)
 
-  format = dvl.wrapConstIfNeeded(format or dvl.identity)
-  invalid = dvl.wrapConstIfNeeded(invalid or null)
-  hideInvalid = dvl.wrapConstIfNeeded(hideInvalid or false)
+  format = dvl.wrap(format or dvl.identity)
+  invalid = dvl.wrap(invalid or null)
+  hideInvalid = dvl.wrap(hideInvalid or false)
 
   if attr
-    what = dvl.wrapConstIfNeeded(attr)
+    what = dvl.wrap(attr)
     out = (selector, string) -> d3.select(selector).attr(what.get(), string)
   else if style
-    what = dvl.wrapConstIfNeeded(style)
+    what = dvl.wrap(style)
     out = (selector, string) -> d3.select(selector).style(what.get(), string)
   else if text
     out = (selector, string) -> d3.select(selector).text(string)
@@ -1926,20 +1926,20 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 dvl.html.list = ({selector, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons, extras, classStr, sortFn}) ->
   throw 'must have selector' unless selector
   throw 'must have data' unless data
-  selection  = dvl.wrapVarIfNeeded(selection, 'selection')
-  selections = dvl.wrapVarIfNeeded(selections or [], 'selections')
-  sortFn = dvl.wrapConstIfNeeded(sortFn)
+  selection  = dvl.wrapVar(selection, 'selection')
+  selections = dvl.wrapVar(selections or [], 'selections')
+  sortFn = dvl.wrap(sortFn)
 
-  data = dvl.wrapConstIfNeeded(data)
-  label = dvl.wrapConstIfNeeded(label or dvl.identity)
-  link = dvl.wrapConstIfNeeded(link)
+  data = dvl.wrap(data)
+  label = dvl.wrap(label or dvl.identity)
+  link = dvl.wrap(link)
 
   icons or= []
   for i in icons
     i.position or= 'right'
 
   if listClass?
-    listClass = dvl.wrapConstIfNeeded(listClass)
+    listClass = dvl.wrap(listClass)
   else
     listClass = dvl.apply(
       [selection, selections]
@@ -2061,17 +2061,17 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
 dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, classStr, menuAnchor, menuOffset, title, icons, sortFn, keepOnClick}) ->
   throw 'must have selector' unless selector
   throw 'must have data' unless data
-  selection = dvl.wrapVarIfNeeded(selection, 'selection')
-  selections = dvl.wrapVarIfNeeded(selections, 'selections')
-  menuAnchor = dvl.wrapConstIfNeeded(menuAnchor or 'left')
-  menuOffset = dvl.wrapConstIfNeeded(menuOffset or { x:0, y:0 })
+  selection = dvl.wrapVar(selection, 'selection')
+  selections = dvl.wrapVar(selections, 'selections')
+  menuAnchor = dvl.wrap(menuAnchor or 'left')
+  menuOffset = dvl.wrap(menuOffset or { x:0, y:0 })
 
-  data = dvl.wrapConstIfNeeded(data)
-  label = dvl.wrapConstIfNeeded(label or dvl.identity)
-  selectionLabel = dvl.wrapConstIfNeeded(selectionLabel or label)
-  link = dvl.wrapConstIfNeeded(link)
+  data = dvl.wrap(data)
+  label = dvl.wrap(label or dvl.identity)
+  selectionLabel = dvl.wrap(selectionLabel or label)
+  link = dvl.wrap(link)
 
-  title = dvl.wrapConstIfNeeded(title) if title
+  title = dvl.wrap(title) if title
   icons or= []
 
   menuOpen = false
@@ -2193,10 +2193,10 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
 dvl.html.select = ({selector, data, label, selection, onChange, classStr}) ->
   throw 'must have selector' unless selector
   throw 'must have data' unless data
-  selection = dvl.wrapVarIfNeeded(selection, 'selection')
+  selection = dvl.wrapVar(selection, 'selection')
 
-  data = dvl.wrapConstIfNeeded(data)
-  label = dvl.wrapConstIfNeeded(label or dvl.identity)
+  data = dvl.wrap(data)
+  label = dvl.wrap(label or dvl.identity)
 
   selChange = ->
     i = selectEl.property('value')
@@ -2239,9 +2239,9 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr}) ->
 
 
 dvl.compare = (acc, reverse, ignoreCase) ->
-  acc = dvl.wrapConstIfNeeded(acc or dvl.ident)
-  reverse = dvl.wrapConstIfNeeded(reverse or false)
-  ignoreCase = dvl.wrapConstIfNeeded(ignoreCase or false)
+  acc = dvl.wrap(acc or dvl.ident)
+  reverse = dvl.wrap(reverse or false)
+  ignoreCase = dvl.wrap(ignoreCase or false)
   return dvl.apply {
     args: [acc, reverse, ignoreCase]
     fn: (acc, reverse, ignoreCase) ->
@@ -2318,9 +2318,9 @@ do ->
     }
 
     sort = sort or {}
-    sortOn = dvl.wrapVarIfNeeded(sort.on)
-    sortDir = dvl.wrapVarIfNeeded(sort.dir)
-    sortOnIndicator = dvl.wrapVarIfNeeded(sort.onIndicator ? sortOn)
+    sortOn = dvl.wrapVar(sort.on)
+    sortDir = dvl.wrapVar(sort.dir)
+    sortOnIndicator = dvl.wrapVar(sort.onIndicator ? sortOn)
 
     headerCol = []
     bodyCol = []
@@ -2329,7 +2329,7 @@ do ->
     for c in columns
       if c.sortable
         if c.compare?
-          comp = dvl.wrapConstIfNeeded(c.compare)
+          comp = dvl.wrap(c.compare)
         else
           comp = dvl.compare(c.value)
         compareMap[c.id] = comp
@@ -2428,7 +2428,7 @@ do ->
   ##
   dvl.html.table.header = ({parent, columns, onClick}) ->
     throw 'there needs to be a parent' unless parent
-    onClick = dvl.wrapConstIfNeeded(onClick)
+    onClick = dvl.wrap(onClick)
 
     thead = dvl.valueOf(parent).append('thead').append('tr')
 
@@ -2437,11 +2437,11 @@ do ->
     for c in columns
       newColumns.push(nc = {
         id:        c.id
-        title:     dvl.wrapConstIfNeeded(c.title)
-        class:     dvl.wrapConstIfNeeded(c.class)
-        visible:   dvl.wrapConstIfNeeded(c.visible ? true)
-        tooltip:   dvl.wrapConstIfNeeded(c.tooltip)
-        indicator: dvl.wrapConstIfNeeded(c.indicator) if c.indicator
+        title:     dvl.wrap(c.title)
+        class:     dvl.wrap(c.class)
+        visible:   dvl.wrap(c.visible ? true)
+        tooltip:   dvl.wrap(c.tooltip)
+        indicator: dvl.wrap(c.indicator) if c.indicator
       })
       listen.push nc.title, nc.class, nc.visible, nc.tooltip, nc.indicator
 
@@ -2507,25 +2507,27 @@ do ->
     throw 'there needs to be data' unless data
     tbody = dvl.valueOf(parent).append('tbody').attr('class', classStr)
 
-    compare = dvl.wrapConstIfNeeded(compare)
-    rowClass = dvl.wrapConstIfNeeded(rowClass) if rowClass?
-    rowLimit = dvl.wrapConstIfNeeded(rowLimit)
+    compare = dvl.wrap(compare)
+    rowClass = dvl.wrap(rowClass) if rowClass?
+    rowLimit = dvl.wrap(rowLimit)
     listen = [data, compare, rowClass, rowLimit]
     change = []
 
+    onRowNew = {}
     for k,v of onRow
-      v = dvl.wrapConstIfNeeded(v)
+      v = dvl.wrap(v)
       listen.push v
-      onRow[k] = v
+      onRowNew[k] = v
+    onRow = onRowNew
 
     newColumns = []
     for c in columns
       newColumns.push(nc = {
         id:      c.id
-        class:   dvl.wrapConstIfNeeded(c.class)
-        visible: dvl.wrapConstIfNeeded(c.visible ? true)
-        hover:   dvl.wrapConstIfNeeded(c.hover)
-        value:   dvl.wrapConstIfNeeded(c.value)
+        class:   dvl.wrap(c.class)
+        visible: dvl.wrap(c.visible ? true)
+        hover:   dvl.wrap(c.hover)
+        value:   dvl.wrap(c.value)
       })
       # don't listen to value which is handled by the render
       listen.push nc.class, nc.visible, nc.hover
@@ -2534,7 +2536,7 @@ do ->
 
       nc.on = {}
       for k,v of c.on
-        v = dvl.wrapConstIfNeeded(v)
+        v = dvl.wrap(v)
         listen.push v
         nc.on[k] = v
 

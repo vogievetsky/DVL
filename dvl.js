@@ -712,7 +712,7 @@ dvl.util = {
   dvl.knows = function(v) {
     return v instanceof DVLConst || v instanceof DVLDef;
   };
-  dvl.wrap = dvl.wrapConstIfNeeded = function(v, name) {
+  dvl.wrapConstIfNeeded = dvl.wrap = function(v, name) {
     if (v === void 0) {
       v = null;
     }
@@ -722,7 +722,7 @@ dvl.util = {
       return dvl["const"](v).name(name);
     }
   };
-  dvl.wrapVar = dvl.wrapVarIfNeeded = function(v, name) {
+  dvl.wrapVarIfNeeded = dvl.wrapVar = function(v, name) {
     if (v === void 0) {
       v = null;
     }
@@ -1122,7 +1122,7 @@ dvl.ident = function(x) {
 dvl.identity = dvl["const"](dvl.ident).name('identity');
 dvl.acc = function(column) {
   var acc, makeAcc;
-  column = dvl.wrapConstIfNeeded(column);
+  column = dvl.wrap(column);
   acc = dvl.def().name("acc");
   makeAcc = function() {
     var col;
@@ -1154,10 +1154,10 @@ dvl.debug = function() {
     return arguments[0];
   };
   if (arguments.length === 1) {
-    obj = dvl.wrapConstIfNeeded(arguments[0]);
+    obj = dvl.wrap(arguments[0]);
     note = obj.name() + ':';
   } else {
-    obj = dvl.wrapConstIfNeeded(arguments[1]);
+    obj = dvl.wrap(arguments[1]);
     note = arguments[0];
   }
   dvl.register({
@@ -1188,7 +1188,7 @@ dvl.apply = dvl.applyValid = function() {
     default:
       throw "incorect number of arguments";
   }
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  fn = dvl.wrap(fn || dvl.identity);
   argsType = dvl.typeOf(args);
   if (argsType === 'undefined') {
     args = [];
@@ -1196,9 +1196,9 @@ dvl.apply = dvl.applyValid = function() {
     if (argsType !== 'array') {
       args = [args];
     }
-    args = args.map(dvl.wrapConstIfNeeded);
+    args = args.map(dvl.wrap);
   }
-  invalid = dvl.wrapConstIfNeeded(invalid != null ? invalid : null);
+  invalid = dvl.wrap(invalid != null ? invalid : null);
   out = dvl.def(invalid.get()).name(name || 'apply_out');
   dvl.register({
     name: (name || 'apply') + '_fn',
@@ -1303,7 +1303,7 @@ dvl.arrayTick = function(data, options) {
   if (!data) {
     throw 'dvl.arrayTick: no data';
   }
-  data = dvl.wrapConstIfNeeded(data);
+  data = dvl.wrap(data);
   point = options.start || 0;
   move = options.move || 1;
   out = dvl.def(null, 'array_tick_data');
@@ -1326,13 +1326,13 @@ dvl.arrayTick = function(data, options) {
 };
 dvl.recorder = function(options) {
   var array, data, fn, i, max, record;
-  array = dvl.wrapVarIfNeeded(options.array || [], options.name || 'recorder_array');
+  array = dvl.wrapVar(options.array || [], options.name || 'recorder_array');
   data = options.data;
-  fn = dvl.wrapConstIfNeeded(options.fn || dvl.identity);
+  fn = dvl.wrap(options.fn || dvl.identity);
   if (!dvl.knows(data)) {
     throw 'it does not make sense not to have data';
   }
-  max = dvl.wrapConstIfNeeded(options.max || +Infinity);
+  max = dvl.wrap(options.max || +Infinity);
   i = 0;
   record = function() {
     var d, m, o, _array;
@@ -1536,14 +1536,14 @@ dvl.recorder = function(options) {
     if (fn && dvl.knows(fn)) {
       throw 'the fn function must be non DVL variable';
     }
-    url = dvl.wrapConstIfNeeded(url);
-    data = dvl.wrapConstIfNeeded(data);
-    dataFn = dvl.wrapConstIfNeeded(dataFn || dvl.indentity);
-    method = dvl.wrapConstIfNeeded(method || 'GET');
-    type = dvl.wrapConstIfNeeded(type || 'json');
-    contentType = dvl.wrapConstIfNeeded(contentType || 'application/x-www-form-urlencoded');
-    processData = dvl.wrapConstIfNeeded(processData != null ? processData : true);
-    invalidOnLoad = dvl.wrapConstIfNeeded(invalidOnLoad || false);
+    url = dvl.wrap(url);
+    data = dvl.wrap(data);
+    dataFn = dvl.wrap(dataFn || dvl.indentity);
+    method = dvl.wrap(method || 'GET');
+    type = dvl.wrap(type || 'json');
+    contentType = dvl.wrap(contentType || 'application/x-www-form-urlencoded');
+    processData = dvl.wrap(processData != null ? processData : true);
+    invalidOnLoad = dvl.wrap(invalidOnLoad || false);
     name || (name = 'ajax_data');
     if (groupId == null) {
       groupId = dvl.ajax.getGroupId();
@@ -1623,8 +1623,8 @@ dvl.ajax.requester = {
   cache: function(_arg) {
     var cache, count, keyFn, max, timeout, trim, _ref2;
     _ref2 = _arg != null ? _arg : {}, max = _ref2.max, timeout = _ref2.timeout, keyFn = _ref2.keyFn;
-    max = dvl.wrapConstIfNeeded(max || 100);
-    timeout = dvl.wrapConstIfNeeded(timeout || 30 * 60 * 1000);
+    max = dvl.wrap(max || 100);
+    timeout = dvl.wrap(timeout || 30 * 60 * 1000);
     cache = {};
     count = 0;
     keyFn || (keyFn = function(url, data, method, dataType, contentType, processData) {
@@ -1770,9 +1770,9 @@ dvl.snap = function(_arg) {
   if (!data) {
     throw 'No data given';
   }
-  acc = dvl.wrapConstIfNeeded(acc || dvl.identity);
-  value = dvl.wrapConstIfNeeded(value);
-  trim = dvl.wrapConstIfNeeded(trim || false);
+  acc = dvl.wrap(acc || dvl.identity);
+  value = dvl.wrap(value);
+  trim = dvl.wrap(trim || false);
   name || (name = 'snaped_data');
   out = dvl.def(null).name(name);
   updateSnap = function() {
@@ -1879,18 +1879,18 @@ dvl.data.max = function(data, acc) {
       }
     }
     staticClass = staticClass.join(' ');
-    parent = dvl.wrapConstIfNeeded(parent);
-    data = dvl.wrapConstIfNeeded(data || def_data_fn);
-    join = dvl.wrapConstIfNeeded(join);
-    text = text ? dvl.wrapConstIfNeeded(text) : null;
-    html = html ? dvl.wrapConstIfNeeded(html) : null;
-    transition = dvl.wrapConstIfNeeded(transition);
-    transitionExit = dvl.wrapConstIfNeeded(transitionExit);
+    parent = dvl.wrap(parent);
+    data = dvl.wrap(data || def_data_fn);
+    join = dvl.wrap(join);
+    text = text ? dvl.wrap(text) : null;
+    html = html ? dvl.wrap(html) : null;
+    transition = dvl.wrap(transition);
+    transitionExit = dvl.wrap(transitionExit);
     listen = [parent, data, join, text, html, transition, transitionExit];
     attrList = {};
     for (k in attr) {
       v = attr[k];
-      v = dvl.wrapConstIfNeeded(v);
+      v = dvl.wrap(v);
       if (k === 'class' && staticClass) {
         v = dvl.op.concat(staticClass + ' ', v);
       }
@@ -1903,14 +1903,14 @@ dvl.data.max = function(data, acc) {
     styleList = {};
     for (k in style) {
       v = style[k];
-      v = dvl.wrapConstIfNeeded(v);
+      v = dvl.wrap(v);
       listen.push(v);
       styleList[k] = v;
     }
     onList = {};
     for (k in argsOn) {
       v = argsOn[k];
-      v = dvl.wrapConstIfNeeded(v);
+      v = dvl.wrap(v);
       listen.push(v);
       onList[k] = v;
     }
@@ -2075,16 +2075,16 @@ dvl.data.max = function(data, acc) {
       self.attr('id', staticId) === staticId;
       self.attr('class', staticClass) === staticClass;
     }
-    self = dvl.wrapVarIfNeeded(self);
-    datum = dvl.wrapConstIfNeeded(datum);
-    text = text ? dvl.wrapConstIfNeeded(text) : null;
-    html = html ? dvl.wrapConstIfNeeded(html) : null;
-    transition = dvl.wrapConstIfNeeded(transition);
+    self = dvl.wrapVar(self);
+    datum = dvl.wrap(datum);
+    text = text ? dvl.wrap(text) : null;
+    html = html ? dvl.wrap(html) : null;
+    transition = dvl.wrap(transition);
     listen = [datum, text, html, transition];
     attrList = {};
     for (k in attr) {
       v = attr[k];
-      v = dvl.wrapConstIfNeeded(v);
+      v = dvl.wrap(v);
       if (k === 'class' && staticClass) {
         v = dvl.op.concat(staticClass + ' ', v);
       }
@@ -2094,14 +2094,14 @@ dvl.data.max = function(data, acc) {
     styleList = {};
     for (k in style) {
       v = style[k];
-      v = dvl.wrapConstIfNeeded(v);
+      v = dvl.wrap(v);
       listen.push(v);
       styleList[k] = v;
     }
     onList = {};
     for (k in argsOn) {
       v = argsOn[k];
-      v = dvl.wrapConstIfNeeded(v);
+      v = dvl.wrap(v);
       listen.push(v);
       onList[k] = v;
     }
@@ -2150,8 +2150,8 @@ dvl.data.max = function(data, acc) {
 })();
 dvl.chain = function(f, h) {
   var out;
-  f = dvl.wrapConstIfNeeded(f);
-  h = dvl.wrapConstIfNeeded(h);
+  f = dvl.wrap(f);
+  h = dvl.wrap(h);
   out = dvl.def().name('chain');
   dvl.register({
     listen: [f, h],
@@ -2182,7 +2182,7 @@ dvl.chain = function(f, h) {
     return function() {
       var args, out;
       args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-      args = args.map(dvl.wrapConstIfNeeded);
+      args = args.map(dvl.wrap);
       out = dvl.def(null, 'out');
       dvl.register({
         listen: args,
@@ -2295,8 +2295,8 @@ dvl.svg || (dvl.svg = {});
 dvl.svg.clipPath = function(_arg) {
   var cp, height, myId, parent, width, x, y;
   parent = _arg.parent, x = _arg.x, y = _arg.y, width = _arg.width, height = _arg.height;
-  x = dvl.wrapConstIfNeeded(x || 0);
-  y = dvl.wrapConstIfNeeded(y || 0);
+  x = dvl.wrap(x || 0);
+  y = dvl.wrap(y || 0);
   clipId++;
   myId = "cp" + clipId;
   cp = dvl.valueOf(parent).append('defs').append('clipPath').attr('id', myId);
@@ -2315,10 +2315,10 @@ dvl.svg.clipPath = function(_arg) {
 dvl.misc = {};
 dvl.misc.mouse = function(element, out) {
   var height, recorder, width;
-  element = dvl.wrapConstIfNeeded(element);
-  width = dvl.wrapConstIfNeeded(width);
-  height = dvl.wrapConstIfNeeded(height);
-  out = dvl.wrapVarIfNeeded(out, 'mouse');
+  element = dvl.wrap(element);
+  width = dvl.wrap(width);
+  height = dvl.wrap(height);
+  out = dvl.wrapVar(out, 'mouse');
   recorder = function() {
     var mouse, _element;
     _element = element.get();
@@ -2339,8 +2339,8 @@ dvl.misc.delay = function(data, time) {
   if (time == null) {
     time = 1;
   }
-  data = dvl.wrapConstIfNeeded(data);
-  time = dvl.wrapConstIfNeeded(time);
+  data = dvl.wrap(data);
+  time = dvl.wrap(time);
   timer = null;
   out = dvl.def();
   timeoutFn = function() {
@@ -2368,9 +2368,9 @@ dvl.html = {};
 dvl.html.resizer = function(_arg) {
   var dimension, fn, onResize, out, selector;
   selector = _arg.selector, out = _arg.out, dimension = _arg.dimension, fn = _arg.fn;
-  out = dvl.wrapVarIfNeeded(out);
-  dimension = dvl.wrapConstIfNeeded(dimension || 'width');
-  fn = dvl.wrapConstIfNeeded(fn || dvl.identity);
+  out = dvl.wrapVar(out);
+  dimension = dvl.wrap(dimension || 'width');
+  fn = dvl.wrap(fn || dvl.identity);
   onResize = function() {
     var e, val, _dimension, _fn;
     _dimension = dimension.get();
@@ -2402,22 +2402,22 @@ dvl.html.out = function(_arg) {
   if (!data) {
     throw 'must have data';
   }
-  data = dvl.wrapConstIfNeeded(data);
+  data = dvl.wrap(data);
   format = format != null ? format : fn;
   if (!selector) {
     throw 'must have selector';
   }
-  selector = dvl.wrapConstIfNeeded(selector);
-  format = dvl.wrapConstIfNeeded(format || dvl.identity);
-  invalid = dvl.wrapConstIfNeeded(invalid || null);
-  hideInvalid = dvl.wrapConstIfNeeded(hideInvalid || false);
+  selector = dvl.wrap(selector);
+  format = dvl.wrap(format || dvl.identity);
+  invalid = dvl.wrap(invalid || null);
+  hideInvalid = dvl.wrap(hideInvalid || false);
   if (attr) {
-    what = dvl.wrapConstIfNeeded(attr);
+    what = dvl.wrap(attr);
     out = function(selector, string) {
       return d3.select(selector).attr(what.get(), string);
     };
   } else if (style) {
-    what = dvl.wrapConstIfNeeded(style);
+    what = dvl.wrap(style);
     out = function(selector, string) {
       return d3.select(selector).style(what.get(), string);
     };
@@ -2465,19 +2465,19 @@ dvl.html.list = function(_arg) {
   if (!data) {
     throw 'must have data';
   }
-  selection = dvl.wrapVarIfNeeded(selection, 'selection');
-  selections = dvl.wrapVarIfNeeded(selections || [], 'selections');
-  sortFn = dvl.wrapConstIfNeeded(sortFn);
-  data = dvl.wrapConstIfNeeded(data);
-  label = dvl.wrapConstIfNeeded(label || dvl.identity);
-  link = dvl.wrapConstIfNeeded(link);
+  selection = dvl.wrapVar(selection, 'selection');
+  selections = dvl.wrapVar(selections || [], 'selections');
+  sortFn = dvl.wrap(sortFn);
+  data = dvl.wrap(data);
+  label = dvl.wrap(label || dvl.identity);
+  link = dvl.wrap(link);
   icons || (icons = []);
   for (_i = 0, _len = icons.length; _i < _len; _i++) {
     i = icons[_i];
     i.position || (i.position = 'right');
   }
   if (listClass != null) {
-    listClass = dvl.wrapConstIfNeeded(listClass);
+    listClass = dvl.wrap(listClass);
   } else {
     listClass = dvl.apply([selection, selections], {
       allowNull: true
@@ -2608,19 +2608,19 @@ dvl.html.dropdownList = function(_arg) {
   if (!data) {
     throw 'must have data';
   }
-  selection = dvl.wrapVarIfNeeded(selection, 'selection');
-  selections = dvl.wrapVarIfNeeded(selections, 'selections');
-  menuAnchor = dvl.wrapConstIfNeeded(menuAnchor || 'left');
-  menuOffset = dvl.wrapConstIfNeeded(menuOffset || {
+  selection = dvl.wrapVar(selection, 'selection');
+  selections = dvl.wrapVar(selections, 'selections');
+  menuAnchor = dvl.wrap(menuAnchor || 'left');
+  menuOffset = dvl.wrap(menuOffset || {
     x: 0,
     y: 0
   });
-  data = dvl.wrapConstIfNeeded(data);
-  label = dvl.wrapConstIfNeeded(label || dvl.identity);
-  selectionLabel = dvl.wrapConstIfNeeded(selectionLabel || label);
-  link = dvl.wrapConstIfNeeded(link);
+  data = dvl.wrap(data);
+  label = dvl.wrap(label || dvl.identity);
+  selectionLabel = dvl.wrap(selectionLabel || label);
+  link = dvl.wrap(link);
   if (title) {
-    title = dvl.wrapConstIfNeeded(title);
+    title = dvl.wrap(title);
   }
   icons || (icons = []);
   menuOpen = false;
@@ -2732,9 +2732,9 @@ dvl.html.select = function(_arg) {
   if (!data) {
     throw 'must have data';
   }
-  selection = dvl.wrapVarIfNeeded(selection, 'selection');
-  data = dvl.wrapConstIfNeeded(data);
-  label = dvl.wrapConstIfNeeded(label || dvl.identity);
+  selection = dvl.wrapVar(selection, 'selection');
+  data = dvl.wrap(data);
+  label = dvl.wrap(label || dvl.identity);
   selChange = function() {
     var i, val;
     i = selectEl.property('value');
@@ -2775,9 +2775,9 @@ dvl.html.select = function(_arg) {
   return selection;
 };
 dvl.compare = function(acc, reverse, ignoreCase) {
-  acc = dvl.wrapConstIfNeeded(acc || dvl.ident);
-  reverse = dvl.wrapConstIfNeeded(reverse || false);
-  ignoreCase = dvl.wrapConstIfNeeded(ignoreCase || false);
+  acc = dvl.wrap(acc || dvl.ident);
+  reverse = dvl.wrap(reverse || false);
+  ignoreCase = dvl.wrap(ignoreCase || false);
   return dvl.apply({
     args: [acc, reverse, ignoreCase],
     fn: function(acc, reverse, ignoreCase) {
@@ -2823,9 +2823,9 @@ dvl.compare = function(acc, reverse, ignoreCase) {
       }
     });
     sort = sort || {};
-    sortOn = dvl.wrapVarIfNeeded(sort.on);
-    sortDir = dvl.wrapVarIfNeeded(sort.dir);
-    sortOnIndicator = dvl.wrapVarIfNeeded((_ref2 = sort.onIndicator) != null ? _ref2 : sortOn);
+    sortOn = dvl.wrapVar(sort.on);
+    sortDir = dvl.wrapVar(sort.dir);
+    sortOnIndicator = dvl.wrapVar((_ref2 = sort.onIndicator) != null ? _ref2 : sortOn);
     headerCol = [];
     bodyCol = [];
     compareMap = {};
@@ -2834,7 +2834,7 @@ dvl.compare = function(acc, reverse, ignoreCase) {
       c = columns[_i];
       if (c.sortable) {
         if (c.compare != null) {
-          comp = dvl.wrapConstIfNeeded(c.compare);
+          comp = dvl.wrap(c.compare);
         } else {
           comp = dvl.compare(c.value);
         }
@@ -2929,7 +2929,7 @@ dvl.compare = function(acc, reverse, ignoreCase) {
     if (!parent) {
       throw 'there needs to be a parent';
     }
-    onClick = dvl.wrapConstIfNeeded(onClick);
+    onClick = dvl.wrap(onClick);
     thead = dvl.valueOf(parent).append('thead').append('tr');
     listen = [onClick];
     newColumns = [];
@@ -2937,11 +2937,11 @@ dvl.compare = function(acc, reverse, ignoreCase) {
       c = columns[_i];
       newColumns.push(nc = {
         id: c.id,
-        title: dvl.wrapConstIfNeeded(c.title),
-        "class": dvl.wrapConstIfNeeded(c["class"]),
-        visible: dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true),
-        tooltip: dvl.wrapConstIfNeeded(c.tooltip),
-        indicator: c.indicator ? dvl.wrapConstIfNeeded(c.indicator) : void 0
+        title: dvl.wrap(c.title),
+        "class": dvl.wrap(c["class"]),
+        visible: dvl.wrap((_ref2 = c.visible) != null ? _ref2 : true),
+        tooltip: dvl.wrap(c.tooltip),
+        indicator: c.indicator ? dvl.wrap(c.indicator) : void 0
       });
       listen.push(nc.title, nc["class"], nc.visible, nc.tooltip, nc.indicator);
     }
@@ -3002,7 +3002,7 @@ dvl.compare = function(acc, reverse, ignoreCase) {
     });
   };
   dvl.html.table.body = function(_arg) {
-    var c, change, classStr, columns, compare, data, k, listen, nc, newColumns, onRow, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2, _ref3;
+    var c, change, classStr, columns, compare, data, k, listen, nc, newColumns, onRow, onRowNew, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len2, _ref2, _ref3;
     parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, classStr = _arg.classStr, rowLimit = _arg.rowLimit, columns = _arg.columns, onRow = _arg.on;
     if (!parent) {
       throw 'there needs to be a parent';
@@ -3011,28 +3011,30 @@ dvl.compare = function(acc, reverse, ignoreCase) {
       throw 'there needs to be data';
     }
     tbody = dvl.valueOf(parent).append('tbody').attr('class', classStr);
-    compare = dvl.wrapConstIfNeeded(compare);
+    compare = dvl.wrap(compare);
     if (rowClass != null) {
-      rowClass = dvl.wrapConstIfNeeded(rowClass);
+      rowClass = dvl.wrap(rowClass);
     }
-    rowLimit = dvl.wrapConstIfNeeded(rowLimit);
+    rowLimit = dvl.wrap(rowLimit);
     listen = [data, compare, rowClass, rowLimit];
     change = [];
+    onRowNew = {};
     for (k in onRow) {
       v = onRow[k];
-      v = dvl.wrapConstIfNeeded(v);
+      v = dvl.wrap(v);
       listen.push(v);
-      onRow[k] = v;
+      onRowNew[k] = v;
     }
+    onRow = onRowNew;
     newColumns = [];
     for (_i = 0, _len = columns.length; _i < _len; _i++) {
       c = columns[_i];
       newColumns.push(nc = {
         id: c.id,
-        "class": dvl.wrapConstIfNeeded(c["class"]),
-        visible: dvl.wrapConstIfNeeded((_ref2 = c.visible) != null ? _ref2 : true),
-        hover: dvl.wrapConstIfNeeded(c.hover),
-        value: dvl.wrapConstIfNeeded(c.value)
+        "class": dvl.wrap(c["class"]),
+        visible: dvl.wrap((_ref2 = c.visible) != null ? _ref2 : true),
+        hover: dvl.wrap(c.hover),
+        value: dvl.wrap(c.value)
       });
       listen.push(nc["class"], nc.visible, nc.hover);
       nc.render = c.render || 'text';
@@ -3040,7 +3042,7 @@ dvl.compare = function(acc, reverse, ignoreCase) {
       _ref3 = c.on;
       for (k in _ref3) {
         v = _ref3[k];
-        v = dvl.wrapConstIfNeeded(v);
+        v = dvl.wrap(v);
         listen.push(v);
         nc.on[k] = v;
       }
