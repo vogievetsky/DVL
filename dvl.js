@@ -1582,7 +1582,7 @@ dvl.recorder = function(options) {
     return function(url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name) {
       var q, res;
       nextQueryId++;
-      res = dvl.def(null, name);
+      res = dvl.def().name(name);
       q = {
         id: nextQueryId,
         url: url,

@@ -1166,7 +1166,7 @@ dvl.recorder = (options) ->
 
     return (url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name) ->
       nextQueryId++
-      res = dvl.def(null, name)
+      res = dvl.def().name(name)
       q = {
         id: nextQueryId
         url
