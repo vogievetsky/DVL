@@ -6,53 +6,6 @@ var vows = require("vows"),
 var suite = vows.describe("dvl.def");
 
 suite.addBatch({
-  "variables": {
-    "returns the correct init value on nothing": function() {
-      var v = dvl.def();
-      assert.strictEqual(v.value(), null);
-    },
-    "returns the correct init value on undefined": function() {
-      var v = dvl.def(undefined);
-      assert.strictEqual(v.value(), null);
-    },
-    "returns the correct init value on null": function() {
-      var v = dvl.def(null);
-      assert.strictEqual(v.value(), null);
-    },
-    "returns the correct init value": function() {
-      var v = dvl.def(5);
-      assert.strictEqual(v.value(), 5);
-    },
-
-    "returns the correct set value on undefined": function() {
-      var v = dvl.def().value(undefined);
-      assert.strictEqual(v.value(), null);
-    },
-    "returns the correct set value on null": function() {
-      var v = dvl.def().value(null);
-      assert.strictEqual(v.value(), null);
-    },
-    "returns the correct set value": function() {
-      var v = dvl.def().value(5);
-      assert.strictEqual(v.value(), 5);
-    },
-    "returns the correct set value on NaN": function() {
-      var v = dvl.def().value(NaN);
-      assert.isNaN(v.value());
-    },
-
-    "no initial name": function() {
-      var v = dvl.def(5);
-      assert.strictEqual(v.name(), '<anon>');
-    },
-    "setting name": function() {
-      var v = dvl.def(5).name("some_name");
-      assert.strictEqual(v.name(), "some_name");
-    },
-  },
-});
-
-suite.addBatch({
   "constants": {
     "returns the correct init value on nothing": function() {
       var v = dvl.const();
@@ -103,6 +56,63 @@ suite.addBatch({
       assert.strictEqual(v.name(), "some_name");
     },
   }
+});
+
+suite.addBatch({
+  "variables": {
+    "returns the correct init value on nothing": function() {
+      var v = dvl.def();
+      assert.strictEqual(v.value(), null);
+    },
+    "returns the correct init value on undefined": function() {
+      var v = dvl.def(undefined);
+      assert.strictEqual(v.value(), null);
+    },
+    "returns the correct init value on null": function() {
+      var v = dvl.def(null);
+      assert.strictEqual(v.value(), null);
+    },
+    "returns the correct init value": function() {
+      var v = dvl.def(5);
+      assert.strictEqual(v.value(), 5);
+    },
+
+    "returns the correct set value on undefined": function() {
+      var v = dvl.def().value(undefined);
+      assert.strictEqual(v.value(), null);
+    },
+    "returns the correct set value on null": function() {
+      var v = dvl.def().value(null);
+      assert.strictEqual(v.value(), null);
+    },
+    "returns the correct set value": function() {
+      var v = dvl.def().value(5);
+      assert.strictEqual(v.value(), 5);
+    },
+    "returns the correct set value on NaN": function() {
+      var v = dvl.def().value(NaN);
+      assert.isNaN(v.value());
+    },
+
+    "no initial name": function() {
+      var v = dvl.def(5);
+      assert.strictEqual(v.name(), '<anon>');
+    },
+    "setting name": function() {
+      var v = dvl.def(5).name("some_name");
+      assert.strictEqual(v.name(), "some_name");
+    },
+  },
+});
+
+suite.addBatch({
+  "lazy variables": {
+    "returns the correct value form lazy": function() {
+      var v = dvl.def();
+      v.lazyValue(function() { return 3; })
+      assert.strictEqual(v.value(), 3);
+    },
+  },
 });
 
 suite.export(module);

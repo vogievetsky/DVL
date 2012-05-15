@@ -303,7 +303,7 @@ dvl.util = {
       return this;
     };
 
-    DVLConst.prototype.setLazy = function() {
+    DVLConst.prototype.lazyValue = function() {
       return this;
     };
 
@@ -411,11 +411,9 @@ dvl.util = {
     }
 
     DVLDef.prototype.resolveLazy = function() {
-      var val;
       if (this.lazy) {
-        val = this.lazy();
-        this.prev = val;
-        this.val = val;
+        this.prev = this.v;
+        this.v = this.lazy();
         this.lazy = null;
       }
     };
@@ -461,9 +459,10 @@ dvl.util = {
       return this;
     };
 
-    DVLDef.prototype.setLazy = function(fn) {
+    DVLDef.prototype.lazyValue = function(fn) {
       this.lazy = fn;
       this.changed = true;
+      dvl.notify(this);
       return this;
     };
 
@@ -1174,13 +1173,6 @@ dvl.util = {
     });
   };
 })();
-
-dvl.alwaysLazy = function(v, fn) {
-  return function() {
-    v.setLazy(fn);
-    return dvl.notify(v);
-  };
-};
 
 dvl.zero = dvl["const"](0).name('zero');
 

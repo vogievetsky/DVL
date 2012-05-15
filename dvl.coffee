@@ -217,7 +217,7 @@ dvl.util = {
       return if arguments.length then this else @v
 
     set: -> this
-    setLazy: -> this
+    lazyValue: -> this
     update: -> this
     get: -> @v
     getPrev: -> @v
@@ -268,9 +268,8 @@ dvl.util = {
 
     resolveLazy: ->
       if @lazy
-        val = @lazy()
-        @prev = val
-        @val = val
+        @prev = @v
+        @v = @lazy()
         @lazy = null
       return
 
@@ -303,9 +302,10 @@ dvl.util = {
       @changed = true
       @lazy = null
       return this
-    setLazy: (fn) ->
+    lazyValue: (fn) ->
       @lazy = fn
       @changed = true
+      dvl.notify(this)
       return this
     update: (val) ->
       if not dvl.util.isEqual(val, @v)
@@ -810,11 +810,6 @@ dvl.util = {
     return
 
 )()
-
-dvl.alwaysLazy = (v, fn) ->
-  return ->
-    v.setLazy(fn)
-    dvl.notify(v)
 
 dvl.zero = dvl.const(0).name('zero')
 
