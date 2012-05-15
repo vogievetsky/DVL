@@ -2816,8 +2816,8 @@ dvl.html.dropdownList = function(_arg) {
 };
 
 dvl.html.select = function(_arg) {
-  var classStr, data, label, onChange, selChange, selectEl, selection, selector;
-  selector = _arg.selector, data = _arg.data, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr;
+  var classStr, data, label, onChange, selChange, selectEl, selection, selector, visible;
+  selector = _arg.selector, data = _arg.data, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr, visible = _arg.visible;
   if (!selector) {
     throw 'must have selector';
   }
@@ -2825,18 +2825,32 @@ dvl.html.select = function(_arg) {
     throw 'must have data';
   }
   selection = dvl.wrapVar(selection, 'selection');
+  visible = dvl.wrap(visible != null ? visible : true);
   data = dvl.wrap(data);
   label = dvl.wrap(label || dvl.identity);
   selChange = function() {
-    var i, val;
-    i = selectEl.property('value');
+    var i, val, _selectEl;
+    _selectEl = selectEl.value();
+    i = _selectEl.property('value');
     val = data.get()[i];
     if ((typeof onChange === "function" ? onChange(val) : void 0) === false) {
       return;
     }
     selection.update(val);
   };
-  selectEl = d3.select(selector).append('select').attr('class', classStr || null).on('change', selChange);
+  selectEl = dvl.bind({
+    parent: d3.select(selector),
+    self: 'select',
+    attr: {
+      "class": classStr || null
+    },
+    style: {
+      display: dvl.op.iff(visible, null, 'none')
+    },
+    on: {
+      change: selChange
+    }
+  });
   dvl.bind({
     parent: selectEl,
     self: 'option',
@@ -2851,15 +2865,16 @@ dvl.html.select = function(_arg) {
   dvl.register({
     listen: [data, selection],
     fn: function() {
-      var idx, _data, _selection;
+      var idx, _data, _selectEl, _selection;
       _data = data.get();
       _selection = selection.get();
       if (!(_data && _selection)) {
         return;
       }
       idx = _data.indexOf(_selection);
-      if (selectEl.node().value !== idx) {
-        selectEl.node().value = idx;
+      _selectEl = selectEl.value();
+      if (_selectEl.property('value') !== idx) {
+        _selectEl.property('value', idx);
       }
     }
   });

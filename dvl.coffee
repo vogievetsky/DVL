@@ -2185,25 +2185,36 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
 ##
 ##  Select (dropdown box) made with HTML
 ##
-dvl.html.select = ({selector, data, label, selection, onChange, classStr}) ->
+dvl.html.select = ({selector, data, label, selection, onChange, classStr, visible}) ->
   throw 'must have selector' unless selector
   throw 'must have data' unless data
   selection = dvl.wrapVar(selection, 'selection')
+  visible = dvl.wrap(visible ? true)
 
   data = dvl.wrap(data)
   label = dvl.wrap(label or dvl.identity)
 
   selChange = ->
-    i = selectEl.property('value')
+    _selectEl = selectEl.value()
+    i = _selectEl.property('value')
     val = data.get()[i]
     return if onChange?(val) is false
     selection.update(val)
     return
 
-  selectEl = d3.select(selector)
-    .append('select')
-    .attr('class', classStr or null)
-    .on('change', selChange)
+  selectEl = dvl.bind {
+    parent: d3.select(selector)
+    self: 'select'
+    attr: {
+      class: classStr or null
+    }
+    style: {
+      display: dvl.op.iff(visible, null, 'none')
+    }
+    on: {
+      change: selChange
+    }
+  }
 
   dvl.bind {
     parent: selectEl
@@ -2222,8 +2233,9 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr}) ->
       _selection = selection.get()
       return unless _data and _selection
       idx = _data.indexOf(_selection)
-      if selectEl.node().value isnt idx
-        selectEl.node().value = idx
+      _selectEl = selectEl.value()
+      if _selectEl.property('value') isnt idx
+        _selectEl.property('value', idx)
       return
   }
 
