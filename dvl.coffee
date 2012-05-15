@@ -2202,7 +2202,7 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr, visibl
     selection.update(val)
     return
 
-  selectEl = dvl.bind {
+  selectEl = dvl.bindSingle {
     parent: d3.select(selector)
     self: 'select'
     attr: {

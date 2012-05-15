@@ -2838,7 +2838,7 @@ dvl.html.select = function(_arg) {
     }
     selection.update(val);
   };
-  selectEl = dvl.bind({
+  selectEl = dvl.bindSingle({
     parent: d3.select(selector),
     self: 'select',
     attr: {
