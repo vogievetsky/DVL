@@ -436,7 +436,7 @@ dvl.util = {
     DVLDef.prototype.value = function(val) {
       if (arguments.length) {
         val = val != null ? val : null;
-        if (!this.compareFn(val, this.v)) {
+        if (!(this.compareFn && this.compareFn(val, this.v))) {
           this.set(val);
           dvl.notify(this);
         }
@@ -799,7 +799,7 @@ dvl.util = {
   };
   dvl.valueOf = function(v) {
     if (dvl.knows(v)) {
-      return v.get();
+      return v.value();
     } else {
       return v != null ? v : null;
     }
@@ -1190,7 +1190,7 @@ dvl.acc = function(column) {
   acc = dvl.def().name("acc");
   makeAcc = function() {
     var col;
-    col = column.get();
+    col = column.value();
     if (col != null) {
       acc.set(function(d) {
         return d[col];
@@ -1228,7 +1228,7 @@ dvl.debug = function() {
   dvl.register({
     listen: [obj],
     fn: function() {
-      return print(note, obj.get());
+      return print(note, obj.value());
     }
   });
   return obj;
@@ -1265,14 +1265,14 @@ dvl.apply = dvl.applyValid = function() {
     args = args.map(dvl.wrap);
   }
   invalid = dvl.wrap(invalid != null ? invalid : null);
-  out = dvl.def(invalid.get()).name(name || 'apply_out');
+  out = dvl.def(invalid.value()).name(name || 'apply_out');
   dvl.register({
     name: (name || 'apply') + '_fn',
     listen: args.concat([fn, invalid]),
     change: [out],
     fn: function() {
       var a, f, nulls, r, send, v, _i, _len;
-      f = fn.get();
+      f = fn.value();
       if (f == null) {
         return;
       }
@@ -1280,7 +1280,7 @@ dvl.apply = dvl.applyValid = function() {
       nulls = false;
       for (_i = 0, _len = args.length; _i < _len; _i++) {
         a = args[_i];
-        v = a.get();
+        v = a.value();
         if (v == null) {
           nulls = true;
         }
@@ -1292,7 +1292,7 @@ dvl.apply = dvl.applyValid = function() {
           return;
         }
       } else {
-        r = invalid.get();
+        r = invalid.value();
       }
       if (update) {
         out.update(r);
@@ -1344,7 +1344,7 @@ dvl.random = function(options) {
     var r, scale;
     if (walk && walk > 0) {
       scale = walk * Math.abs(max - min);
-      r = random.get() + scale * (2 * Math.random() - 1);
+      r = random.value() + scale * (2 * Math.random() - 1);
       if (r < min) {
         r = min;
       }
@@ -1378,7 +1378,7 @@ dvl.arrayTick = function(data, options) {
   out = dvl.def(null, 'array_tick_data');
   gen = function() {
     var d, len, v;
-    d = data.get();
+    d = data.value();
     len = d.length;
     if (len > 0) {
       v = d[point % len];
@@ -1396,7 +1396,7 @@ dvl.arrayTick = function(data, options) {
 
 dvl.recorder = function(options) {
   var array, data, fn, i, max, record;
-  array = dvl.wrapVar(options.array || [], options.name || 'recorder_array');
+  array = dvl.wrapVar(options.array || [], options.name || 'recorder_array').compare(false);
   data = options.data;
   fn = dvl.wrap(options.fn || dvl.identity);
   if (!dvl.knows(data)) {
@@ -1406,8 +1406,8 @@ dvl.recorder = function(options) {
   i = 0;
   record = function() {
     var d, m, o, _array;
-    d = fn.get()(data.get());
-    m = max.get();
+    d = fn.value()(data.value());
+    m = max.value();
     if (d != null) {
       if (options.value) {
         o = {};
@@ -1420,12 +1420,12 @@ dvl.recorder = function(options) {
       if (options.timestamp) {
         d[options.timestamp] = new Date();
       }
-      _array = array.get();
+      _array = array.value();
       _array.push(d);
       while (m < _array.length) {
         _array.shift();
       }
-      array.set(_array).notify();
+      array.value(_array);
       return i += 1;
     }
   };
@@ -1471,7 +1471,7 @@ dvl.recorder = function(options) {
     getData = function(err, resVal) {
       var q;
       q = this.q;
-      if (this.url === q.url.get() && (this.method === 'GET' || (this.data === q.data.get() && this.dataFn === q.dataFn.get()))) {
+      if (this.url === q.url.value() && (this.method === 'GET' || (this.data === q.data.value() && this.dataFn === q.dataFn.value()))) {
         if (err) {
           q.resVal = null;
           if (q.onError) {
@@ -1487,11 +1487,11 @@ dvl.recorder = function(options) {
     };
     makeRequest = function(q, request) {
       var ctx, _data, _dataFn, _dataType, _method, _url;
-      _url = q.url.get();
-      _data = q.data.get();
-      _dataFn = q.dataFn.get();
-      _method = q.method.get();
-      _dataType = q.type.get();
+      _url = q.url.value();
+      _data = q.data.value();
+      _dataFn = q.dataFn.value();
+      _method = q.method.value();
+      _dataType = q.type.value();
       ctx = {
         q: q,
         request: request,
@@ -1504,7 +1504,7 @@ dvl.recorder = function(options) {
         q.curAjax.abort();
       }
       if ((_url != null) && (_method === 'GET' || ((_data != null) && (_dataFn != null))) && _dataType) {
-        if (q.invalidOnLoad.get()) {
+        if (q.invalidOnLoad.value()) {
           q.res.update(null);
         }
         q.curAjax = q.requester.request({
@@ -1513,8 +1513,8 @@ dvl.recorder = function(options) {
           dataFn: _dataFn,
           method: _method,
           dataType: _dataType,
-          contentType: q.contentType.get(),
-          processData: q.processData.get(),
+          contentType: q.contentType.value(),
+          processData: q.processData.value(),
           fn: q.fn,
           outstanding: outstanding,
           complete: function(err, data) {
@@ -1534,7 +1534,7 @@ dvl.recorder = function(options) {
           continue;
         }
         if (q.status === 'virgin') {
-          if (q.url.get()) {
+          if (q.url.value()) {
             initQueue.push(q);
             q.status = 'requesting';
             makeRequest(q, initQueue);
@@ -1674,13 +1674,13 @@ dvl.ajax.requester = {
           success: getData,
           error: getError,
           complete: function() {
-            return outstanding.set(outstanding.get() - 1).notify();
+            return outstanding.value(outstanding.value() - 1);
           },
           context: {
             url: url
           }
         });
-        outstanding.set(outstanding.get() + 1).notify();
+        outstanding.value(outstanding.value() + 1);
         return {
           abort: function() {
             if (ajax) {
@@ -1704,7 +1704,7 @@ dvl.ajax.requester = {
     });
     trim = function() {
       var cutoff, d, m, newCache, oldestQuery, oldestTime, q, tout, _results;
-      tout = timeout.get();
+      tout = timeout.value();
       if (tout > 0) {
         cutoff = Date.now() - tout;
         newCache = {};
@@ -1716,7 +1716,7 @@ dvl.ajax.requester = {
         }
         cache = newCache;
       }
-      m = max.get();
+      m = max.value();
       _results = [];
       while (m < count) {
         oldestQuery = null;
@@ -1797,10 +1797,10 @@ dvl.ajax.requester = {
             success: getData,
             error: getError,
             complete: function() {
-              return outstanding.set(outstanding.get() - 1).notify();
+              return outstanding.value(outstanding.value() - 1);
             }
           });
-          outstanding.set(outstanding.get() + 1).notify();
+          outstanding.value(outstanding.value() + 1);
         }
         if (c.resVal) {
           complete(null, c.resVal);
@@ -1850,11 +1850,11 @@ dvl.snap = function(_arg) {
   out = dvl.def(null).name(name);
   updateSnap = function() {
     var a, d, dist, ds, i, minDatum, minDist, minIdx, v, _i, _len;
-    ds = data.get();
-    a = acc.get();
-    v = value.get();
+    ds = data.value();
+    a = acc.value();
+    v = value.value();
     if (ds && a && v) {
-      if (trim.get() && ds.length !== 0 && (v < a(ds[0]) || a(ds[ds.length - 1]) < v)) {
+      if (trim.value() && ds.length !== 0 && (v < a(ds[0]) || a(ds[ds.length - 1]) < v)) {
         minIdx = -1;
       } else {
         minIdx = -1;
@@ -1871,7 +1871,7 @@ dvl.snap = function(_arg) {
         }
       }
       minDatum = minIdx < 0 ? null : ds[minIdx];
-      if (out.get() !== minDatum) {
+      if (out.value() !== minDatum) {
         out.set(minDatum);
       }
     } else {
@@ -1892,7 +1892,7 @@ dvl.hasher = function(obj) {
   var updateHash;
   updateHash = function() {
     var h;
-    h = obj.get();
+    h = obj.value();
     if (window.location.hash !== h) {
       return window.location.hash = h;
     }
@@ -1998,16 +1998,16 @@ dvl.data.max = function(data, acc) {
       change: [out],
       fn: function() {
         var a, add1, add2, addO, e, enter, ex, force, k, postTrans, preTrans, s, t, v, _data, _j, _join, _k, _l, _len1, _len2, _len3, _parent, _transition, _transitionExit;
-        _parent = parent.get();
+        _parent = parent.value();
         if (!_parent) {
           return;
         }
         force = parent.hasChanged() || data.hasChanged() || join.hasChanged();
-        _data = data.get();
-        _join = join.get();
+        _data = data.value();
+        _join = join.value();
         if (_data) {
-          _transition = transition.get();
-          _transitionExit = transitionExit.get();
+          _transition = transition.value();
+          _transitionExit = transitionExit.value();
           enter = [];
           preTrans = [];
           postTrans = [];
@@ -2019,12 +2019,12 @@ dvl.data.max = function(data, acc) {
               });
               postTrans.push({
                 fn: fn,
-                a1: v.get()
+                a1: v.value()
               });
             } else {
               enter.push({
                 fn: fn,
-                a1: v.get()
+                a1: v.value()
               });
             }
           };
@@ -2043,13 +2043,13 @@ dvl.data.max = function(data, acc) {
               postTrans.push({
                 fn: fn,
                 a1: k,
-                a2: v.get()
+                a2: v.value()
               });
             } else {
               enter.push({
                 fn: fn,
                 a1: k,
-                a2: v.get()
+                a2: v.value()
               });
             }
           };
@@ -2058,13 +2058,13 @@ dvl.data.max = function(data, acc) {
               preTrans.push({
                 fn: fn,
                 a1: k,
-                a2: v.get()
+                a2: v.value()
               });
             } else {
               enter.push({
                 fn: fn,
                 a1: k,
-                a2: v.get()
+                a2: v.value()
               });
             }
           };
@@ -2188,8 +2188,8 @@ dvl.data.max = function(data, acc) {
       change: [self],
       fn: function() {
         var force, k, sel, v, _datum;
-        sel = self.get();
-        _datum = datum.get();
+        sel = self.value();
+        _datum = datum.value();
         force = datum.hasChanged();
         if (force) {
           sel.datum(_datum);
@@ -2197,26 +2197,26 @@ dvl.data.max = function(data, acc) {
         for (k in attrList) {
           v = attrList[k];
           if (v.hasChanged() || force) {
-            sel.attr(k, v.get());
+            sel.attr(k, v.value());
           }
         }
         for (k in styleList) {
           v = styleList[k];
           if (v.hasChanged() || force) {
-            sel.style(k, v.get());
+            sel.style(k, v.value());
           }
         }
         for (k in onList) {
           v = onList[k];
           if (v.hasChanged() || force) {
-            sel.on(k, v.get());
+            sel.on(k, v.value());
           }
         }
         if (text && (text.hasChanged() || force)) {
-          sel.text(text.get());
+          sel.text(text.value());
         }
         if (html && (html.hasChanged() || force)) {
-          sel.html(html.get());
+          sel.html(html.value());
         }
         if (force) {
           self.notify();
@@ -2252,9 +2252,9 @@ dvl.chain = function(f, h) {
 };
 
 (function() {
-  var dvl_get, dvl_op, fn, k, op_to_lift;
-  dvl_get = function(v) {
-    return v.get();
+  var dvl_op, dvl_value, fn, k, op_to_lift;
+  dvl_value = function(v) {
+    return v.value();
   };
   dvl.op = dvl_op = function(fn) {
     var liftedFn;
@@ -2263,12 +2263,12 @@ dvl.chain = function(f, h) {
       var args, out;
       args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
       args = args.map(dvl.wrap);
-      out = dvl.def(null, 'out');
+      out = dvl.def();
       dvl.register({
         listen: args,
         change: [out],
         fn: function() {
-          out.set(liftedFn.apply(null, args.map(dvl_get)));
+          out.set(liftedFn.apply(null, args.map(dvl_value)));
           dvl.notify(out);
         }
       });
@@ -2406,11 +2406,11 @@ dvl.misc.mouse = function(element, out) {
   out = dvl.wrapVar(out, 'mouse');
   recorder = function() {
     var mouse, _element;
-    _element = element.get();
+    _element = element.value();
     mouse = _element && d3.event ? d3.svg.mouse(_element.node()) : null;
-    out.set(mouse).notify();
+    out.value(mouse);
   };
-  element.get().on('mousemove', recorder).on('mouseout', recorder);
+  element.value().on('mousemove', recorder).on('mouseout', recorder);
   dvl.register({
     name: 'mouse_recorder',
     listen: [parent],
@@ -2430,21 +2430,22 @@ dvl.misc.delay = function(data, time) {
   timer = null;
   out = dvl.def();
   timeoutFn = function() {
-    out.set(data.get()).notify();
-    return timer = null;
+    out.value(data.value());
+    timer = null;
   };
   dvl.register({
     listen: [data, time],
-    name: name || 'timeout',
+    change: [out],
+    name: 'timeout',
     fn: function() {
       var t;
       if (timer) {
         clearTimeout(timer);
       }
       timer = null;
-      if (time.get() != null) {
-        t = Math.max(0, time.get());
-        return timer = setTimeout(timeoutFn, t);
+      if (time.value() != null) {
+        t = Math.max(0, time.value());
+        timer = setTimeout(timeoutFn, t);
       }
     }
   });
@@ -2461,8 +2462,8 @@ dvl.html.resizer = function(_arg) {
   fn = dvl.wrap(fn || dvl.identity);
   onResize = function() {
     var e, val, _dimension, _fn;
-    _dimension = dimension.get();
-    _fn = fn.get();
+    _dimension = dimension.value();
+    _fn = fn.value();
     if ((_dimension === 'width' || _dimension === 'height') && _fn) {
       if (selector) {
         e = jQuery(selector);
@@ -2470,9 +2471,9 @@ dvl.html.resizer = function(_arg) {
       } else {
         val = document.body[_dimension === 'width' ? 'clientWidth' : 'clientHeight'];
       }
-      return out.update(_fn(val));
+      return out.value(_fn(val));
     } else {
-      return out.update(null);
+      return out.value(null);
     }
   };
   $(window).resize(onResize);
@@ -2503,12 +2504,12 @@ dvl.html.out = function(_arg) {
   if (attr) {
     what = dvl.wrap(attr);
     out = function(selector, string) {
-      return d3.select(selector).attr(what.get(), string);
+      return d3.select(selector).attr(what.value(), string);
     };
   } else if (style) {
     what = dvl.wrap(style);
     out = function(selector, string) {
-      return d3.select(selector).style(what.get(), string);
+      return d3.select(selector).style(what.value(), string);
     };
   } else if (text) {
     out = function(selector, string) {
@@ -2521,19 +2522,19 @@ dvl.html.out = function(_arg) {
   }
   updateHtml = function() {
     var a, d, inv, s, sel;
-    s = selector.get();
-    a = format.get();
-    d = data.get();
+    s = selector.value();
+    a = format.value();
+    d = data.value();
     if (s != null) {
       if ((a != null) && (d != null)) {
         sel = out(s, a(d));
-        if (hideInvalid.get()) {
+        if (hideInvalid.value()) {
           sel.style('display', null);
         }
       } else {
-        inv = invalid.get();
+        inv = invalid.value();
         out(s, inv);
-        if (hideInvalid.get()) {
+        if (hideInvalid.value()) {
           d3.select(s).style('display', 'none');
         }
       }
@@ -2607,13 +2608,13 @@ dvl.html.list = function(_arg) {
     if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) === false) {
       return;
     }
-    linkVal = typeof (_base1 = link.get()) === "function" ? _base1(val) : void 0;
+    linkVal = typeof (_base1 = link.value()) === "function" ? _base1(val) : void 0;
     selection.set(val);
-    sl = (selections.get() || []).slice();
+    sl = (selections.value() || []).slice();
     i = sl.indexOf(val);
     if (i === -1) {
       sl.push(val);
-      _sortFn = sortFn.get();
+      _sortFn = sortFn.value();
       if (typeof _sortFn === 'function') {
         sl.sort(_sortFn);
       } else {
@@ -2633,10 +2634,10 @@ dvl.html.list = function(_arg) {
     listen: [data, label, link],
     fn: function() {
       var a, addIcons, cont, sel, _class, _data, _label, _link;
-      _data = data.get();
-      _label = label.get();
-      _link = link.get();
-      _class = listClass.get();
+      _data = data.value();
+      _label = label.value();
+      _link = link.value();
+      _class = listClass.value();
       if (!_data) {
         return;
       }
@@ -2679,7 +2680,7 @@ dvl.html.list = function(_arg) {
     listen: [listClass],
     fn: function() {
       var _class;
-      _class = listClass.get();
+      _class = listClass.value();
       return ul.selectAll('li').attr('class', _class);
     }
   });
@@ -2726,8 +2727,8 @@ dvl.html.dropdownList = function(_arg) {
     sp = $(selectedDiv.node());
     pos = sp.position();
     height = sp.outerHeight(true);
-    anchor = menuAnchor.get();
-    offset = menuOffset.get();
+    anchor = menuAnchor.value();
+    offset = menuOffset.value();
     menuCont.style('display', null).style('top', (pos.top + height + offset.y) + 'px');
     if (anchor === 'left') {
       menuCont.style('left', (pos.left + offset.x) + 'px');
@@ -2796,10 +2797,10 @@ dvl.html.dropdownList = function(_arg) {
   updateSelection = function() {
     var sel, selLabel;
     if (title) {
-      valueSpan.text(title.get());
+      valueSpan.text(title.value());
     } else {
-      sel = selection.get();
-      selLabel = selectionLabel.get();
+      sel = selection.value();
+      selLabel = selectionLabel.value();
       valueSpan.text(selLabel(sel));
     }
   };
@@ -2816,10 +2817,10 @@ dvl.html.dropdownList = function(_arg) {
 };
 
 dvl.html.select = function(_arg) {
-  var classStr, data, label, onChange, selChange, selectEl, selection, selector, visible;
-  selector = _arg.selector, data = _arg.data, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr, visible = _arg.visible;
-  if (!selector) {
-    throw 'must have selector';
+  var classStr, data, label, onChange, parent, selChange, selectEl, selection, visible;
+  parent = _arg.parent, data = _arg.data, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr, visible = _arg.visible;
+  if (!parent) {
+    throw 'must have parent';
   }
   if (!data) {
     throw 'must have data';
@@ -2829,17 +2830,21 @@ dvl.html.select = function(_arg) {
   data = dvl.wrap(data);
   label = dvl.wrap(label || dvl.identity);
   selChange = function() {
-    var i, val, _selectEl;
+    var i, val, _data, _selectEl;
+    _data = data.value();
+    if (!_data) {
+      return;
+    }
     _selectEl = selectEl.value();
     i = _selectEl.property('value');
-    val = data.get()[i];
+    val = _data[i];
     if ((typeof onChange === "function" ? onChange(val) : void 0) === false) {
       return;
     }
-    selection.update(val);
+    selection.value(val);
   };
   selectEl = dvl.bindSingle({
-    parent: d3.select(selector),
+    parent: parent,
     self: 'select',
     attr: {
       "class": classStr || null
@@ -2866,9 +2871,9 @@ dvl.html.select = function(_arg) {
     listen: [data, selection],
     fn: function() {
       var idx, _data, _selectEl, _selection;
-      _data = data.get();
-      _selection = selection.get();
-      if (!(_data && _selection)) {
+      _data = data.value();
+      _selection = selection.value();
+      if (!_data) {
         return;
       }
       idx = _data.indexOf(_selection);
@@ -2976,21 +2981,20 @@ dvl.compare = function(acc, reverse, ignoreCase) {
       change: [compare],
       fn: function() {
         var cmp, oldCmp, _ref2, _sortDir, _sortOn;
-        _sortOn = sortOn.get();
-        _sortDir = sortDir.get();
+        _sortOn = sortOn.value();
+        _sortDir = sortDir.value();
         if (_sortOn != null) {
-          cmp = (_ref2 = compareMap[_sortOn]) != null ? _ref2.get() : void 0;
+          cmp = (_ref2 = compareMap[_sortOn]) != null ? _ref2.value() : void 0;
           if (cmp && _sortDir === 'down') {
             oldCmp = cmp;
             cmp = function(a, b) {
               return oldCmp(b, a);
             };
           }
-          compare.set(cmp);
+          compare.value(cmp);
         } else {
-          compare.set(null);
+          compare.value(null);
         }
-        compare.notify();
       }
     });
     dvl.html.table.header({
@@ -3010,8 +3014,8 @@ dvl.compare = function(acc, reverse, ignoreCase) {
           return;
         }
         compareModes = column.compareModes;
-        if (id === sortOn.get()) {
-          sortDir.set(compareModes[(compareModes.indexOf(sortDir.get()) + 1) % compareModes.length]);
+        if (id === sortOn.value()) {
+          sortDir.set(compareModes[(compareModes.indexOf(sortDir.value()) + 1) % compareModes.length]);
           dvl.notify(sortDir);
         } else {
           sortOn.set(id);
@@ -3069,16 +3073,16 @@ dvl.compare = function(acc, reverse, ignoreCase) {
           c = columns[i];
           sel = thead.select("th:nth-child(" + (i + 1) + ")");
           visibleChanged = c.visible.hasChanged();
-          if (c.visible.get()) {
+          if (c.visible.value()) {
             sel.datum(c);
             if (c["class"].hasChanged() || visibleChanged) {
-              sel.attr('class', c["class"].get());
+              sel.attr('class', c["class"].value());
             }
             if (c.tooltip.hasChanged() || visibleChanged) {
-              sel.attr('title', c.tooltip.get());
+              sel.attr('title', c.tooltip.value());
             }
             if (c.tooltip.hasChanged() || visibleChanged) {
-              sel.attr('title', c.tooltip.get());
+              sel.attr('title', c.tooltip.value());
             }
             if (visibleChanged) {
               sel.style('display', null);
@@ -3086,14 +3090,14 @@ dvl.compare = function(acc, reverse, ignoreCase) {
             if (onClick.hasChanged() || visibleChanged) {
               sel.on('click', function(d) {
                 var _base1;
-                return typeof (_base1 = onClick.get()) === "function" ? _base1(d.id) : void 0;
+                return typeof (_base1 = onClick.value()) === "function" ? _base1(d.id) : void 0;
               });
             }
             if (c.title.hasChanged() || visibleChanged) {
-              sel.select('span').text(c.title.get());
+              sel.select('span').text(c.title.value());
             }
             if (c.indicator && (c.indicator.hasChanged() || visibleChanged)) {
-              _indicator = c.indicator.get();
+              _indicator = c.indicator.value();
               ind = sel.select('div.indicator');
               if (_indicator) {
                 ind.style('display', null).attr('class', 'indicator ' + _indicator);
@@ -3164,12 +3168,12 @@ dvl.compare = function(acc, reverse, ignoreCase) {
       change: change,
       fn: function() {
         var c, colSel, dataSorted, enterRowSel, i, k, rowSel, sel, v, visibleChanged, _compare, _j, _len1, _ref2, _rowClass, _rowLimit;
-        dataSorted = data.get() || [];
-        _compare = compare.get();
+        dataSorted = data.value() || [];
+        _compare = compare.value();
         if (_compare) {
           dataSorted = dataSorted.slice().sort(_compare);
         }
-        _rowLimit = rowLimit.get();
+        _rowLimit = rowLimit.value();
         if (_rowLimit != null) {
           dataSorted = dataSorted.slice(0, _rowLimit);
         }
@@ -3177,12 +3181,12 @@ dvl.compare = function(acc, reverse, ignoreCase) {
         enterRowSel = rowSel.enter().append('tr');
         rowSel.exit().remove();
         if (rowClass) {
-          _rowClass = rowClass.get();
+          _rowClass = rowClass.value();
           rowSel.attr('class', _rowClass);
         }
         for (k in onRow) {
           v = onRow[k];
-          rowSel.on(k, v.get());
+          rowSel.on(k, v.value());
         }
         colSel = rowSel.selectAll('td').data(columns);
         colSel.enter().append('td');
@@ -3191,12 +3195,12 @@ dvl.compare = function(acc, reverse, ignoreCase) {
           c = columns[i];
           sel = tbody.selectAll("td:nth-child(" + (i + 1) + ")").data(dataSorted);
           visibleChanged = c.visible.hasChanged() || data.hasChanged();
-          if (c.visible.get()) {
+          if (c.visible.value()) {
             if (c["class"].hasChanged() || visibleChanged) {
-              sel.attr('class', c["class"].get());
+              sel.attr('class', c["class"].value());
             }
             if (c.hover.hasChanged() || visibleChanged) {
-              sel.attr('title', c.hover.get());
+              sel.attr('title', c.hover.value());
             }
             if (visibleChanged) {
               sel.style('display', null);
@@ -3205,7 +3209,7 @@ dvl.compare = function(acc, reverse, ignoreCase) {
             for (k in _ref2) {
               v = _ref2[k];
               if (v.hasChanged() || visibleChanged) {
-                sel.on(k, v.get());
+                sel.on(k, v.value());
               }
             }
             c.selection.set(sel).notify();
@@ -3229,8 +3233,8 @@ dvl.compare = function(acc, reverse, ignoreCase) {
         listen: [selection, value],
         fn: function() {
           var _selection, _value;
-          _selection = selection.get();
-          _value = value.get();
+          _selection = selection.value();
+          _value = value.value();
           if ((_selection != null) && _value) {
             _selection.text(_value);
           }
@@ -3243,8 +3247,8 @@ dvl.compare = function(acc, reverse, ignoreCase) {
         listen: [selection, value],
         fn: function() {
           var _selection, _value;
-          _selection = selection.get();
-          _value = value.get();
+          _selection = selection.value();
+          _value = value.value();
           if ((_selection != null) && _value) {
             _selection.html(_value);
           }

@@ -106,6 +106,31 @@ suite.addBatch({
 });
 
 suite.addBatch({
+  "compare variables": {
+    topic: function() {
+      var t = {
+        runs: 0,
+        a: dvl.def([]).compare(false)
+      }
+
+      dvl.register({
+        listen: [t.a],
+        fn: function() { t.runs++; }
+      });
+
+      var _a = t.a.value();
+      _a.push(1);
+      t.a.value(_a);
+
+      return t;
+    },
+    "has notified": function(t) {
+      assert.strictEqual(t.runs, 2);
+    },
+  }
+});
+
+suite.addBatch({
   "lazy variables": {
     "returns the correct value form lazy": function() {
       var v = dvl.def();

@@ -286,7 +286,7 @@ dvl.util = {
     value: (val) ->
       if arguments.length
         val = val ? null
-        if not @compareFn(val, @v)
+        if not (@compareFn and @compareFn(val, @v))
           this.set(val)
           dvl.notify(this)
         return this
@@ -504,7 +504,7 @@ dvl.util = {
 
   dvl.valueOf = (v) ->
     if dvl.knows(v)
-      return v.get()
+      return v.value()
     else
       return v ? null
 
@@ -824,7 +824,7 @@ dvl.acc = (column) ->
   acc = dvl.def().name("acc")
 
   makeAcc = ->
-    col = column.get();
+    col = column.value();
     if col?
       acc.set((d) -> d[col])
     else
@@ -859,7 +859,7 @@ dvl.debug = ->
 
   dvl.register {
     listen: [obj]
-    fn: -> print note, obj.get()
+    fn: -> print note, obj.value()
   }
   return obj
 
@@ -894,19 +894,19 @@ dvl.apply = dvl.applyValid = ->
 
   invalid = dvl.wrap(invalid ? null)
 
-  out = dvl.def(invalid.get()).name(name or 'apply_out')
+  out = dvl.def(invalid.value()).name(name or 'apply_out')
 
   dvl.register {
     name: (name or 'apply')+'_fn'
     listen: args.concat([fn, invalid])
     change: [out]
     fn: ->
-      f = fn.get()
+      f = fn.value()
       return unless f?
       send = []
       nulls = false
       for a in args
-        v = a.get()
+        v = a.value()
         nulls = true unless v?
         send.push v
 
@@ -914,7 +914,7 @@ dvl.apply = dvl.applyValid = ->
         r = f.apply(null, send)
         return if r is undefined
       else
-        r = invalid.get()
+        r = invalid.value()
 
       if update
         out.update(r)
@@ -962,7 +962,7 @@ dvl.random = (options) ->
     if walk and walk > 0
       # do a random walk
       scale = walk * Math.abs(max - min)
-      r = random.get() + scale*(2*Math.random()-1)
+      r = random.value() + scale*(2*Math.random()-1)
       r = min if r < min
       r = max if max < r
     else
@@ -987,7 +987,7 @@ dvl.arrayTick = (data, options) ->
   out = dvl.def(null, 'array_tick_data')
 
   gen = ->
-    d = data.get()
+    d = data.value()
     len = d.length
     if len > 0
       v = d[point % len]
@@ -1001,7 +1001,7 @@ dvl.arrayTick = (data, options) ->
 
 
 dvl.recorder = (options) ->
-  array = dvl.wrapVar(options.array or [], options.name or 'recorder_array')
+  array = dvl.wrapVar(options.array or [], options.name or 'recorder_array').compare(false)
 
   data = options.data
   fn = dvl.wrap(options.fn or dvl.identity)
@@ -1011,8 +1011,8 @@ dvl.recorder = (options) ->
   i = 0
 
   record = ->
-    d = fn.get()(data.get())
-    m = max.get()
+    d = fn.value()(data.value())
+    m = max.value()
     if d?
       if options.value
          o = {}
@@ -1020,10 +1020,10 @@ dvl.recorder = (options) ->
          d = o
       d[options.index] = i if options.index
       d[options.timestamp] = new Date() if options.timestamp
-      _array = array.get()
+      _array = array.value()
       _array.push(d)
       _array.shift() while m < _array.length
-      array.set(_array).notify()
+      array.value(_array)
       i += 1
 
   dvl.register({fn:record, listen:[data], change:[array], name:'recorder'})
@@ -1071,7 +1071,7 @@ dvl.recorder = (options) ->
 
     getData = (err, resVal) ->
       q = this.q
-      if @url is q.url.get() and (@method is 'GET' or (@data is q.data.get() and @dataFn is q.dataFn.get()))
+      if @url is q.url.value() and (@method is 'GET' or (@data is q.data.value() and @dataFn is q.dataFn.value()))
         if err
           q.resVal = null
           q.onError(err) if q.onError
@@ -1085,11 +1085,11 @@ dvl.recorder = (options) ->
       return
 
     makeRequest = (q, request) ->
-      _url = q.url.get()
-      _data = q.data.get()
-      _dataFn = q.dataFn.get()
-      _method = q.method.get()
-      _dataType = q.type.get()
+      _url = q.url.value()
+      _data = q.data.value()
+      _dataFn = q.dataFn.value()
+      _method = q.method.value()
+      _dataType = q.type.value()
       ctx = {
         q
         request
@@ -1100,7 +1100,7 @@ dvl.recorder = (options) ->
       }
       q.curAjax.abort() if q.curAjax
       if _url? and (_method is 'GET' or (_data? and _dataFn?)) and _dataType
-        if q.invalidOnLoad.get()
+        if q.invalidOnLoad.value()
           q.res.update(null)
 
         q.curAjax = q.requester.request {
@@ -1109,8 +1109,8 @@ dvl.recorder = (options) ->
           dataFn: _dataFn
           method: _method
           dataType: _dataType
-          contentType: q.contentType.get()
-          processData: q.processData.get()
+          contentType: q.contentType.value()
+          processData: q.processData.value()
           fn: q.fn
           outstanding
           complete: (err, data) -> getData.call(ctx, err, data)
@@ -1127,7 +1127,7 @@ dvl.recorder = (options) ->
         continue unless q.url.hasChanged() or q.data.hasChanged() or q.dataFn.hasChanged()
 
         if q.status is 'virgin'
-          if q.url.get()
+          if q.url.value()
             initQueue.push q
             q.status = 'requesting'
             makeRequest(q, initQueue)
@@ -1246,11 +1246,11 @@ dvl.ajax.requester = {
           processData
           success:     getData
           error:       getError
-          complete:    -> outstanding.set(outstanding.get() - 1).notify()
+          complete:    -> outstanding.value(outstanding.value() - 1)
           context:     { url }
         }
 
-        outstanding.set(outstanding.get() + 1).notify()
+        outstanding.value(outstanding.value() + 1)
 
         return {
           abort: ->
@@ -1272,7 +1272,7 @@ dvl.ajax.requester = {
       return [url, dvl.util.strObj(data), method, dataType, contentType, processData].join('@@')
 
     trim = ->
-      tout = timeout.get()
+      tout = timeout.value()
       if tout > 0
         cutoff = Date.now() - tout
         newCache = {}
@@ -1280,7 +1280,7 @@ dvl.ajax.requester = {
           newCache[q] = d if cutoff < d.time
         cache = newCache
 
-      m = max.get()
+      m = max.value()
       while m < count
         oldestQuery = null
         oldestTime = Infinity
@@ -1341,10 +1341,10 @@ dvl.ajax.requester = {
             processData
             success:     getData
             error:       getError
-            complete:    -> outstanding.set(outstanding.get() - 1).notify()
+            complete:    -> outstanding.value(outstanding.value() - 1)
           }
 
-          outstanding.set(outstanding.get() + 1).notify()
+          outstanding.value(outstanding.value() + 1)
 
         if c.resVal
           complete(null, c.resVal)
@@ -1388,12 +1388,12 @@ dvl.snap = ({data, acc, value, trim, name}) ->
   out = dvl.def(null).name(name)
 
   updateSnap = ->
-    ds = data.get()
-    a = acc.get()
-    v = value.get()
+    ds = data.value()
+    a = acc.value()
+    v = value.value()
 
     if ds and a and v
-      if trim.get() and ds.length isnt 0 and (v < a(ds[0]) or a(ds[ds.length-1]) < v)
+      if trim.value() and ds.length isnt 0 and (v < a(ds[0]) or a(ds[ds.length-1]) < v)
         minIdx = -1
       else
         minIdx = -1
@@ -1406,7 +1406,7 @@ dvl.snap = ({data, acc, value, trim, name}) ->
               minIdx = i
 
       minDatum = if minIdx < 0 then null else ds[minIdx]
-      out.set(minDatum) unless out.get() is minDatum
+      out.set(minDatum) unless out.value() is minDatum
     else
       out.set(null)
 
@@ -1418,7 +1418,7 @@ dvl.snap = ({data, acc, value, trim, name}) ->
 
 dvl.hasher = (obj) ->
   updateHash = ->
-    h = obj.get()
+    h = obj.value()
     window.location.hash = h unless window.location.hash == h
 
   dvl.register({fn:updateHash, listen:[obj], name:'hash_changer'})
@@ -1507,16 +1507,16 @@ do ->
       listen
       change: [out]
       fn: ->
-        _parent = parent.get()
+        _parent = parent.value()
         return unless _parent
 
         force = parent.hasChanged() or data.hasChanged() or join.hasChanged()
-        _data = data.get()
-        _join = join.get()
+        _data = data.value()
+        _join = join.value()
 
         if _data
-          _transition = transition.get()
-          _transitionExit = transitionExit.get()
+          _transition = transition.value()
+          _transitionExit = transitionExit.value()
 
           # prep
           enter     = []
@@ -1526,25 +1526,25 @@ do ->
           add1 = (fn, v) ->
             if v.hasChanged() or force
               preTrans.push  { fn, a1: v.getPrev() }
-              postTrans.push { fn, a1: v.get() }
+              postTrans.push { fn, a1: v.value() }
             else
-              enter.push  { fn, a1: v.get() }
+              enter.push  { fn, a1: v.value() }
             return
 
           add2 = (fn, k, v) ->
             if v.hasChanged() or force
               enter.push     { fn, a1: k, a2: v.getPrev() }
               preTrans.push  { fn, a1: k, a2: v.getPrev() }
-              postTrans.push { fn, a1: k, a2: v.get() }
+              postTrans.push { fn, a1: k, a2: v.value() }
             else
-              enter.push     { fn, a1: k, a2: v.get() }
+              enter.push     { fn, a1: k, a2: v.value() }
             return
 
           addO = (fn, k, v) ->
             if v.hasChanged() or force
-              preTrans.push { fn, a1: k, a2: v.get() }
+              preTrans.push { fn, a1: k, a2: v.value() }
             else
-              enter.push  { fn, a1: k, a2: v.get() }
+              enter.push  { fn, a1: k, a2: v.value() }
             return
 
           add1('text', text)  if text
@@ -1639,22 +1639,22 @@ do ->
       listen
       change: [self]
       fn: ->
-        sel = self.get()
-        _datum = datum.get()
+        sel = self.value()
+        _datum = datum.value()
         force = datum.hasChanged()
         sel.datum(_datum) if force
 
         for k, v of attrList
-          sel.attr(k, v.get()) if v.hasChanged() or force
+          sel.attr(k, v.value()) if v.hasChanged() or force
 
         for k, v of styleList
-          sel.style(k, v.get()) if v.hasChanged() or force
+          sel.style(k, v.value()) if v.hasChanged() or force
 
         for k, v of onList
-          sel.on(k, v.get()) if v.hasChanged() or force
+          sel.on(k, v.value()) if v.hasChanged() or force
 
-        sel.text(text.get()) if text and (text.hasChanged() or force)
-        sel.html(html.get()) if html and (html.hasChanged() or force)
+        sel.text(text.value()) if text and (text.hasChanged() or force)
+        sel.html(html.value()) if html and (html.hasChanged() or force)
 
         self.notify() if force
         return
@@ -1685,18 +1685,18 @@ dvl.chain = (f, h) ->
 
 
 do ->
-  dvl_get = (v) -> v.get()
+  dvl_value = (v) -> v.value()
   dvl.op = dvl_op = (fn) ->
     liftedFn = lift(fn)
     return (args...) ->
       args = args.map(dvl.wrap)
-      out = dvl.def(null, 'out')
+      out = dvl.def()
 
       dvl.register {
         listen: args
         change: [out]
         fn: ->
-          out.set(liftedFn.apply(null, args.map(dvl_get)))
+          out.set(liftedFn.apply(null, args.map(dvl_value)))
           dvl.notify(out)
           return
       }
@@ -1793,12 +1793,12 @@ dvl.misc.mouse = (element, out) ->
   out     = dvl.wrapVar(out, 'mouse')
 
   recorder = ->
-    _element = element.get()
+    _element = element.value()
     mouse = if _element and d3.event then d3.svg.mouse(_element.node()) else null
-    out.set(mouse).notify()
+    out.value(mouse)
     return
 
-  element.get()
+  element.value()
     .on('mousemove', recorder)
     .on('mouseout', recorder)
 
@@ -1819,18 +1819,21 @@ dvl.misc.delay = (data, time = 1) ->
   out = dvl.def()
 
   timeoutFn = ->
-    out.set(data.get()).notify()
+    out.value(data.value())
     timer = null
+    return
 
   dvl.register {
     listen: [data, time]
-    name: name or 'timeout'
+    change: [out]
+    name: 'timeout'
     fn: ->
       clearTimeout(timer) if timer
       timer = null
-      if time.get()?
-        t = Math.max(0, time.get())
+      if time.value()?
+        t = Math.max(0, time.value())
         timer = setTimeout(timeoutFn, t)
+      return
   }
   return out
 
@@ -1848,8 +1851,8 @@ dvl.html.resizer = ({selector, out, dimension, fn}) ->
   fn = dvl.wrap(fn or dvl.identity)
 
   onResize = ->
-    _dimension = dimension.get()
-    _fn = fn.get()
+    _dimension = dimension.value()
+    _fn = fn.value()
     if _dimension in ['width', 'height'] and _fn
       if selector
         e = jQuery(selector)
@@ -1857,9 +1860,9 @@ dvl.html.resizer = ({selector, out, dimension, fn}) ->
       else
         val = document.body[if _dimension is 'width' then 'clientWidth' else 'clientHeight']
 
-      out.update(_fn(val))
+      out.value(_fn(val))
     else
-      out.update(null)
+      out.value(null)
 
   $(window).resize onResize
   dvl.register {
@@ -1887,27 +1890,27 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 
   if attr
     what = dvl.wrap(attr)
-    out = (selector, string) -> d3.select(selector).attr(what.get(), string)
+    out = (selector, string) -> d3.select(selector).attr(what.value(), string)
   else if style
     what = dvl.wrap(style)
-    out = (selector, string) -> d3.select(selector).style(what.get(), string)
+    out = (selector, string) -> d3.select(selector).style(what.value(), string)
   else if text
     out = (selector, string) -> d3.select(selector).text(string)
   else
     out = (selector, string) -> d3.select(selector).html(string)
 
   updateHtml = () ->
-    s = selector.get()
-    a = format.get()
-    d = data.get()
+    s = selector.value()
+    a = format.value()
+    d = data.value()
     if s?
       if a? and d?
         sel = out(s, a(d))
-        sel.style('display', null) if hideInvalid.get()
+        sel.style('display', null) if hideInvalid.value()
       else
-        inv = invalid.get()
+        inv = invalid.value()
         out(s, inv)
-        d3.select(s).style('display', 'none') if hideInvalid.get()
+        d3.select(s).style('display', 'none') if hideInvalid.value()
     return
 
   dvl.register({fn:updateHtml, listen:[data, selector, format], name:'html_out'})
@@ -1960,14 +1963,14 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
 
   onClick = (val, i) ->
     return if onSelect?(val, i) is false
-    linkVal = link.get()?(val)
+    linkVal = link.value()?(val)
     selection.set(val)
 
-    sl = (selections.get() or []).slice()
+    sl = (selections.value() or []).slice()
     i = sl.indexOf(val)
     if i is -1
       sl.push(val)
-      _sortFn = sortFn.get()
+      _sortFn = sortFn.value()
       if typeof _sortFn is 'function'
         sl.sort(_sortFn)
       else
@@ -1984,10 +1987,10 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
     name: 'update_html_list'
     listen: [data, label, link]
     fn: ->
-      _data  = data.get()
-      _label = label.get()
-      _link  = link.get()
-      _class = listClass.get()
+      _data  = data.value()
+      _label = label.value()
+      _link  = link.value()
+      _class = listClass.value()
 
       return unless _data
 
@@ -2042,7 +2045,7 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
     name: 'update_class_list'
     listen: [listClass]
     fn: ->
-      _class = listClass.get()
+      _class = listClass.value()
       ul.selectAll('li').attr('class', _class)
   }
 
@@ -2087,8 +2090,8 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
     sp = $(selectedDiv.node())
     pos = sp.position()
     height = sp.outerHeight(true)
-    anchor = menuAnchor.get()
-    offset = menuOffset.get()
+    anchor = menuAnchor.value()
+    offset = menuOffset.value()
     menuCont
       .style('display', null)
       .style('top', (pos.top + height + offset.y) + 'px')
@@ -2161,10 +2164,10 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
 
   updateSelection = ->
     if title
-      valueSpan.text(title.get())
+      valueSpan.text(title.value())
     else
-      sel = selection.get()
-      selLabel = selectionLabel.get()
+      sel = selection.value()
+      selLabel = selectionLabel.value()
       valueSpan.text(selLabel(sel))
     return
 
@@ -2185,8 +2188,8 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
 ##
 ##  Select (dropdown box) made with HTML
 ##
-dvl.html.select = ({selector, data, label, selection, onChange, classStr, visible}) ->
-  throw 'must have selector' unless selector
+dvl.html.select = ({parent, data, label, selection, onChange, classStr, visible}) ->
+  throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection = dvl.wrapVar(selection, 'selection')
   visible = dvl.wrap(visible ? true)
@@ -2195,15 +2198,17 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr, visibl
   label = dvl.wrap(label or dvl.identity)
 
   selChange = ->
+    _data = data.value()
+    return unless _data
     _selectEl = selectEl.value()
     i = _selectEl.property('value')
-    val = data.get()[i]
+    val = _data[i]
     return if onChange?(val) is false
-    selection.update(val)
+    selection.value(val)
     return
 
   selectEl = dvl.bindSingle {
-    parent: d3.select(selector)
+    parent
     self: 'select'
     attr: {
       class: classStr or null
@@ -2229,9 +2234,9 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr, visibl
   dvl.register {
     listen: [data, selection]
     fn: ->
-      _data = data.get()
-      _selection = selection.get()
-      return unless _data and _selection
+      _data = data.value()
+      _selection = selection.value()
+      return unless _data
       idx = _data.indexOf(_selection)
       _selectEl = selectEl.value()
       if _selectEl.property('value') isnt idx
@@ -2240,7 +2245,6 @@ dvl.html.select = ({selector, data, label, selection, onChange, classStr, visibl
   }
 
   selChange()
-  #dvl.register({fn: updateSelection, listen:[], change:[selection]})
   return selection
 
 
@@ -2367,18 +2371,17 @@ do ->
       listen: compareList
       change: [compare]
       fn: ->
-        _sortOn = sortOn.get()
-        _sortDir = sortDir.get()
+        _sortOn = sortOn.value()
+        _sortDir = sortDir.value()
 
         if _sortOn?
-          cmp = compareMap[_sortOn]?.get()
+          cmp = compareMap[_sortOn]?.value()
           if cmp and _sortDir is 'down'
             oldCmp = cmp
             cmp = (a,b) -> oldCmp(b,a)
-          compare.set(cmp)
+          compare.value(cmp)
         else
-          compare.set(null)
-        compare.notify()
+          compare.value(null)
         return
     }
 
@@ -2395,8 +2398,8 @@ do ->
         return unless column and column.sortable
 
         compareModes = column.compareModes
-        if id is sortOn.get()
-          sortDir.set(compareModes[(compareModes.indexOf(sortDir.get())+1) % compareModes.length])
+        if id is sortOn.value()
+          sortDir.set(compareModes[(compareModes.indexOf(sortDir.value())+1) % compareModes.length])
           dvl.notify(sortDir)
         else
           sortOn.set(id)
@@ -2469,17 +2472,17 @@ do ->
         for c,i in columns
           sel = thead.select("th:nth-child(#{i+1})")
           visibleChanged = c.visible.hasChanged()
-          if c.visible.get()
+          if c.visible.value()
             sel.datum(c)
-            sel.attr('class', c.class.get())       if c.class.hasChanged() or visibleChanged
-            sel.attr('title', c.tooltip.get())     if c.tooltip.hasChanged() or visibleChanged
-            sel.attr('title', c.tooltip.get())     if c.tooltip.hasChanged() or visibleChanged
+            sel.attr('class', c.class.value())       if c.class.hasChanged() or visibleChanged
+            sel.attr('title', c.tooltip.value())     if c.tooltip.hasChanged() or visibleChanged
+            sel.attr('title', c.tooltip.value())     if c.tooltip.hasChanged() or visibleChanged
             sel.style('display', null)             if visibleChanged
-            sel.on('click', (d) -> onClick.get()?(d.id)) if onClick.hasChanged() or visibleChanged
-            sel.select('span').text(c.title.get()) if c.title.hasChanged() or visibleChanged
+            sel.on('click', (d) -> onClick.value()?(d.id)) if onClick.hasChanged() or visibleChanged
+            sel.select('span').text(c.title.value()) if c.title.hasChanged() or visibleChanged
 
             if c.indicator and (c.indicator.hasChanged() or visibleChanged)
-              _indicator = c.indicator.get()
+              _indicator = c.indicator.value()
               ind = sel.select('div.indicator')
               if _indicator
                 ind.style('display', null).attr('class', 'indicator ' + _indicator)
@@ -2556,23 +2559,23 @@ do ->
       listen
       change
       fn: ->
-        dataSorted = data.get() or []
+        dataSorted = data.value() or []
 
-        _compare = compare.get()
+        _compare = compare.value()
         dataSorted = dataSorted.slice().sort(_compare) if _compare
 
-        _rowLimit = rowLimit.get()
+        _rowLimit = rowLimit.value()
         dataSorted = dataSorted.slice(0, _rowLimit) if _rowLimit?
 
         rowSel = tbody.selectAll('tr').data(dataSorted)
         enterRowSel = rowSel.enter().append('tr')
         rowSel.exit().remove()
         if rowClass
-          _rowClass = rowClass.get()
+          _rowClass = rowClass.value()
           rowSel.attr('class', _rowClass)
 
         for k,v of onRow
-          rowSel.on(k, v.get())
+          rowSel.on(k, v.value())
 
         colSel = rowSel.selectAll('td').data(columns)
         colSel.enter().append('td')
@@ -2581,13 +2584,13 @@ do ->
         for c,i in columns
           sel = tbody.selectAll("td:nth-child(#{i+1})").data(dataSorted)
           visibleChanged = c.visible.hasChanged() or data.hasChanged()
-          if c.visible.get()
-            sel.attr('class', c.class.get()) if c.class.hasChanged() or visibleChanged
-            sel.attr('title', c.hover.get()) if c.hover.hasChanged() or visibleChanged
+          if c.visible.value()
+            sel.attr('class', c.class.value()) if c.class.hasChanged() or visibleChanged
+            sel.attr('title', c.hover.value()) if c.hover.hasChanged() or visibleChanged
             sel.style('display', null)       if visibleChanged
 
             for k,v of c.on
-              sel.on(k, v.get()) if v.hasChanged() or visibleChanged
+              sel.on(k, v.value()) if v.hasChanged() or visibleChanged
 
             c.selection.set(sel).notify()
           else
@@ -2608,8 +2611,8 @@ do ->
       dvl.register {
         listen: [selection, value]
         fn: ->
-          _selection = selection.get()
-          _value = value.get()
+          _selection = selection.value()
+          _value = value.value()
           if _selection? and _value
             _selection.text(_value)
           return selection
@@ -2620,8 +2623,8 @@ do ->
       dvl.register {
         listen: [selection, value]
         fn: ->
-          _selection = selection.get()
-          _value = value.get()
+          _selection = selection.value()
+          _value = value.value()
           if _selection? and _value
             _selection.html(_value)
           return selection
