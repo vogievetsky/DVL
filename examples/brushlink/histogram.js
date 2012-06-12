@@ -59,8 +59,8 @@ function histogram(args) {
   var selDataRaw = dvl.wrapVar(args.selData);
   var selHolder =  dvl.wrapVar(args.selHolder);
   var me = {};
-  var duration = 200;
-  var selDuration = dvl.def(duration, 'sel_duration');
+  var transition = { duration: 200 };
+  var selTransition = dvl.def(transition);
 
   var roll = rollup(dataRaw, dimension);
   var data = roll.counts;
@@ -174,7 +174,8 @@ function histogram(args) {
         selHolder.set(me);
         dvl.notify(selectedDims, selHolder);
       }
-    }
+    },
+    transition: transition
   });
 
   dvl.bind({
@@ -187,7 +188,8 @@ function histogram(args) {
       y: scaledY,
       width: dvl.op.sub(scaledX, zeroPoint),
       height: sizeY
-    }
+    },
+    transition: transition
   });
 
   var tickGroup = dvl.bindSingle({ parent: cont, self: 'g.ticks' });
@@ -203,7 +205,8 @@ function histogram(args) {
       y1: 0,
       x2: sx,
       y2: innerHeight
-    }
+    },
+    transition: transition
   });
 
   dvl.bind({
@@ -216,7 +219,8 @@ function histogram(args) {
       y: 0,
       dy: '-0.2em'
     },
-    text: function(x) { return x.toFixed(0); }
+    text: function(x) { return x.toFixed(0); },
+    transition: transition
   });
 
   dvl.bind({
@@ -229,7 +233,8 @@ function histogram(args) {
       y: innerHeight,
       dy: '1.2em'
     },
-    text: function(x) { return x.toFixed(0); }
+    text: function(x) { return x.toFixed(0); },
+    transition: transition
   });
 
   // dvl.svg.lines({
@@ -253,6 +258,7 @@ function histogram(args) {
       y: dvl.op.add(sy, halfSizeY),
       dy: '.32em'
     },
-    text: String
+    text: String,
+    transition: transition
   });
 }

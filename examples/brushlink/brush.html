@@ -2,7 +2,6 @@
 <html>
   <head>
     <title>DVL Brushing + Linking</title>
-    <link type="text/css" href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />
     <script src="../../d3/d3.js"></script>
     <script src="../../dvl.js"></script>
 
@@ -11,14 +10,13 @@
     <script src="time.js"></script>
     <script src="histogram.js"></script>
 
-
     <link type="text/css" href="brush.css" rel="Stylesheet" />
   </head>
   <body>
     <div>
       <div class="control">
         <button onclick="toggleRealtime()">Toggle Realtime data</button>
-        <button onclick="dvl.postGraph()">Object graph</button>
+        <!-- <button onclick="dvl.postGraph()">Object graph</button> -->
         <span class="info"></span>
       </div>
       <div class="chart1"></div>
@@ -30,10 +28,10 @@
         <pre class=".demo">
 {
   "time": 1,
-  "temp": 30.39108925522305,
+  "temp": 30.391,
   "phase": "Heating",
   "bubbling": 0,
-  "energy": 411.8623010581359
+  "energy": 411.862
 }
         </pre>
       </div>
@@ -47,15 +45,14 @@
   var realtime = dataGen.realtime;
 
   function toggleRealtime() {
-    realtime.set(!realtime.get()).notify();
+    realtime.value(!realtime.value());
   }
 
   selHolder = dvl.def().name('sel_holder');
   selData = dvl.def().name('sel_data');
 
-  var summaryText = dvl.apply({
+  var summaryText = dvl.applyAlways({
     args: [data, selData],
-    allowNull: true,
     fn: function(_data, _selData) {
       var str = 'There are ' + _data.length + ' data points.';
       if (_selData) {
@@ -81,18 +78,8 @@
     height: 400
   });
 
-  histogram({
-    parent: d3.select('div.chart2'),
-    selHolder: selHolder,
-    selData: selData,
-    data: data,
-    dimension: 'phase',
-    width: 600,
-    height: 200
-  });
-
   scatter({
-    parent: d3.select('div.chart3'),
+    parent: d3.select('div.chart2'),
     selHolder: selHolder,
     selData: selData,
     data: data,
@@ -101,6 +88,18 @@
     width: 400,
     height: 400
   });
+
+  histogram({
+    parent: d3.select('div.chart3'),
+    selHolder: selHolder,
+    selData: selData,
+    data: data,
+    dimension: 'phase',
+    width: 600,
+    height: 200
+  });
+
+
 
   function addChart() {
     d3.select('.other').style('display', 'none')

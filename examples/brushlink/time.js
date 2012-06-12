@@ -8,8 +8,8 @@ function time(args) {
   var selData = args.selData || dvl.def(null, 'sel_data');
   var selHolder = args.selHolder || dvl.def(null, 'sel_holder');
   var me = {};
-  var duration = 200;
-  var selDuration = dvl.def(duration, 'sel_duration');
+  var transition = { duration: 200 };
+  var selTransition = dvl.def(transition);
 
   var mySelection = dvl.apply({
     args: selHolder,
@@ -119,7 +119,7 @@ function time(args) {
         selStartX.set(null);
         selEndX.set(null);
         selData.set(null);
-        selDuration.set(0).notify();
+        selTransition.value(null);
 
         dvl.notify(selStartX, selEndX, selData);
       },
@@ -132,7 +132,7 @@ function time(args) {
         if (startDataX == null) return;
         updateRect();
         startDataX = null;
-        selDuration.set(duration).notify();
+        selTransition.value(transition);
       }
     }
   });
@@ -151,7 +151,8 @@ function time(args) {
       y1: 0,
       x2: sx,
       y2: innerHeight
-    }
+    },
+    transition: transition
   });
 
   dvl.bind({
@@ -164,7 +165,8 @@ function time(args) {
       y: innerHeight,
       dy: '1.2em'
     },
-    text: dvl.apply(sx, function(x) { return x.tickFormat(); })
+    text: dvl.apply(sx, function(x) { return x.tickFormat(); }),
+    transition: transition
   });
 
   dvl.bind({
@@ -177,7 +179,8 @@ function time(args) {
       y1: sy,
       x2: innerWidth,
       y2: sy
-    }
+    },
+    transition: transition
   });
 
   dvl.bind({
@@ -190,7 +193,8 @@ function time(args) {
       y: sy,
       dy: '.32em'
     },
-    text: dvl.apply(sy, function(x) { return x.tickFormat(); })
+    text: dvl.apply(sy, function(x) { return x.tickFormat(); }),
+    transition: transition
   });
 
   dvl.bindSingle({
@@ -248,13 +252,14 @@ function time(args) {
     }
   })
 
-  dvl.bindSingle({
+  dvl.bind({
     parent: vis,
     self: 'path',
-    datum: data,
+    data: dvl.op.list(data),
     attr: {
       d: lineFn
-    }
+    },
+    transition: transition
   });
 
   dvl.bind({
@@ -266,7 +271,8 @@ function time(args) {
       r: 3,
       cx: scaledX,
       cy: scaledY
-    }
+    },
+    transition: selTransition
   })
 
   dvl.bindSingle({
@@ -283,6 +289,7 @@ function time(args) {
     },
     style: {
       display: dvl.op.iff(mySelection, null, 'none')
-    }
+    },
+    transition: selTransition
   })
 }

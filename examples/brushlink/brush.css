@@ -1,5 +1,5 @@
 *{-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;-o-user-select:none;user-select:none;}
-body{font:12px sans-serif;}
+body{font:12px Helvetica,Arial,sans-serif;width:1024px;}
 .highlight{shape-rendering:crispEdges;opacity:0.05;fill:blue;pointer-events:none;}
 .time .background{fill:#eee;}
 .time line{shape-rendering:crispEdges;stroke:white;pointer-events:none;}
@@ -19,5 +19,6 @@ body{font:12px sans-serif;}
 .histogram text.x{text-anchor:middle;}
 .histogram text.y{text-anchor:end;}
 .control{margin-left:70px;}
-.chart2,.chart3,.chart4,.other{display:inline-block;vertical-align:top;}
+.chart1,.chart2,.chart3,.chart4,.other{display:inline-block;vertical-align:top;}
+.other{margin-left:64px;}
 pre{font-size:25px;}
