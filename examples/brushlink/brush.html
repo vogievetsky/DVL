@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DVL Brushing + Linking</title>
+    <link type="text/css" href="../../css/smoothness/jquery-ui-1.8.7.custom.css" rel="Stylesheet" />
+    <script src="../../d3/d3.js"></script>
+    <script src="../../dvl.js"></script>
+
+    <script src="gendata.js"></script>
+    <script src="scatter.js"></script>
+    <script src="time.js"></script>
+    <script src="histogram.js"></script>
+
+
+    <link type="text/css" href="brush.css" rel="Stylesheet" />
+  </head>
+  <body>
+    <div>
+      <div class="control">
+        <button onclick="toggleRealtime()">Toggle Realtime data</button>
+        <button onclick="dvl.postGraph()">Object graph</button>
+        <span class="info"></span>
+      </div>
+      <div class="chart1"></div>
+      <div class="chart2"></div>
+      <div class="chart3"></div>
+      <div class="chart4"></div>
+      <div class="other">
+        <button onclick="addChart()">Add another chart</button>
+        <pre class=".demo">
+{
+  "time": 1,
+  "temp": 30.39108925522305,
+  "phase": "Heating",
+  "bubbling": 0,
+  "energy": 411.8623010581359
+}
+        </pre>
+      </div>
+    </div>
+  </body>
+  <script type="text/javascript">
+
+  var dataGen = generateData();
+  var data = dataGen.data;
+  var metrics = dataGen.metrics;
+  var realtime = dataGen.realtime;
+
+  function toggleRealtime() {
+    realtime.set(!realtime.get()).notify();
+  }
+
+  selHolder = dvl.def().name('sel_holder');
+  selData = dvl.def().name('sel_data');
+
+  var summaryText = dvl.apply({
+    args: [data, selData],
+    allowNull: true,
+    fn: function(_data, _selData) {
+      var str = 'There are ' + _data.length + ' data points.';
+      if (_selData) {
+        str += ' (' + _selData.length + ' selected)';
+      }
+      return str;
+    }
+  })
+
+  dvl.bindSingle({
+    self: d3.select('.info'),
+    text: summaryText
+  });
+
+  time({
+    parent: d3.select('div.chart1'),
+    selHolder: selHolder,
+    selData: selData,
+    data: data,
+    time: 'time',
+    metric: 'temp',
+    width: 600,
+    height: 400
+  });
+
+  histogram({
+    parent: d3.select('div.chart2'),
+    selHolder: selHolder,
+    selData: selData,
+    data: data,
+    dimension: 'phase',
+    width: 600,
+    height: 200
+  });
+
+  scatter({
+    parent: d3.select('div.chart3'),
+    selHolder: selHolder,
+    selData: selData,
+    data: data,
+    metricX: 'energy',
+    metricY: 'temp',
+    width: 400,
+    height: 400
+  });
+
+  function addChart() {
+    d3.select('.other').style('display', 'none')
+    scatter({
+      parent: d3.select('div.chart4'),
+      selHolder: selHolder,
+      selData: selData,
+      data: data,
+      metricX: 'temp',
+      metricY: 'bubbling',
+      width: 400,
+      height: 400
+    });
+  }
+
+  </script>
+</html>

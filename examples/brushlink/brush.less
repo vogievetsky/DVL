@@ -1,0 +1,131 @@
+* {
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+body {
+  font: 12px sans-serif;
+}
+
+.highlight {
+  shape-rendering: crispEdges;
+  opacity: 0.05;
+  fill: blue;
+  pointer-events: none;
+}
+
+
+.time {
+  .background {
+    fill: #eee;
+  }
+
+  line {
+    shape-rendering: crispEdges;
+    stroke: white;
+    pointer-events: none;
+  }
+
+  text {
+    &.x {
+      text-anchor: middle;
+    }
+
+    &.y {
+      text-anchor: end;
+    }
+  }
+
+  path {
+    stroke: steelblue;
+    fill: none;
+    pointer-events: none;
+  }
+
+  circle {
+    fill: #41BF28;
+    stroke: none;
+    pointer-events: none;
+  }
+}
+
+.scatter {
+  .background {
+    fill: #eee;
+  }
+
+  line {
+    shape-rendering: crispEdges;
+    stroke: white;
+    pointer-events: none;
+  }
+
+  text {
+    &.x {
+      text-anchor: middle;
+    }
+
+    &.y {
+      text-anchor: end;
+    }
+  }
+
+  circle {
+    fill: none;
+    stroke: steelblue;
+    opacity: 0.9;
+    pointer-events: none;
+  }
+}
+
+.histogram {
+  .background {
+    fill: #eee;
+  }
+
+  .bar {
+    fill: steelblue;
+    shape-rendering: crispEdges;
+  }
+
+  .selection .bar {
+    fill: #41BF28;
+    pointer-events: none;
+    shape-rendering: crispEdges;
+  }
+
+  line {
+    shape-rendering: crispEdges;
+    stroke: white;
+  }
+
+  text {
+    &.x {
+      text-anchor: middle;
+    }
+
+    &.y {
+      text-anchor: end;
+    }
+  }
+}
+
+.control {
+  margin-left: 70px;
+}
+
+.chart2,
+.chart3,
+.chart4,
+.other {
+  display: inline-block;
+  vertical-align: top;
+}
+
+pre {
+  font-size: 25px;
+}

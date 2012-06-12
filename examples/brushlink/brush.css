@@ -1,0 +1,23 @@
+*{-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;-o-user-select:none;user-select:none;}
+body{font:12px sans-serif;}
+.highlight{shape-rendering:crispEdges;opacity:0.05;fill:blue;pointer-events:none;}
+.time .background{fill:#eee;}
+.time line{shape-rendering:crispEdges;stroke:white;pointer-events:none;}
+.time text.x{text-anchor:middle;}
+.time text.y{text-anchor:end;}
+.time path{stroke:steelblue;fill:none;pointer-events:none;}
+.time circle{fill:#41BF28;stroke:none;pointer-events:none;}
+.scatter .background{fill:#eee;}
+.scatter line{shape-rendering:crispEdges;stroke:white;pointer-events:none;}
+.scatter text.x{text-anchor:middle;}
+.scatter text.y{text-anchor:end;}
+.scatter circle{fill:none;stroke:steelblue;opacity:0.9;pointer-events:none;}
+.histogram .background{fill:#eee;}
+.histogram .bar{fill:steelblue;shape-rendering:crispEdges;}
+.histogram .selection .bar{fill:#41BF28;pointer-events:none;shape-rendering:crispEdges;}
+.histogram line{shape-rendering:crispEdges;stroke:white;}
+.histogram text.x{text-anchor:middle;}
+.histogram text.y{text-anchor:end;}
+.control{margin-left:70px;}
+.chart2,.chart3,.chart4,.other{display:inline-block;vertical-align:top;}
+pre{font-size:25px;}
