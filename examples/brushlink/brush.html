@@ -27,7 +27,7 @@
         <button onclick="addChart()">Add another chart</button>
         <pre class=".demo">
 {
-  "time": 1,
+  "time": 17,
   "temp": 30.391,
   "phase": "Heating",
   "bubbling": 0,
@@ -67,6 +67,8 @@
     text: summaryText
   });
 
+  window.timeWidth = dvl.def(600)
+
   time({
     parent: d3.select('div.chart1'),
     selHolder: selHolder,
@@ -74,7 +76,7 @@
     data: data,
     time: 'time',
     metric: 'temp',
-    width: 600,
+    width: timeWidth,
     height: 400
   });
 
@@ -98,8 +100,6 @@
     width: 600,
     height: 200
   });
-
-
 
   function addChart() {
     d3.select('.other').style('display', 'none')

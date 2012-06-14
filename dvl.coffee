@@ -232,6 +232,9 @@ dvl.util = {
         @n = arguments[0]
         return this
     compare: -> if arguments.length then this else default_compare
+    apply: (fn) -> dvl.apply(this, fn)
+    applyValid: (fn) -> dvl.applyValid(this, fn)
+    applyAlways: (fn) -> dvl.applyAlways(this, fn)
 
     setGen: -> this
     gen: ->
@@ -339,6 +342,9 @@ dvl.util = {
         return this
       else
         return @compareFn
+    apply: (fn) -> dvl.apply(this, fn)
+    applyValid: (fn) -> dvl.applyValid(this, fn)
+    applyAlways: (fn) -> dvl.applyAlways(this, fn)
 
     setGen: (g, l) ->
       if g is null
@@ -871,15 +877,11 @@ dvl.debug = ->
 dvl.apply = dvl.applyValid = ->
   switch arguments.length
     when 1
-      arg0 = arguments[0]
-      if typeof arg0 is 'function'
-        fn = arg0
-      else
-        {fn, args, name, invalid, allowNull, update} = arg0
+      {args, fn, invalid, allowNull, update} = arguments[0]
     when 2
       [args, fn] = arguments
     when 3
-      [args, {name, invalid, allowNull, update}, fn] = arguments
+      [args, {invalid, allowNull, update}, fn] = arguments
     else
       throw "incorect number of arguments"
 
@@ -894,12 +896,12 @@ dvl.apply = dvl.applyValid = ->
 
   invalid = dvl.wrap(invalid ? null)
 
-  out = dvl.def(invalid.value()).name(name or 'apply_out')
+  out = dvl.def(invalid.value()).name('apply_valid_out')
 
   dvl.register {
-    name: (name or 'apply')+'_fn'
+    name: 'apply_fn'
     listen: args.concat([fn, invalid])
-    change: [out]
+    change: out
     fn: ->
       f = fn.value()
       return unless f?
@@ -929,25 +931,47 @@ dvl.apply = dvl.applyValid = ->
 dvl.applyAlways = ->
   switch arguments.length
     when 1
-      arg0 = arguments[0]
-      if typeof arg0 is 'function'
-        fn = arg0
-      else
-        {fn, args, name, update} = arg0
+      {args, fn, update} = arguments[0]
     when 2
       [args, fn] = arguments
     when 3
-      [args, {name, update}, fn] = arguments
+      [args, {update}, fn] = arguments
     else
       throw "incorect number of arguments"
 
-  return dvl.apply {
-    args
-    allowNull: true
-    fn
-    name
-    update
+  fn = dvl.wrap(fn or dvl.identity)
+
+  argsType = dvl.typeOf(args)
+  if argsType is 'undefined'
+    args = []
+  else
+    args = [args] unless argsType is 'array'
+    args = args.map(dvl.wrap)
+
+  out = dvl.def().name('apply_valid_out')
+
+  dvl.register {
+    name: 'apply_fn'
+    listen: args.concat([fn])
+    change: out
+    fn: ->
+      f = fn.value()
+      return unless f?
+      send = []
+      for a in args
+        send.push a.value()
+
+      r = f.apply(null, send)
+      return if r is undefined
+
+      if update
+        out.update(r)
+      else
+        out.set(r).notify()
+
+      return
   }
+  return out
 
 
 dvl.random = (options) ->
@@ -1425,30 +1449,104 @@ dvl.hasher = (obj) ->
   return
 
 
-# Data # ------------------------------------------------
+dvl.chain = (f, h) ->
+  f = dvl.wrap(f)
+  h = dvl.wrap(h)
 
-dvl.data = {}
+  out = dvl.def().name('chain')
 
-dvl.data.min = (data, acc) ->
-  acc or= dvl.identity
-  return dvl.apply {
-    args: [data, acc]
-    update: true
-    fn: d3.min
+  dvl.register {
+    listen: [f, h]
+    change: [out]
+    fn: ->
+      _f = f.value()
+      _h = h.value()
+      if _f and _h
+        out.value((x) -> _h(_f(x)))
+      else
+        out.value(null)
+      return
+  }
+  return out
+
+
+do ->
+  dvl_value = (v) -> v.value()
+  dvl.op = dvl_op = (fn) ->
+    liftedFn = lift(fn)
+    return (args...) ->
+      args = args.map(dvl.wrap)
+      out = dvl.def()
+
+      dvl.register {
+        listen: args
+        change: [out]
+        fn: ->
+          out.set(liftedFn.apply(null, args.map(dvl_value)))
+          dvl.notify(out)
+          return
+      }
+
+      return out
+
+  op_to_lift = {
+    'or': ->
+      for arg in arguments
+        return arg if arg
+      return false
+
+    'add': ->
+      sum = 0
+      for arg in arguments
+        if arg?
+          sum += arg
+        else
+          return null
+      return sum
+
+    'sub': ->
+      sum = 0
+      mult = 1
+      for arg in arguments
+        if arg?
+          sum += arg * mult
+          mult = -1
+        else
+          return null
+      return sum
+
+    'list': (args...) ->
+      for arg in args
+        return null unless arg?
+      return args
+
+    'concat': (args...) ->
+      for arg in args
+        return null unless arg?
+      return args.join('')
+
+    'iff': (cond, truthy, falsy) ->
+      return if cond then truthy else falsy
+
+    'iffEq': (lhs, rhs, truthy, falsy) ->
+      return if lhs is rhs then truthy else falsy
+
+    'iffLt': (lhs, rhs, truthy, falsy) ->
+      return if lhs < rhs then truthy else falsy
+
+    'makeTranslate': (x, y) ->
+      return if x? and y? then "translate(#{x},#{y})" else null
   }
 
-dvl.data.max = (data, acc) ->
-  acc or= dvl.identity
-  return dvl.apply {
-    args: [data, acc]
-    update: true
-    fn: d3.max
-  }
+  dvl_op[k] = dvl_op(fn) for k, fn of op_to_lift
+  return
+
 
 # dvl.bind # --------------------------------------------------
 do ->
   id_class_spliter = /(?=[#.:])/
   def_data_fn = dvl.const((d) -> [d])
+  class_concat = dvl.op((s, d) -> s + ' ' + (d or ''))
   dvl.bind = ({parent, self, data, join, attr, style, text, html, on:argsOn, transition, transitionExit}) ->
     throw "'parent' not defiend" unless parent
     throw "'self' not defiend" unless typeof self is 'string'
@@ -1481,7 +1579,7 @@ do ->
     for k, v of attr
       v = dvl.wrap(v)
       if k is 'class' and staticClass
-        v = dvl.op.concat(staticClass + ' ', v)
+        v = class_concat(staticClass, v)
 
       listen.push(v)
       attrList[k] = v
@@ -1618,7 +1716,7 @@ do ->
     for k, v of attr
       v = dvl.wrap(v)
       if k is 'class' and staticClass
-        v = dvl.op.concat(staticClass + ' ', v)
+        v = class_concat(staticClass, v)
 
       listen.push(v)
       attrList[k] = v
@@ -1662,98 +1760,6 @@ do ->
 
     return self
 
-
-dvl.chain = (f, h) ->
-  f = dvl.wrap(f)
-  h = dvl.wrap(h)
-
-  out = dvl.def().name('chain')
-
-  dvl.register {
-    listen: [f, h]
-    change: [out]
-    fn: ->
-      _f = f.value()
-      _h = h.value()
-      if _f and _h
-        out.value((x) -> _h(_f(x)))
-      else
-        out.value(null)
-      return
-  }
-  return out
-
-
-do ->
-  dvl_value = (v) -> v.value()
-  dvl.op = dvl_op = (fn) ->
-    liftedFn = lift(fn)
-    return (args...) ->
-      args = args.map(dvl.wrap)
-      out = dvl.def()
-
-      dvl.register {
-        listen: args
-        change: [out]
-        fn: ->
-          out.set(liftedFn.apply(null, args.map(dvl_value)))
-          dvl.notify(out)
-          return
-      }
-
-      return out
-
-  op_to_lift = {
-    'or': ->
-      for arg in arguments
-        return arg if arg
-      return false
-
-    'add': ->
-      sum = 0
-      for arg in arguments
-        if arg?
-          sum += arg
-        else
-          return null
-      return sum
-
-    'sub': ->
-      sum = 0
-      mult = 1
-      for arg in arguments
-        if arg?
-          sum += arg * mult
-          mult = -1
-        else
-          return null
-      return sum
-
-    'list': (args...) ->
-      for arg in args
-        return null unless arg?
-      return args
-
-    'concat': (args...) ->
-      for arg in args
-        return null unless arg?
-      return args.join('')
-
-    'iff': (cond, truthy, falsy) ->
-      return if cond then truthy else falsy
-
-    'iffEq': (lhs, rhs, truthy, falsy) ->
-      return if lhs is rhs then truthy else falsy
-
-    'iffLt': (lhs, rhs, truthy, falsy) ->
-      return if lhs < rhs then truthy else falsy
-
-    'makeTranslate': (x, y) ->
-      return if x? and y? then "translate(#{x},#{y})" else null
-  }
-
-  dvl_op[k] = dvl_op(fn) for k, fn of op_to_lift
-  return
 
 
 clipId = 0

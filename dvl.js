@@ -353,6 +353,18 @@ dvl.util = {
       }
     };
 
+    DVLConst.prototype.apply = function(fn) {
+      return dvl.apply(this, fn);
+    };
+
+    DVLConst.prototype.applyValid = function(fn) {
+      return dvl.applyValid(this, fn);
+    };
+
+    DVLConst.prototype.applyAlways = function(fn) {
+      return dvl.applyAlways(this, fn);
+    };
+
     DVLConst.prototype.setGen = function() {
       return this;
     };
@@ -520,6 +532,18 @@ dvl.util = {
       } else {
         return this.compareFn;
       }
+    };
+
+    DVLDef.prototype.apply = function(fn) {
+      return dvl.apply(this, fn);
+    };
+
+    DVLDef.prototype.applyValid = function(fn) {
+      return dvl.applyValid(this, fn);
+    };
+
+    DVLDef.prototype.applyAlways = function(fn) {
+      return dvl.applyAlways(this, fn);
     };
 
     DVLDef.prototype.setGen = function(g, l) {
@@ -1235,21 +1259,16 @@ dvl.debug = function() {
 };
 
 dvl.apply = dvl.applyValid = function() {
-  var allowNull, arg0, args, argsType, fn, invalid, name, out, update, _ref;
+  var allowNull, args, argsType, fn, invalid, out, update, _ref, _ref1;
   switch (arguments.length) {
     case 1:
-      arg0 = arguments[0];
-      if (typeof arg0 === 'function') {
-        fn = arg0;
-      } else {
-        fn = arg0.fn, args = arg0.args, name = arg0.name, invalid = arg0.invalid, allowNull = arg0.allowNull, update = arg0.update;
-      }
+      _ref = arguments[0], args = _ref.args, fn = _ref.fn, invalid = _ref.invalid, allowNull = _ref.allowNull, update = _ref.update;
       break;
     case 2:
       args = arguments[0], fn = arguments[1];
       break;
     case 3:
-      args = arguments[0], (_ref = arguments[1], name = _ref.name, invalid = _ref.invalid, allowNull = _ref.allowNull, update = _ref.update), fn = arguments[2];
+      args = arguments[0], (_ref1 = arguments[1], invalid = _ref1.invalid, allowNull = _ref1.allowNull, update = _ref1.update), fn = arguments[2];
       break;
     default:
       throw "incorect number of arguments";
@@ -1265,11 +1284,11 @@ dvl.apply = dvl.applyValid = function() {
     args = args.map(dvl.wrap);
   }
   invalid = dvl.wrap(invalid != null ? invalid : null);
-  out = dvl.def(invalid.value()).name(name || 'apply_out');
+  out = dvl.def(invalid.value()).name('apply_valid_out');
   dvl.register({
-    name: (name || 'apply') + '_fn',
+    name: 'apply_fn',
     listen: args.concat([fn, invalid]),
-    change: [out],
+    change: out,
     fn: function() {
       var a, f, nulls, r, send, v, _i, _len;
       f = fn.value();
@@ -1305,32 +1324,58 @@ dvl.apply = dvl.applyValid = function() {
 };
 
 dvl.applyAlways = function() {
-  var arg0, args, fn, name, update, _ref;
+  var args, argsType, fn, out, update, _ref, _ref1;
   switch (arguments.length) {
     case 1:
-      arg0 = arguments[0];
-      if (typeof arg0 === 'function') {
-        fn = arg0;
-      } else {
-        fn = arg0.fn, args = arg0.args, name = arg0.name, update = arg0.update;
-      }
+      _ref = arguments[0], args = _ref.args, fn = _ref.fn, update = _ref.update;
       break;
     case 2:
       args = arguments[0], fn = arguments[1];
       break;
     case 3:
-      args = arguments[0], (_ref = arguments[1], name = _ref.name, update = _ref.update), fn = arguments[2];
+      args = arguments[0], (_ref1 = arguments[1], update = _ref1.update), fn = arguments[2];
       break;
     default:
       throw "incorect number of arguments";
   }
-  return dvl.apply({
-    args: args,
-    allowNull: true,
-    fn: fn,
-    name: name,
-    update: update
+  fn = dvl.wrap(fn || dvl.identity);
+  argsType = dvl.typeOf(args);
+  if (argsType === 'undefined') {
+    args = [];
+  } else {
+    if (argsType !== 'array') {
+      args = [args];
+    }
+    args = args.map(dvl.wrap);
+  }
+  out = dvl.def().name('apply_valid_out');
+  dvl.register({
+    name: 'apply_fn',
+    listen: args.concat([fn]),
+    change: out,
+    fn: function() {
+      var a, f, r, send, _i, _len;
+      f = fn.value();
+      if (f == null) {
+        return;
+      }
+      send = [];
+      for (_i = 0, _len = args.length; _i < _len; _i++) {
+        a = args[_i];
+        send.push(a.value());
+      }
+      r = f.apply(null, send);
+      if (r === void 0) {
+        return;
+      }
+      if (update) {
+        out.update(r);
+      } else {
+        out.set(r).notify();
+      }
+    }
   });
+  return out;
 };
 
 dvl.random = function(options) {
@@ -1904,31 +1949,158 @@ dvl.hasher = function(obj) {
   });
 };
 
-dvl.data = {};
-
-dvl.data.min = function(data, acc) {
-  acc || (acc = dvl.identity);
-  return dvl.apply({
-    args: [data, acc],
-    update: true,
-    fn: d3.min
+dvl.chain = function(f, h) {
+  var out;
+  f = dvl.wrap(f);
+  h = dvl.wrap(h);
+  out = dvl.def().name('chain');
+  dvl.register({
+    listen: [f, h],
+    change: [out],
+    fn: function() {
+      var _f, _h;
+      _f = f.value();
+      _h = h.value();
+      if (_f && _h) {
+        out.value(function(x) {
+          return _h(_f(x));
+        });
+      } else {
+        out.value(null);
+      }
+    }
   });
-};
-
-dvl.data.max = function(data, acc) {
-  acc || (acc = dvl.identity);
-  return dvl.apply({
-    args: [data, acc],
-    update: true,
-    fn: d3.max
-  });
+  return out;
 };
 
 (function() {
-  var def_data_fn, id_class_spliter;
+  var dvl_op, dvl_value, fn, k, op_to_lift;
+  dvl_value = function(v) {
+    return v.value();
+  };
+  dvl.op = dvl_op = function(fn) {
+    var liftedFn;
+    liftedFn = lift(fn);
+    return function() {
+      var args, out;
+      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      args = args.map(dvl.wrap);
+      out = dvl.def();
+      dvl.register({
+        listen: args,
+        change: [out],
+        fn: function() {
+          out.set(liftedFn.apply(null, args.map(dvl_value)));
+          dvl.notify(out);
+        }
+      });
+      return out;
+    };
+  };
+  op_to_lift = {
+    'or': function() {
+      var arg, _i, _len;
+      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+        arg = arguments[_i];
+        if (arg) {
+          return arg;
+        }
+      }
+      return false;
+    },
+    'add': function() {
+      var arg, sum, _i, _len;
+      sum = 0;
+      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+        arg = arguments[_i];
+        if (arg != null) {
+          sum += arg;
+        } else {
+          return null;
+        }
+      }
+      return sum;
+    },
+    'sub': function() {
+      var arg, mult, sum, _i, _len;
+      sum = 0;
+      mult = 1;
+      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+        arg = arguments[_i];
+        if (arg != null) {
+          sum += arg * mult;
+          mult = -1;
+        } else {
+          return null;
+        }
+      }
+      return sum;
+    },
+    'list': function() {
+      var arg, args, _i, _len;
+      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      for (_i = 0, _len = args.length; _i < _len; _i++) {
+        arg = args[_i];
+        if (arg == null) {
+          return null;
+        }
+      }
+      return args;
+    },
+    'concat': function() {
+      var arg, args, _i, _len;
+      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      for (_i = 0, _len = args.length; _i < _len; _i++) {
+        arg = args[_i];
+        if (arg == null) {
+          return null;
+        }
+      }
+      return args.join('');
+    },
+    'iff': function(cond, truthy, falsy) {
+      if (cond) {
+        return truthy;
+      } else {
+        return falsy;
+      }
+    },
+    'iffEq': function(lhs, rhs, truthy, falsy) {
+      if (lhs === rhs) {
+        return truthy;
+      } else {
+        return falsy;
+      }
+    },
+    'iffLt': function(lhs, rhs, truthy, falsy) {
+      if (lhs < rhs) {
+        return truthy;
+      } else {
+        return falsy;
+      }
+    },
+    'makeTranslate': function(x, y) {
+      if ((x != null) && (y != null)) {
+        return "translate(" + x + "," + y + ")";
+      } else {
+        return null;
+      }
+    }
+  };
+  for (k in op_to_lift) {
+    fn = op_to_lift[k];
+    dvl_op[k] = dvl_op(fn);
+  }
+})();
+
+(function() {
+  var class_concat, def_data_fn, id_class_spliter;
   id_class_spliter = /(?=[#.:])/;
   def_data_fn = dvl["const"](function(d) {
     return [d];
+  });
+  class_concat = dvl.op(function(s, d) {
+    return s + ' ' + (d || '');
   });
   dvl.bind = function(_arg) {
     var argsOn, attr, attrList, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, self, staticClass, staticId, style, styleList, text, transition, transitionExit, v, _i, _len;
@@ -1970,7 +2142,7 @@ dvl.data.max = function(data, acc) {
       v = attr[k];
       v = dvl.wrap(v);
       if (k === 'class' && staticClass) {
-        v = dvl.op.concat(staticClass + ' ', v);
+        v = class_concat(staticClass, v);
       }
       listen.push(v);
       attrList[k] = v;
@@ -2164,7 +2336,7 @@ dvl.data.max = function(data, acc) {
       v = attr[k];
       v = dvl.wrap(v);
       if (k === 'class' && staticClass) {
-        v = dvl.op.concat(staticClass + ' ', v);
+        v = class_concat(staticClass, v);
       }
       listen.push(v);
       attrList[k] = v;
@@ -2225,150 +2397,6 @@ dvl.data.max = function(data, acc) {
     });
     return self;
   };
-})();
-
-dvl.chain = function(f, h) {
-  var out;
-  f = dvl.wrap(f);
-  h = dvl.wrap(h);
-  out = dvl.def().name('chain');
-  dvl.register({
-    listen: [f, h],
-    change: [out],
-    fn: function() {
-      var _f, _h;
-      _f = f.value();
-      _h = h.value();
-      if (_f && _h) {
-        out.value(function(x) {
-          return _h(_f(x));
-        });
-      } else {
-        out.value(null);
-      }
-    }
-  });
-  return out;
-};
-
-(function() {
-  var dvl_op, dvl_value, fn, k, op_to_lift;
-  dvl_value = function(v) {
-    return v.value();
-  };
-  dvl.op = dvl_op = function(fn) {
-    var liftedFn;
-    liftedFn = lift(fn);
-    return function() {
-      var args, out;
-      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-      args = args.map(dvl.wrap);
-      out = dvl.def();
-      dvl.register({
-        listen: args,
-        change: [out],
-        fn: function() {
-          out.set(liftedFn.apply(null, args.map(dvl_value)));
-          dvl.notify(out);
-        }
-      });
-      return out;
-    };
-  };
-  op_to_lift = {
-    'or': function() {
-      var arg, _i, _len;
-      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
-        arg = arguments[_i];
-        if (arg) {
-          return arg;
-        }
-      }
-      return false;
-    },
-    'add': function() {
-      var arg, sum, _i, _len;
-      sum = 0;
-      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
-        arg = arguments[_i];
-        if (arg != null) {
-          sum += arg;
-        } else {
-          return null;
-        }
-      }
-      return sum;
-    },
-    'sub': function() {
-      var arg, mult, sum, _i, _len;
-      sum = 0;
-      mult = 1;
-      for (_i = 0, _len = arguments.length; _i < _len; _i++) {
-        arg = arguments[_i];
-        if (arg != null) {
-          sum += arg * mult;
-          mult = -1;
-        } else {
-          return null;
-        }
-      }
-      return sum;
-    },
-    'list': function() {
-      var arg, args, _i, _len;
-      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-      for (_i = 0, _len = args.length; _i < _len; _i++) {
-        arg = args[_i];
-        if (arg == null) {
-          return null;
-        }
-      }
-      return args;
-    },
-    'concat': function() {
-      var arg, args, _i, _len;
-      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-      for (_i = 0, _len = args.length; _i < _len; _i++) {
-        arg = args[_i];
-        if (arg == null) {
-          return null;
-        }
-      }
-      return args.join('');
-    },
-    'iff': function(cond, truthy, falsy) {
-      if (cond) {
-        return truthy;
-      } else {
-        return falsy;
-      }
-    },
-    'iffEq': function(lhs, rhs, truthy, falsy) {
-      if (lhs === rhs) {
-        return truthy;
-      } else {
-        return falsy;
-      }
-    },
-    'iffLt': function(lhs, rhs, truthy, falsy) {
-      if (lhs < rhs) {
-        return truthy;
-      } else {
-        return falsy;
-      }
-    },
-    'makeTranslate': function(x, y) {
-      if ((x != null) && (y != null)) {
-        return "translate(" + x + "," + y + ")";
-      } else {
-        return null;
-      }
-    }
-  };
-  for (k in op_to_lift) {
-    fn = op_to_lift[k];
-    dvl_op[k] = dvl_op(fn);
-  }
 })();
 
 clipId = 0;
