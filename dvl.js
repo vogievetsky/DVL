@@ -1188,7 +1188,7 @@ dvl.util = {
       graph: JSON.stringify(g)
     });
   };
-  return dvl.postLatest = function(file, showId) {
+  dvl.postLatest = function(file, showId) {
     var g;
     file || (file = 'dvl_graph_latest');
     g = dvl.graphToDot(true, showId);
@@ -1674,7 +1674,7 @@ dvl.recorder = function(options) {
   dvl.json = dvl.ajax;
   dvl.ajax.outstanding = outstanding;
   nextGroupId = 0;
-  return dvl.ajax.getGroupId = function() {
+  dvl.ajax.getGroupId = function() {
     var id;
     id = nextGroupId;
     nextGroupId++;
@@ -1933,19 +1933,95 @@ dvl.snap = function(_arg) {
   return out;
 };
 
-dvl.hasher = function(obj) {
-  var updateHash;
-  updateHash = function() {
-    var h;
-    h = obj.value();
-    if (window.location.hash !== h) {
-      return window.location.hash = h;
+(function() {
+  var addHoock, fo, inputChange, onHashChange, vars;
+  vars = [];
+  inputChange = function() {
+    var obj, v, _i, _len;
+    obj = {};
+    for (_i = 0, _len = vars.length; _i < _len; _i++) {
+      v = vars[_i];
+      obj[v.name] = v.object.value();
+    }
+    window.location.hash = dvl.urlHash.toHashString(obj);
+  };
+  onHashChange = function() {
+    var obj, v, val, _i, _len;
+    obj = dvl.urlHash.fromHashString(window.location.hash);
+    for (_i = 0, _len = vars.length; _i < _len; _i++) {
+      v = vars[_i];
+      val = obj[v.name];
+      if (validate(val)) {
+        v.object.value(val);
+      }
     }
   };
-  dvl.register({
-    fn: updateHash,
-    listen: [obj],
-    name: 'hash_changer'
+  fo = null;
+  addHoock = function(v) {
+    if (fo) {
+      fo.addListen(v);
+    } else {
+      fo = dvl.register({
+        name: 'hash_man',
+        listen: [v],
+        fn: inputChange,
+        force: true
+      });
+      window.onhashchange = onHashChange;
+    }
+  };
+  dvl.urlHash = function(_arg) {
+    var key, object, updateHash, validate;
+    key = _arg.key, object = _arg.object, validate = _arg.validate;
+    vars.push({
+      key: key,
+      object: object,
+      validate: validate
+    });
+    addHoock(object);
+    return;
+    updateHash = function() {
+      var h;
+      h = obj.value();
+      if (window.location.hash !== h) {
+        return window.location.hash = h;
+      }
+    };
+    dvl.register({
+      fn: updateHash,
+      listen: [obj],
+      name: 'hash_changer'
+    });
+  };
+  dvl.urlHash.version = 3;
+  dvl.urlHash.upgradeVersion = function() {
+    throw "upgrade not defined";
+  };
+  dvl.urlHash.toHashString = function(obj) {
+    return JSON.stringify(obj);
+  };
+  dvl.urlHash.fromHashString = function(str) {
+    return JSON.parse(str);
+  };
+})();
+
+dvl.data = {};
+
+dvl.data.min = function(data, acc) {
+  acc || (acc = dvl.identity);
+  return dvl.apply({
+    args: [data, acc],
+    update: true,
+    fn: d3.min
+  });
+};
+
+dvl.data.max = function(data, acc) {
+  acc || (acc = dvl.identity);
+  return dvl.apply({
+    args: [data, acc],
+    update: true,
+    fn: d3.max
   });
 };
 

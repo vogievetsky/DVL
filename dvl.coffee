@@ -196,7 +196,7 @@ dvl.util = {
     return str.replace(/&/g,'&amp;').replace(/>/g,'&gt;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
 }
 
-(->
+do ->
   nextObjId = 1
   variables = {}
   registerers = {}
@@ -815,7 +815,7 @@ dvl.util = {
     dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
     return
 
-)()
+  return
 
 dvl.zero = dvl.const(0).name('zero')
 
@@ -1068,7 +1068,7 @@ dvl.recorder = (options) ->
 ##  map:  a map to apply to the recived array.
 ##  fn:   a function to apply to the recived input.
 ##
-(->
+do ->
   outstanding = dvl.def(0).name('json_outstanding')
   ajaxManagers = []
   normalRequester = null
@@ -1238,7 +1238,8 @@ dvl.recorder = (options) ->
     nextGroupId++
     return id
 
-)()
+  return
+
 
 dvl.ajax.requester = {
   normal: () ->
@@ -1440,14 +1441,94 @@ dvl.snap = ({data, acc, value, trim, name}) ->
   return out
 
 
-dvl.hasher = (obj) ->
-  updateHash = ->
-    h = obj.value()
-    window.location.hash = h unless window.location.hash == h
+do ->
+  # dvl.urlHash {
+  #   key: 'where'
+  #   object: mmx.gv.where
+  #   validator: () -> true
+  #   history: false
+  # }
 
-  dvl.register({fn:updateHash, listen:[obj], name:'hash_changer'})
+  vars = []
+
+  inputChange = ->
+    obj = {}
+    for v in vars
+      obj[v.name] = v.object.value()
+
+    window.location.hash = dvl.urlHash.toHashString(obj)
+    return
+
+  onHashChange = ->
+    obj = dvl.urlHash.fromHashString(window.location.hash)
+    for v in vars
+      val = obj[v.name]
+      if validate(val)
+        v.object.value(val)
+    return
+
+  fo = null
+  addHoock = (v) ->
+    if fo
+      fo.addListen(v)
+    else
+      fo = dvl.register {
+        name:   'hash_man'
+        listen: [v]
+        fn:     inputChange
+        force:  true
+      }
+      window.onhashchange = onHashChange
+
+    return
+
+  dvl.urlHash = ({key, object, validate}) ->
+    vars.push { key, object, validate }
+    addHoock(object)
+    return
+
+    updateHash = ->
+      h = obj.value()
+      window.location.hash = h unless window.location.hash == h
+
+    dvl.register({fn:updateHash, listen:[obj], name:'hash_changer'})
+    return
+
+  dvl.urlHash.version = 3
+
+  dvl.urlHash.upgradeVersion = ->
+    throw "upgrade not defined"
+    return
+
+  dvl.urlHash.toHashString = (obj) ->
+    return JSON.stringify(obj)
+
+  dvl.urlHash.fromHashString = (str) ->
+    return JSON.parse(str)
+
   return
 
+# Data # ------------------------------------------------
+
+dvl.data = {}
+
+dvl.data.min = (data, acc) ->
+  acc or= dvl.identity
+  return dvl.apply {
+    args: [data, acc]
+    update: true
+    fn: d3.min
+  }
+
+dvl.data.max = (data, acc) ->
+  acc or= dvl.identity
+  return dvl.apply {
+    args: [data, acc]
+    update: true
+    fn: d3.max
+  }
+
+# -------------------------------------------------------
 
 dvl.chain = (f, h) ->
   f = dvl.wrap(f)
