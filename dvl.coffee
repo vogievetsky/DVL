@@ -497,15 +497,18 @@ do ->
     return block
 
 
-  dvl.group = (fn, ctx) -> (fnArgs...) ->
-    return unless dvl.notify is init_notify
-    captured_notifies = []
-    dvl.notify = (args...) ->
-      Array::push.apply(captured_notifies, args)
-      return
-    fn.apply(ctx, fnArgs)
-    dvl.notify = init_notify
-    init_notify.apply(dvl, captured_notifies)
+  dvl.group = (fn) -> (fnArgs...) ->
+    if dvl.notify is init_notify
+      captured_notifies = []
+      dvl.notify = (args...) ->
+        Array::push.apply(captured_notifies, args)
+        return
+      fn.apply(this, fnArgs)
+      dvl.notify = init_notify
+      init_notify.apply(dvl, captured_notifies)
+    else
+      # this is already runing in a group or a register
+      fn.apply(this, fnArgs)
     return
 
 

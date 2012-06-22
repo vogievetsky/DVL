@@ -792,22 +792,23 @@ dvl.util = {
     curBlock = block.parent;
     return block;
   };
-  dvl.group = function(fn, ctx) {
+  dvl.group = function(fn) {
     return function() {
       var captured_notifies, fnArgs;
       fnArgs = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-      if (dvl.notify !== init_notify) {
-        return;
+      if (dvl.notify === init_notify) {
+        captured_notifies = [];
+        dvl.notify = function() {
+          var args;
+          args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          Array.prototype.push.apply(captured_notifies, args);
+        };
+        fn.apply(this, fnArgs);
+        dvl.notify = init_notify;
+        init_notify.apply(dvl, captured_notifies);
+      } else {
+        fn.apply(this, fnArgs);
       }
-      captured_notifies = [];
-      dvl.notify = function() {
-        var args;
-        args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-        Array.prototype.push.apply(captured_notifies, args);
-      };
-      fn.apply(ctx, fnArgs);
-      dvl.notify = init_notify;
-      init_notify.apply(dvl, captured_notifies);
     };
   };
   dvl["const"] = function(value) {
