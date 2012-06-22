@@ -193,7 +193,11 @@ dvl.util = {
         return obj
 
   escapeHTML: (str) ->
-    return str.replace(/&/g,'&amp;').replace(/>/g,'&gt;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/>/g, '&gt;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;')
 }
 
 do ->
@@ -491,6 +495,18 @@ do ->
     fn.call(this)
     curBlock = block.parent
     return block
+
+
+  dvl.group = (fn, ctx) -> (fnArgs...) ->
+    return unless dvl.notify is init_notify
+    captured_notifies = []
+    dvl.notify = (args...) ->
+      Array::push.apply(captured_notifies, args)
+      return
+    fn.apply(ctx, fnArgs)
+    dvl.notify = init_notify
+    init_notify.apply(dvl, captured_notifies)
+    return
 
 
   dvl.const = (value) -> new DVLConst(value)
@@ -1783,6 +1799,8 @@ do ->
       self = dvl.valueOf(parent).append(nodeType)
       self.attr('id', staticId) is staticId
       self.attr('class', staticClass) is staticClass
+    else
+      staticClass = self.attr('class')
 
     self = dvl.wrapVar(self)
 
@@ -2372,7 +2390,7 @@ dvl.compare = (acc, reverse, ignoreCase) ->
 ##  parent:      Where to append the table.
 ## ~data:        The data displayed.
 ##  classStr:    The class to add to the table.
-## ~rowClassGen: The generator for row classes
+## ~rowClass:    The generator for row classes
 ## ~visible:     Toggles the visibility of the table. [true]
 ##  columns:     A list of columns to drive the table.
 ##    column:
@@ -2415,7 +2433,7 @@ do ->
       }
     }
 
-    sort = sort or {}
+    sort or= {}
     sortOn = dvl.wrapVar(sort.on)
     sortDir = dvl.wrapVar(sort.dir)
     sortOnIndicator = dvl.wrapVar(sort.onIndicator ? sortOn)
@@ -2433,13 +2451,13 @@ do ->
         compareMap[c.id] = comp
         compareList.push comp
 
-        if not c.compareModes?[0]
+        if not c.compareModes
           c.compareModes = default_compare_modes
 
       headerCol.push {
         id:       c.id
         title:    c.title
-        class:    c.class
+        class:    (c.class or '') + (if c.sortable then ' sortable' else '')
         visible:  c.visible
         tooltip:  c.headerTooltip
       }
@@ -2452,6 +2470,10 @@ do ->
         render:   c.render
         on:       c.on
       }
+
+    headerCol.forEach (c) ->
+      c.indicator = dvl.apply([sortOn, sortDir], (so, sd) -> if so is c.id then sd else 'none')
+      return
 
     compare = dvl.def(null)
     dvl.register {

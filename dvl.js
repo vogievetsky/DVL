@@ -262,7 +262,7 @@ dvl.util = {
     }
   },
   escapeHTML: function(str) {
-    return str.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   }
 };
 
@@ -791,6 +791,24 @@ dvl.util = {
     fn.call(this);
     curBlock = block.parent;
     return block;
+  };
+  dvl.group = function(fn, ctx) {
+    return function() {
+      var captured_notifies, fnArgs;
+      fnArgs = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      if (dvl.notify !== init_notify) {
+        return;
+      }
+      captured_notifies = [];
+      dvl.notify = function() {
+        var args;
+        args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+        Array.prototype.push.apply(captured_notifies, args);
+      };
+      fn.apply(ctx, fnArgs);
+      dvl.notify = init_notify;
+      init_notify.apply(dvl, captured_notifies);
+    };
   };
   dvl["const"] = function(value) {
     return new DVLConst(value);
@@ -2400,6 +2418,8 @@ dvl.chain = function(f, h) {
       self = dvl.valueOf(parent).append(nodeType);
       self.attr('id', staticId) === staticId;
       self.attr('class', staticClass) === staticClass;
+    } else {
+      staticClass = self.attr('class');
     }
     self = dvl.wrapVar(self);
     datum = dvl.wrap(datum);
@@ -3031,7 +3051,7 @@ dvl.compare = function(acc, reverse, ignoreCase) {
   var default_compare_modes;
   default_compare_modes = ['up', 'down'];
   dvl.html.table = function(_arg) {
-    var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, onRow, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref, _ref1;
+    var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, onRow, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref;
     parent = _arg.parent, data = _arg.data, sort = _arg.sort, classStr = _arg.classStr, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns, onRow = _arg.on;
     table = dvl.bindSingle({
       parent: parent,
@@ -3040,7 +3060,7 @@ dvl.compare = function(acc, reverse, ignoreCase) {
         "class": classStr
       }
     });
-    sort = sort || {};
+    sort || (sort = {});
     sortOn = dvl.wrapVar(sort.on);
     sortDir = dvl.wrapVar(sort.dir);
     sortOnIndicator = dvl.wrapVar((_ref = sort.onIndicator) != null ? _ref : sortOn);
@@ -3058,14 +3078,14 @@ dvl.compare = function(acc, reverse, ignoreCase) {
         }
         compareMap[c.id] = comp;
         compareList.push(comp);
-        if (!((_ref1 = c.compareModes) != null ? _ref1[0] : void 0)) {
+        if (!c.compareModes) {
           c.compareModes = default_compare_modes;
         }
       }
       headerCol.push({
         id: c.id,
         title: c.title,
-        "class": c["class"],
+        "class": (c["class"] || '') + (c.sortable ? ' sortable' : ''),
         visible: c.visible,
         tooltip: c.headerTooltip
       });
@@ -3079,16 +3099,25 @@ dvl.compare = function(acc, reverse, ignoreCase) {
         on: c.on
       });
     }
+    headerCol.forEach(function(c) {
+      c.indicator = dvl.apply([sortOn, sortDir], function(so, sd) {
+        if (so === c.id) {
+          return sd;
+        } else {
+          return 'none';
+        }
+      });
+    });
     compare = dvl.def(null);
     dvl.register({
       listen: compareList,
       change: [compare],
       fn: function() {
-        var cmp, oldCmp, _ref2, _sortDir, _sortOn;
+        var cmp, oldCmp, _ref1, _sortDir, _sortOn;
         _sortOn = sortOn.value();
         _sortDir = sortDir.value();
         if (_sortOn != null) {
-          cmp = (_ref2 = compareMap[_sortOn]) != null ? _ref2.value() : void 0;
+          cmp = (_ref1 = compareMap[_sortOn]) != null ? _ref1.value() : void 0;
           if (cmp && _sortDir === 'down') {
             oldCmp = cmp;
             cmp = function(a, b) {
