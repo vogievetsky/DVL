@@ -12,7 +12,7 @@ The code DVL functionality can be described with the following functions:
 
 Creates a wrapped variable that can dispatch events.
 
-		var x = dvl.def(5);
+		var x = dvl(5);
 		x.get(); //== 5
 		x.set(7);
 		x.get(); //== 7
@@ -26,9 +26,9 @@ The null value is used to mark that a variable is invalid.
 
 Registers a function to be called whenever any of the registered listened to objects change as well as announcing what objects the function might modify.
 
-		var a = dvl.def(5);
-		var b = dvl.def(12);
-		var c = dvl.def(null);
+		var a = dvl(5);
+		var b = dvl(12);
+		var c = dvl(null);
 
 		function calc() {
 			var av = a.get();
@@ -62,8 +62,8 @@ We must explicitly declare that calc will be changing c. This is important for D
 
 The apply function is a short-form for simplifying a common pattern found in DVL.
 
-		var a = dvl.def(5);
-		var b = dvl.def(12);
+		var a = dvl(5);
+		var b = dvl(12);
 
 		var c = dvl.apply(
 		  [a, b],

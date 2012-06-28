@@ -1,5 +1,5 @@
 - Make this work:
-    var v = dvl.def(4)
+    var v = dvl(4)
       .assert(function(x) { return x%2 == 0; })
       .enum([4,6,8])
       .forceValid()

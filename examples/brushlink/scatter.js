@@ -9,7 +9,7 @@ function scatter(args) {
   var selHolder = dvl.wrapVar(args.selHolder);
   var me = {};
   var duration = 200;
-  var selDuration = dvl.def(duration, 'sel_duration');
+  var selDuration = dvl(duration, 'sel_duration');
 
   var mySelection = dvl.apply({
     args: selHolder,
@@ -115,10 +115,10 @@ function scatter(args) {
     }
   });
 
-  var selStartX = dvl.def().name('sel_start_x');
-  var selStartY = dvl.def().name('sel_start_y');
-  var selEndX = dvl.def().name('sel_end_x');
-  var selEndY = dvl.def().name('sel_end_y');
+  var selStartX = dvl().name('sel_start_x');
+  var selStartY = dvl().name('sel_start_y');
+  var selEndX = dvl().name('sel_end_x');
+  var selEndY = dvl().name('sel_end_y');
 
   dvl.register({
     listen: [mySelection, data, selStartX, selStartY, selEndX, selEndY, metricX, metricY],

@@ -10,8 +10,8 @@ suite.addBatch({
     topic: function() {
       var t = {
         runs: 0,
-        a: dvl.def(3).name('a'),
-        invalid: dvl.def(10)
+        a: dvl(3).name('a'),
+        invalid: dvl(10)
       }
 
       t.b = dvl.apply({
@@ -86,7 +86,7 @@ suite.addBatch({
   //   topic: function() {
   //     var t = {
   //       runs: 0,
-  //       a: dvl.def(3).name('a')
+  //       a: dvl(3).name('a')
   //     }
 
   //     dvl.register({
@@ -115,8 +115,8 @@ suite.addBatch({
   //   topic: function() {
   //     var t = {
   //       runs: 0,
-  //       a: dvl.def(3).name('a'),
-  //       b: dvl.def(null).name('b')
+  //       a: dvl(3).name('a'),
+  //       b: dvl(null).name('b')
   //     }
 
   //     dvl.register({
@@ -148,8 +148,8 @@ suite.addBatch({
   //   topic: function() {
   //     var t = {
   //       runs: 0,
-  //       a: dvl.def(3).name('a'),
-  //       b: dvl.def(null).name('b')
+  //       a: dvl(3).name('a'),
+  //       b: dvl(null).name('b')
   //     }
 
   //     dvl.register({

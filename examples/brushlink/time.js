@@ -5,11 +5,11 @@ function time(args) {
   var data = args.data;
   var time = dvl.wrapConstIfNeeded(args.time);
   var metric = dvl.wrapConstIfNeeded(args.metric);
-  var selData = args.selData || dvl.def(null, 'sel_data');
-  var selHolder = args.selHolder || dvl.def(null, 'sel_holder');
+  var selData = args.selData || dvl(null, 'sel_data');
+  var selHolder = args.selHolder || dvl(null, 'sel_holder');
   var me = {};
   var transition = { duration: 200 };
-  var selTransition = dvl.def(transition);
+  var selTransition = dvl(transition);
 
   var mySelection = dvl.apply({
     args: selHolder,
@@ -60,8 +60,8 @@ function time(args) {
     }
   });
 
-  var selStartX = dvl.def().name('sel_start_x');
-  var selEndX = dvl.def().name('sel_end_x');
+  var selStartX = dvl().name('sel_start_x');
+  var selEndX = dvl().name('sel_end_x');
 
   dvl.register({
     listen: [mySelection, data, selStartX, selEndX, time],

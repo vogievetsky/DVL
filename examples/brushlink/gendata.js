@@ -1,5 +1,5 @@
 function generateData() {
-  var realtime = dvl.def(false, 'realtime');
+  var realtime = dvl(false, 'realtime');
   var metrics = ['aa', 'bb', 'cc'];
 
   var time = 0;
@@ -58,7 +58,7 @@ function generateData() {
     data.push(genOne())
   }
 
-  var dataDVL = dvl.def(data, 'data');
+  var dataDVL = dvl(data, 'data');
 
   setInterval(function() {
     if (!realtime.get()) return;
@@ -69,7 +69,7 @@ function generateData() {
 
   return {
     data: dataDVL,
-    metrics: dvl.def(metrics, 'metrics'),
+    metrics: dvl(metrics, 'metrics'),
     realtime: realtime
   }
 }

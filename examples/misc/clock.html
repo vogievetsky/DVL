@@ -22,8 +22,8 @@
   </body>
 
   <script>
-    var now = dvl.def(new Date())
-    var numClocks = dvl.def(1)
+    var now = dvl(new Date())
+    var numClocks = dvl(1)
 
     setInterval(function() {
       now.set(new Date).notify()

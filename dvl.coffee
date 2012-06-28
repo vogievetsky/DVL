@@ -47,7 +47,8 @@ Array::filter ?= (fun, thisp) ->
   return res
 
 
-dvl = { version: '1.0.0' }
+dvl = (value) -> new DVLDef(value)
+dvl.version = '1.0.0'
 this.dvl = dvl
 if typeof module isnt 'undefined' and module.exports
   module.exports = dvl
@@ -200,640 +201,637 @@ dvl.util = {
       .replace(/"/g, '&quot;')
 }
 
-do ->
-  nextObjId = 1
-  variables = {}
-  registerers = {}
-  curBlock = null
-  default_compare = (a, b) -> a is b
+nextObjId = 1
+variables = {}
+registerers = {}
+curBlock = null
+default_compare = (a, b) -> a is b
 
-  class DVLConst
-    constructor: (val) ->
-      @v = val ? null
-      @changed = false
+class DVLConst
+  constructor: (val) ->
+    @v = val ? null
+    @changed = false
+    return this
+
+  toString: ->
+    tag = if @n then @n + ':' else ''
+    return "[#{@tag}#{@v}]"
+
+  value: (val) ->
+    return if arguments.length then this else @v
+
+  set: -> this
+  lazyValue: -> this
+  update: -> this
+  get: -> @v
+  getPrev: -> @v
+  hasChanged: -> @changed
+  resetChanged: -> null
+  notify: -> null
+  discard: -> null
+  name: ->
+    if arguments.length is 0
+      return @n ? '<anon_const>'
+    else
+      @n = arguments[0]
       return this
+  compare: -> if arguments.length then this else default_compare
+  apply: (fn) -> dvl.apply(this, fn)
+  applyValid: (fn) -> dvl.applyValid(this, fn)
+  applyAlways: (fn) -> dvl.applyAlways(this, fn)
 
-    toString: ->
-      tag = if @n then @n + ':' else ''
-      return "[#{@tag}#{@v}]"
-
-    value: (val) ->
-      return if arguments.length then this else @v
-
-    set: -> this
-    lazyValue: -> this
-    update: -> this
-    get: -> @v
-    getPrev: -> @v
-    hasChanged: -> @changed
-    resetChanged: -> null
-    notify: -> null
-    discard: -> null
-    name: ->
-      if arguments.length is 0
-        return @n ? '<anon_const>'
-      else
-        @n = arguments[0]
-        return this
-    compare: -> if arguments.length then this else default_compare
-    apply: (fn) -> dvl.apply(this, fn)
-    applyValid: (fn) -> dvl.applyValid(this, fn)
-    applyAlways: (fn) -> dvl.applyAlways(this, fn)
-
-    setGen: -> this
-    gen: ->
-      that = this
-      if dvl.typeOf(@v) == 'array'
-        (i) -> that.value[i]
-      else
-        () -> that.value
-    genPrev: (i) -> @gen(i)
-    len: ->
-      if dvl.typeOf(@v) == 'array'
-        @v.length
-      else
-        Infinity
+  setGen: -> this
+  gen: ->
+    that = this
+    if dvl.typeOf(@v) == 'array'
+      (i) -> that.value[i]
+    else
+      () -> that.value
+  genPrev: (i) -> @gen(i)
+  len: ->
+    if dvl.typeOf(@v) == 'array'
+      @v.length
+    else
+      Infinity
 
 
-  class DVLDef
-    constructor: (val) ->
-      @v = val ? null
-      @id = nextObjId
-      @prev = null
-      @changed = false
-      @vgen = undefined
-      @vgenPrev = undefined
-      @vlen = -1
+class DVLDef
+  constructor: (val) ->
+    @v = val ? null
+    @id = nextObjId
+    @prev = null
+    @changed = false
+    @vgen = undefined
+    @vgenPrev = undefined
+    @vlen = -1
+    @lazy = null
+    @listeners = []
+    @changers = []
+    @compareFn = default_compare
+    variables[@id] = this
+    nextObjId++
+    curBlock.addMemeber(this) if curBlock
+    return this
+
+  resolveLazy: ->
+    if @lazy
+      @prev = @v
+      @v = @lazy()
       @lazy = null
-      @listeners = []
-      @changers = []
-      @compareFn = default_compare
-      variables[@id] = this
-      nextObjId++
-      curBlock.addMemeber(this) if curBlock
-      return this
+    return
 
-    resolveLazy: ->
-      if @lazy
-        @prev = @v
-        @v = @lazy()
-        @lazy = null
-      return
+  toString: ->
+    tag = if @n then @n + ':' else ''
+    return "[#{@tag}#{@val}]"
 
-    toString: ->
-      tag = if @n then @n + ':' else ''
-      return "[#{@tag}#{@val}]"
+  hasChanged: -> @changed
 
-    hasChanged: -> @changed
+  resetChanged: ->
+    @changed = false
+    return this
 
-    resetChanged: ->
-      @changed = false
-      return this
-
-    value: (val) ->
-      if arguments.length
-        val = val ? null
-        if not (@compareFn and @compareFn(val, @v))
-          this.set(val)
-          dvl.notify(this)
-        return this
-      else
-        @resolveLazy()
-        return @v
-
-    set: (val) ->
+  value: (val) ->
+    if arguments.length
       val = val ? null
-      @prev = @v unless @changed
-      @v = val
-      @vgen = undefined
-      @changed = true
-      @lazy = null
-      return this
-    lazyValue: (fn) ->
-      @lazy = fn
-      @changed = true
-      dvl.notify(this)
-      return this
-    update: (val) ->
-      if not dvl.util.isEqual(val, @v)
+      if not (@compareFn and @compareFn(val, @v))
         this.set(val)
         dvl.notify(this)
       return this
-    get: ->
+    else
       @resolveLazy()
       return @v
-    getPrev: ->
-      @resolveLazy()
-      if @prev and @changed then @prev else @v
-    notify: ->
+
+  set: (val) ->
+    val = val ? null
+    @prev = @v unless @changed
+    @v = val
+    @vgen = undefined
+    @changed = true
+    @lazy = null
+    return this
+  lazyValue: (fn) ->
+    @lazy = fn
+    @changed = true
+    dvl.notify(this)
+    return this
+  update: (val) ->
+    if not dvl.util.isEqual(val, @v)
+      this.set(val)
       dvl.notify(this)
-    discard: ->
-      if @listeners.length > 0
-        throw "Cannot remove variable #{@id} because it has listeners."
-      if @changers.length > 0
-        throw "Cannot remove variable #{@id} because it has changers."
-      delete variables[@id]
-      return null
-    name: ->
-      if arguments.length is 0
-        return @n ? '<anon>'
-      else
-        @n = arguments[0]
-        return this
-    compare: ->
-      if arguments.length
-        @compareFn = arguments[0]
-        return this
-      else
-        return @compareFn
-    apply: (fn) -> dvl.apply(this, fn)
-    applyValid: (fn) -> dvl.applyValid(this, fn)
-    applyAlways: (fn) -> dvl.applyAlways(this, fn)
-
-    setGen: (g, l) ->
-      if g is null
-        l = 0
-      else
-        l = Infinity if l is undefined
-      @vgenPrev = @vgen unless @changed
-      @vgen = g
-      @vlen = l
-      @changed = true
+    return this
+  get: ->
+    @resolveLazy()
+    return @v
+  getPrev: ->
+    @resolveLazy()
+    if @prev and @changed then @prev else @v
+  notify: ->
+    dvl.notify(this)
+  discard: ->
+    if @listeners.length > 0
+      throw "Cannot remove variable #{@id} because it has listeners."
+    if @changers.length > 0
+      throw "Cannot remove variable #{@id} because it has changers."
+    delete variables[@id]
+    return null
+  name: ->
+    if arguments.length is 0
+      return @n ? '<anon>'
+    else
+      @n = arguments[0]
       return this
-    gen: ->
-      if @vgen != undefined
-        return @vgen
-      else
-        that = this
-        if dvl.typeOf(@v) == 'array'
-          return ((i) -> that.value[i])
-        else
-          return (-> that.value)
-    genPrev: ->
-      if @vgenPrev and @changed then @vgenPrev else @gen()
-    len: ->
-      if @vlen >= 0
-        return @vlen
-      else
-        if @v?
-          return if dvl.typeOf(@v) == 'array' then @v.length else Infinity
-        else
-          return 0
-
-
-  class DVLFunctionObject
-    constructor: (@id, @name, @ctx, @fn, @listen, @change) ->
-      @depends = []
-      @level = 0
-      curBlock.addMemeber(this) if curBlock
+  compare: ->
+    if arguments.length
+      @compareFn = arguments[0]
       return this
+    else
+      return @compareFn
+  apply: (fn) -> dvl.apply(this, fn)
+  applyValid: (fn) -> dvl.applyValid(this, fn)
+  applyAlways: (fn) -> dvl.applyAlways(this, fn)
 
-    addChange: ->
-      uv = uniqById(arguments)
+  setGen: (g, l) ->
+    if g is null
+      l = 0
+    else
+      l = Infinity if l is undefined
+    @vgenPrev = @vgen unless @changed
+    @vgen = g
+    @vlen = l
+    @changed = true
+    return this
+  gen: ->
+    if @vgen != undefined
+      return @vgen
+    else
+      that = this
+      if dvl.typeOf(@v) == 'array'
+        return ((i) -> that.value[i])
+      else
+        return (-> that.value)
+  genPrev: ->
+    if @vgenPrev and @changed then @vgenPrev else @gen()
+  len: ->
+    if @vlen >= 0
+      return @vlen
+    else
+      if @v?
+        return if dvl.typeOf(@v) == 'array' then @v.length else Infinity
+      else
+        return 0
 
-      if uv.length
-        for v in uv
-          @change.push(v)
-          v.changers.push(this)
-          for l in v.listeners
-            l.depends.push(this)
-            @level = Math.max(@level, l.level+1)
 
-        checkForCycle(this)
-        bfsUpdate([this])
+dvl.def   = (value) -> new DVLDef(value)
+dvl.const = (value) -> new DVLConst(value)
 
-      return this
+dvl.knows = (v) -> v instanceof DVLConst or v instanceof DVLDef
 
-    addListen: ->
-      uv = uniqById(arguments)
 
-      if uv.length
-        for v in uv
-          @listen.push(v)
-          v.listeners.push(this)
-          for c in v.changers
-            @depends.push(c)
+class DVLFunctionObject
+  constructor: (@id, @name, @ctx, @fn, @listen, @change) ->
+    @depends = []
+    @level = 0
+    curBlock.addMemeber(this) if curBlock
+    return this
 
-        checkForCycle(this)
-        bfsUpdate([this])
+  addChange: ->
+    uv = uniqById(arguments)
 
-      uv = uniqById(arguments, true)
-      start_notify_collect(this)
-      changedSave = []
+    if uv.length
       for v in uv
-        changedSave.push(v.changed)
-        v.changed = true
-      @fn.apply(@ctx)
-      for v,i in uv
-        v.changed = changedSave[i]
-      end_notify_collect()
-      return this
+        @change.push(v)
+        v.changers.push(this)
+        for l in v.listeners
+          l.depends.push(this)
+          @level = Math.max(@level, l.level+1)
 
-    discard: ->
-      # Find the register object
-      delete registerers[@id]
+      checkForCycle(this)
+      bfsUpdate([this])
 
-      bfsZero([this])
+    return this
 
-      queue = []
-      for cv in @change
-        for lf in cv.listeners
-          queue.push lf
-          lf.depends.splice(lf.depends.indexOf(this), 1)
+  addListen: ->
+    uv = uniqById(arguments)
 
-      for v in @change
-        v.changers.splice(v.changers.indexOf(this), 1)
+    if uv.length
+      for v in uv
+        @listen.push(v)
+        v.listeners.push(this)
+        for c in v.changers
+          @depends.push(c)
 
-      for v in @listen
-        v.listeners.splice(v.listeners.indexOf(this), 1)
+      checkForCycle(this)
+      bfsUpdate([this])
 
-      # I think this hould be queue [ToDo]
-      bfsUpdate(@depends) # do not care if @update gets trashed
-      @change = @listen = @depends = null # cause an error if we hit these
-      return
+    uv = uniqById(arguments, true)
+    start_notify_collect(this)
+    changedSave = []
+    for v in uv
+      changedSave.push(v.changed)
+      v.changed = true
+    @fn.apply(@ctx)
+    for v,i in uv
+      v.changed = changedSave[i]
+    end_notify_collect()
+    return this
 
+  discard: ->
+    # Find the register object
+    delete registerers[@id]
 
-  class DVLBlock
-    constructor: (@name, @parent) ->
-      @owns = {}
-      @parent?.add(this)
-      return
+    bfsZero([this])
 
-    addMemeber: (thing) ->
-      @owns[thing.id] = thing
-      return this
-
-    removeMemeber: (thing) ->
-      delete @owns[thing.id]
-      return this
-
-    discard: ->
-      @parent?.removeMemeber(this)
-      d.discard() for d in @owns
-      return
-
-
-  dvl.blockFn = ->
-    switch arguments.length
-      when 1 then [fn] = arguments
-      when 2 then [name, fn] = arguments
-      else throw "bad number of arguments"
-
-    return (args...) ->
-      block = new DVLBlock(name, curBlock)
-      ret = fn.apply(this, args)
-      curBlock = block.parent
-      return ret
-
-  dvl.block = ->
-    switch arguments.length
-      when 1 then [fn] = arguments
-      when 2 then [name, fn] = arguments
-      else throw "bad number of arguments"
-
-    block = new DVLBlock(name, curBlock)
-    fn.call(this)
-    curBlock = block.parent
-    return block
-
-
-  dvl.group = (fn) -> (fnArgs...) ->
-    if dvl.notify is init_notify
-      captured_notifies = []
-      dvl.notify = (args...) ->
-        Array::push.apply(captured_notifies, args)
-        return
-      fn.apply(this, fnArgs)
-      dvl.notify = init_notify
-      init_notify.apply(dvl, captured_notifies)
-    else
-      # this is already runing in a group or a register
-      fn.apply(this, fnArgs)
-    return
-
-
-  dvl.const = (value) -> new DVLConst(value)
-  dvl.def   = (value) -> new DVLDef(value)
-
-  dvl.knows = (v) -> v instanceof DVLConst or v instanceof DVLDef
-
-  dvl.wrapConstIfNeeded =
-  dvl.wrap = (v, name) ->
-    v = null if v is undefined
-    if dvl.knows(v) then v else dvl.const(v).name(name)
-
-  dvl.wrapVarIfNeeded =
-  dvl.wrapVar = (v, name) ->
-    v = null if v is undefined
-    if dvl.knows(v) then v else dvl.def(v).name(name)
-
-  dvl.valueOf = (v) ->
-    if dvl.knows(v)
-      return v.value()
-    else
-      return v ? null
-
-  # filter out undefineds and nulls and constants also make unique
-  uniqById = (vs, allowConst) ->
-    res = []
-    if vs
-      seen = {}
-      for v in vs
-        if v? and (allowConst or (v.listeners and v.changers)) and not seen[v.id]
-          seen[v.id] = true
-          res.push v
-    return res
-
-
-  checkForCycle = (fo) ->
-    stack = fo.depends.slice()
-    visited = {}
-
-    while stack.length > 0
-      v = stack.pop()
-      visited[v.id] = true
-
-      for w in v.depends
-        throw "circular dependancy detected around #{w.id}" if w is fo
-        stack.push w if not visited[w.id]
-
-    return
-
-
-  bfsUpdate = (stack) ->
-    while stack.length > 0
-      v = stack.pop()
-      nextLevel = v.level+1
-
-      for w in v.depends
-        if w.level < nextLevel
-          w.level = nextLevel
-          stack.push w
-
-    return
-
-
-  bfsZero = (queue) ->
-    while queue.length > 0
-      v = queue.shift()
-      for w in v.depends
-        w.level = 0
-        queue.push w
-
-    return
-
-
-  dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
-    throw 'cannot call register from within a notify' if curNotifyListener
-    throw 'fn must be a function' if typeof(fn) != 'function'
-
-    listen = [listen] unless dvl.typeOf(listen) is 'array'
-    change = [change] unless dvl.typeOf(change) is 'array'
-
-    listenConst = []
-    if listen
-      for v in listen
-        listenConst.push v if v instanceof DVLConst
-    listen = uniqById(listen)
-    change = uniqById(change)
-
-    if listen.length isnt 0 or change.length isnt 0 or force
-      # Make function/context holder object; set level to 0
-      id = ++nextObjId
-      fo = new DVLFunctionObject(id, (name or 'fn'), ctx, fn, listen, change)
-
-      # Append listen and change to variables
-      for v in listen
-        throw "No such DVL variable #{id} in listeners" unless v
-        v.listeners.push fo
-
-      for v in change
-        throw "No such DVL variable #{id} in changers" unless v
-        v.changers.push fo
-
-      # Update dependancy graph
-      for cv in change
-        for lf in cv.listeners
-          lf.depends.push fo
-          fo.level = Math.max(fo.level, lf.level+1)
-
-      for lv in listen
-        for cf in lv.changers
-          fo.depends.push cf
-
-      registerers[id] = fo
-      checkForCycle(fo)
-      bfsUpdate([fo])
-
-    if not noRun
-      # Save changes and run the function with everythign as changed.
-      changedSave = []
-      for l,i in listen
-        changedSave[i] = l.changed
-        l.changed = true
-      for l in listenConst
-        l.changed = true
-
-      start_notify_collect(fo)
-      fn.apply ctx
-      end_notify_collect()
-
-      for c,i in changedSave
-        listen[i].changed = c
-      for l in listenConst
-        l.changed = false
-
-    return fo
-
-
-  dvl.clearAll = ->
-    # disolve the graph to make the garbage collection job as easy as possibe
-    for k, l of registerers
-      l.listen = l.change = l.depends = null
-
-    for k, v of variables
-      v.listeners = v.changers = null
-
-    # reset everything
-    nextObjId = 1
-    variables = {}
-    registerers = {}
-    return
-
-
-  levelPriorityQueue = do ->
     queue = []
-    sorted = true
+    for cv in @change
+      for lf in cv.listeners
+        queue.push lf
+        lf.depends.splice(lf.depends.indexOf(this), 1)
 
-    compare = (a, b) ->
-      levelDiff = a.level - b.level
-      return if levelDiff is 0 then b.id - a.id else levelDiff
+    for v in @change
+      v.changers.splice(v.changers.indexOf(this), 1)
 
-    return {
-      push: (l) ->
-        queue.push l
-        sorted = false
-        return
+    for v in @listen
+      v.listeners.splice(v.listeners.indexOf(this), 1)
 
-      shift: ->
-        if not sorted
-          queue.sort(compare)
-          sorted = true
-        return queue.pop()
+    # I think this hould be queue [ToDo]
+    bfsUpdate(@depends) # do not care if @update gets trashed
+    @change = @listen = @depends = null # cause an error if we hit these
+    return
 
-      length: ->
-        return queue.length
-    }
+
+class DVLBlock
+  constructor: (@name, @parent) ->
+    @owns = {}
+    @parent?.add(this)
+    return
+
+  addMemeber: (thing) ->
+    @owns[thing.id] = thing
+    return this
+
+  removeMemeber: (thing) ->
+    delete @owns[thing.id]
+    return this
+
+  discard: ->
+    @parent?.removeMemeber(this)
+    d.discard() for d in @owns
+    return
+
+
+dvl.blockFn = ->
+  switch arguments.length
+    when 1 then [fn] = arguments
+    when 2 then [name, fn] = arguments
+    else throw "bad number of arguments"
+
+  return (args...) ->
+    block = new DVLBlock(name, curBlock)
+    ret = fn.apply(this, args)
+    curBlock = block.parent
+    return ret
+
+dvl.block = ->
+  switch arguments.length
+    when 1 then [fn] = arguments
+    when 2 then [name, fn] = arguments
+    else throw "bad number of arguments"
+
+  block = new DVLBlock(name, curBlock)
+  fn.call(this)
+  curBlock = block.parent
+  return block
+
+
+dvl.group = (fn) -> (fnArgs...) ->
+  if dvl.notify is init_notify
+    captured_notifies = []
+    dvl.notify = (args...) ->
+      Array::push.apply(captured_notifies, args)
+      return
+    fn.apply(this, fnArgs)
+    dvl.notify = init_notify
+    init_notify.apply(dvl, captured_notifies)
+  else
+    # this is already runing in a group or a register
+    fn.apply(this, fnArgs)
+  return
+
+dvl.wrapConstIfNeeded =
+dvl.wrap = (v, name) ->
+  v = null if v is undefined
+  if dvl.knows(v) then v else dvl.const(v).name(name)
+
+dvl.wrapVarIfNeeded =
+dvl.wrapVar = (v, name) ->
+  v = null if v is undefined
+  if dvl.knows(v) then v else dvl(v).name(name)
+
+dvl.valueOf = (v) ->
+  if dvl.knows(v)
+    return v.value()
+  else
+    return v ? null
+
+# filter out undefineds and nulls and constants also make unique
+uniqById = (vs, allowConst) ->
+  res = []
+  if vs
+    seen = {}
+    for v in vs
+      if v? and (allowConst or (v.listeners and v.changers)) and not seen[v.id]
+        seen[v.id] = true
+        res.push v
+  return res
+
+
+checkForCycle = (fo) ->
+  stack = fo.depends.slice()
+  visited = {}
+
+  while stack.length > 0
+    v = stack.pop()
+    visited[v.id] = true
+
+    for w in v.depends
+      throw "circular dependancy detected around #{w.id}" if w is fo
+      stack.push w if not visited[w.id]
+
+  return
+
+
+bfsUpdate = (stack) ->
+  while stack.length > 0
+    v = stack.pop()
+    nextLevel = v.level+1
+
+    for w in v.depends
+      if w.level < nextLevel
+        w.level = nextLevel
+        stack.push w
+
+  return
+
+
+bfsZero = (queue) ->
+  while queue.length > 0
+    v = queue.shift()
+    for w in v.depends
+      w.level = 0
+      queue.push w
+
+  return
+
+
+dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
+  throw 'cannot call register from within a notify' if curNotifyListener
+  throw 'fn must be a function' if typeof(fn) != 'function'
+
+  listen = [listen] unless dvl.typeOf(listen) is 'array'
+  change = [change] unless dvl.typeOf(change) is 'array'
+
+  listenConst = []
+  if listen
+    for v in listen
+      listenConst.push v if v instanceof DVLConst
+  listen = uniqById(listen)
+  change = uniqById(change)
+
+  if listen.length isnt 0 or change.length isnt 0 or force
+    # Make function/context holder object; set level to 0
+    id = ++nextObjId
+    fo = new DVLFunctionObject(id, (name or 'fn'), ctx, fn, listen, change)
+
+    # Append listen and change to variables
+    for v in listen
+      throw "No such DVL variable #{id} in listeners" unless v
+      v.listeners.push fo
+
+    for v in change
+      throw "No such DVL variable #{id} in changers" unless v
+      v.changers.push fo
+
+    # Update dependancy graph
+    for cv in change
+      for lf in cv.listeners
+        lf.depends.push fo
+        fo.level = Math.max(fo.level, lf.level+1)
+
+    for lv in listen
+      for cf in lv.changers
+        fo.depends.push cf
+
+    registerers[id] = fo
+    checkForCycle(fo)
+    bfsUpdate([fo])
+
+  if not noRun
+    # Save changes and run the function with everythign as changed.
+    changedSave = []
+    for l,i in listen
+      changedSave[i] = l.changed
+      l.changed = true
+    for l in listenConst
+      l.changed = true
+
+    start_notify_collect(fo)
+    fn.apply ctx
+    end_notify_collect()
+
+    for c,i in changedSave
+      listen[i].changed = c
+    for l in listenConst
+      l.changed = false
+
+  return fo
+
+
+dvl.clearAll = ->
+  # disolve the graph to make the garbage collection job as easy as possibe
+  for k, l of registerers
+    l.listen = l.change = l.depends = null
+
+  for k, v of variables
+    v.listeners = v.changers = null
+
+  # reset everything
+  nextObjId = 1
+  variables = {}
+  registerers = {}
+  return
+
+
+levelPriorityQueue = do ->
+  queue = []
+  sorted = true
+
+  compare = (a, b) ->
+    levelDiff = a.level - b.level
+    return if levelDiff is 0 then b.id - a.id else levelDiff
+
+  return {
+    push: (l) ->
+      queue.push l
+      sorted = false
+      return
+
+    shift: ->
+      if not sorted
+        queue.sort(compare)
+        sorted = true
+      return queue.pop()
+
+    length: ->
+      return queue.length
+  }
+
+curNotifyListener = null
+curCollectListener = null
+changedInNotify = null
+lastNotifyRun = null
+toNotify = null
+
+
+start_notify_collect = (listener) ->
+  toNotify = []
+  curCollectListener = listener
+  dvl.notify = collect_notify
+  return
+
+
+end_notify_collect = ->
+  curCollectListener = null
+  dvl.notify = init_notify # ToDo: possible nested notify?
+
+  dvl.notify.apply(null, toNotify)
+  toNotify = null
+  return
+
+
+collect_notify = ->
+  throw 'bad stuff happened collect' unless curCollectListener
+
+  for v in arguments
+    continue unless v instanceof DVLDef
+    throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
+    toNotify.push v
+
+  return
+
+
+within_notify = ->
+  throw 'bad stuff happened within' unless curNotifyListener
+
+  for v in arguments
+    continue unless v instanceof DVLDef
+    throw "changed unregisterd object #{v.id}" if v not in curNotifyListener.change
+    changedInNotify.push v
+    lastNotifyRun.push v.id
+    for l in v.listeners
+      if not l.visited
+        levelPriorityQueue.push l
+
+  return
+
+
+init_notify = ->
+  throw 'bad stuff happened init' if curNotifyListener
+
+  lastNotifyRun = []
+  visitedListener = []
+  changedInNotify = []
+
+  for v in arguments
+    continue unless v instanceof DVLDef
+    changedInNotify.push v
+    lastNotifyRun.push v.id
+    levelPriorityQueue.push l for l in v.listeners
+
+  dvl.notify = within_notify
+
+  # Handle events in a BFS way
+  while levelPriorityQueue.length() > 0
+    curNotifyListener = levelPriorityQueue.shift()
+    continue if curNotifyListener.visited
+    curNotifyListener.visited = true
+    visitedListener.push(curNotifyListener)
+    lastNotifyRun.push(curNotifyListener.id)
+    curNotifyListener.fn.apply(curNotifyListener.ctx)
 
   curNotifyListener = null
-  curCollectListener = null
-  changedInNotify = null
-  lastNotifyRun = null
-  toNotify = null
-
-
-  start_notify_collect = (listener) ->
-    toNotify = []
-    curCollectListener = listener
-    dvl.notify = collect_notify
-    return
-
-
-  end_notify_collect = ->
-    curCollectListener = null
-    dvl.notify = init_notify # ToDo: possible nested notify?
-
-    dvl.notify.apply(null, toNotify)
-    toNotify = null
-    return
-
-
-  collect_notify = ->
-    throw 'bad stuff happened collect' unless curCollectListener
-
-    for v in arguments
-      continue unless v instanceof DVLDef
-      throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
-      toNotify.push v
-
-    return
-
-
-  within_notify = ->
-    throw 'bad stuff happened within' unless curNotifyListener
-
-    for v in arguments
-      continue unless v instanceof DVLDef
-      throw "changed unregisterd object #{v.id}" if v not in curNotifyListener.change
-      changedInNotify.push v
-      lastNotifyRun.push v.id
-      for l in v.listeners
-        if not l.visited
-          levelPriorityQueue.push l
-
-    return
-
-
-  init_notify = ->
-    throw 'bad stuff happened init' if curNotifyListener
-
-    lastNotifyRun = []
-    visitedListener = []
-    changedInNotify = []
-
-    for v in arguments
-      continue unless v instanceof DVLDef
-      changedInNotify.push v
-      lastNotifyRun.push v.id
-      levelPriorityQueue.push l for l in v.listeners
-
-    dvl.notify = within_notify
-
-    # Handle events in a BFS way
-    while levelPriorityQueue.length() > 0
-      curNotifyListener = levelPriorityQueue.shift()
-      continue if curNotifyListener.visited
-      curNotifyListener.visited = true
-      visitedListener.push(curNotifyListener)
-      lastNotifyRun.push(curNotifyListener.id)
-      curNotifyListener.fn.apply(curNotifyListener.ctx)
-
-    curNotifyListener = null
-    dvl.notify = init_notify
-    v.resetChanged() for v in changedInNotify
-    l.visited = false for l in visitedListener # reset visited
-    return
-
-
   dvl.notify = init_notify
+  v.resetChanged() for v in changedInNotify
+  l.visited = false for l in visitedListener # reset visited
+  return
 
-  ######################################################
-  ##
-  ##  Renders the variable graph into dot
-  ##
-  dvl.graphToDot = (lastTrace, showId) ->
-    execOrder = {}
-    if lastTrace and lastNotifyRun
-      for pos, id of lastNotifyRun
-        execOrder[id] = pos
 
-    nameMap = {}
+dvl.notify = init_notify
 
-    for k, l of registerers
-      fnName = l.id.replace(/\n/g, '')
-      #fnName = fnName.replace(/_\d+/, '') unless showId
-      fnName = fnName + ' (' + l.level + ')'
-      # fnName += ' [[' + execOrder[l.id] + ']]' if execOrder[l.id]
-      fnName = '"' + fnName + '"'
-      nameMap[l.id] = fnName
+######################################################
+##
+##  Renders the variable graph into dot
+##
+dvl.graphToDot = (lastTrace, showId) ->
+  execOrder = {}
+  if lastTrace and lastNotifyRun
+    for pos, id of lastNotifyRun
+      execOrder[id] = pos
 
-    for id,v of variables
-      varName = id.replace(/\n/g, '')
-      #varName = varName.replace(/_\d+/, '') unless showId
-      # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]
-      varName = '"' + varName + '"'
-      nameMap[id] = varName
+  nameMap = {}
 
-    dot = []
-    dot.push 'digraph G {'
-    dot.push '  rankdir=LR;'
+  for k, l of registerers
+    fnName = l.id.replace(/\n/g, '')
+    #fnName = fnName.replace(/_\d+/, '') unless showId
+    fnName = fnName + ' (' + l.level + ')'
+    # fnName += ' [[' + execOrder[l.id] + ']]' if execOrder[l.id]
+    fnName = '"' + fnName + '"'
+    nameMap[l.id] = fnName
 
-    levels = []
-    for id,v of variables
-      color = if execOrder[id] then 'red' else 'black'
-      dot.push "  #{nameMap[id]} [color=#{color}];"
+  for id,v of variables
+    varName = id.replace(/\n/g, '')
+    #varName = varName.replace(/_\d+/, '') unless showId
+    # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]
+    varName = '"' + varName + '"'
+    nameMap[id] = varName
 
-    for k, l of registerers
-      levels[l.level] or= []
-      levels[l.level].push nameMap[l.id]
-      color = if execOrder[l.id] then 'red' else 'black'
+  dot = []
+  dot.push 'digraph G {'
+  dot.push '  rankdir=LR;'
 
-      dot.push "  #{nameMap[l.id]} [shape=box,color=#{color}];"
-      for v in l.listen
-        color = if execOrder[v.id] and execOrder[l.id] then 'red' else 'black'
-        dot.push "  #{nameMap[v.id]} -> #{nameMap[l.id]} [color=#{color}];"
-      for w in l.change
-        color = if execOrder[l.id] and execOrder[w.id] then 'red' else 'black'
-        dot.push "  #{nameMap[l.id]} -> #{nameMap[w.id]} [color=#{color}];"
+  levels = []
+  for id,v of variables
+    color = if execOrder[id] then 'red' else 'black'
+    dot.push "  #{nameMap[id]} [color=#{color}];"
 
-    for level in levels
-      dot.push('{ rank = same; ' + level.join('; ') + '; }')
+  for k, l of registerers
+    levels[l.level] or= []
+    levels[l.level].push nameMap[l.id]
+    color = if execOrder[l.id] then 'red' else 'black'
 
-    dot.push '}'
-    return dot.join('\n')
+    dot.push "  #{nameMap[l.id]} [shape=box,color=#{color}];"
+    for v in l.listen
+      color = if execOrder[v.id] and execOrder[l.id] then 'red' else 'black'
+      dot.push "  #{nameMap[v.id]} -> #{nameMap[l.id]} [color=#{color}];"
+    for w in l.change
+      color = if execOrder[l.id] and execOrder[w.id] then 'red' else 'black'
+      dot.push "  #{nameMap[l.id]} -> #{nameMap[w.id]} [color=#{color}];"
 
-  dvl.postGraph = (file, showId) ->
-    file or= 'dvl_graph'
-    g = dvl.graphToDot(false, showId)
-    dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
-    return
+  for level in levels
+    dot.push('{ rank = same; ' + level.join('; ') + '; }')
 
-  dvl.postLatest = (file, showId) ->
-    file or= 'dvl_graph_latest'
-    g = dvl.graphToDot(true, showId)
-    dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
-    return
+  dot.push '}'
+  return dot.join('\n')
 
+dvl.postGraph = (file, showId) ->
+  file or= 'dvl_graph'
+  g = dvl.graphToDot(false, showId)
+  dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
+  return
+
+dvl.postLatest = (file, showId) ->
+  file or= 'dvl_graph_latest'
+  g = dvl.graphToDot(true, showId)
+  dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
   return
 
 dvl.zero = dvl.const(0).name('zero')
@@ -846,7 +844,7 @@ dvl.identity = dvl.const(dvl.ident).name('identity')
 
 dvl.acc = (column) ->
   column = dvl.wrap(column);
-  acc = dvl.def().name("acc")
+  acc = dvl().name("acc")
 
   makeAcc = ->
     col = column.value();
@@ -915,7 +913,7 @@ dvl.apply = dvl.applyValid = ->
 
   invalid = dvl.wrap(invalid ? null)
 
-  out = dvl.def(invalid.value()).name('apply_valid_out')
+  out = dvl(invalid.value()).name('apply_valid_out')
 
   dvl.register {
     name: 'apply_fn'
@@ -967,7 +965,7 @@ dvl.applyAlways = ->
     args = [args] unless argsType is 'array'
     args = args.map(dvl.wrap)
 
-  out = dvl.def().name('apply_valid_out')
+  out = dvl().name('apply_valid_out')
 
   dvl.register {
     name: 'apply_fn'
@@ -999,7 +997,7 @@ dvl.random = (options) ->
   int = options.integer
   walk = options.walk
 
-  random = dvl.def((max - min)/2, options.name or 'random')
+  random = dvl((max - min)/2, options.name or 'random')
 
   gen = ->
     if walk and walk > 0
@@ -1027,7 +1025,7 @@ dvl.arrayTick = (data, options) ->
   point = options.start or 0
   move = options.move or 1
 
-  out = dvl.def(null, 'array_tick_data')
+  out = dvl(null, 'array_tick_data')
 
   gen = ->
     d = data.value()
@@ -1088,7 +1086,7 @@ dvl.recorder = (options) ->
 ##  fn:   a function to apply to the recived input.
 ##
 do ->
-  outstanding = dvl.def(0).name('json_outstanding')
+  outstanding = dvl(0).name('json_outstanding')
   ajaxManagers = []
   normalRequester = null
 
@@ -1204,7 +1202,7 @@ do ->
 
     return (url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name) ->
       nextQueryId++
-      res = dvl.def().name(name)
+      res = dvl().name(name)
       q = {
         id: nextQueryId
         url
@@ -1429,7 +1427,7 @@ dvl.snap = ({data, acc, value, trim, name}) ->
   trim = dvl.wrap(trim or false)
   name or= 'snaped_data'
 
-  out = dvl.def(null).name(name)
+  out = dvl(null).name(name)
 
   updateSnap = ->
     ds = data.value()
@@ -1553,7 +1551,7 @@ dvl.chain = (f, h) ->
   f = dvl.wrap(f)
   h = dvl.wrap(h)
 
-  out = dvl.def().name('chain')
+  out = dvl().name('chain')
 
   dvl.register {
     listen: [f, h]
@@ -1576,7 +1574,7 @@ do ->
     liftedFn = lift(fn)
     return (args...) ->
       args = args.map(dvl.wrap)
-      out = dvl.def()
+      out = dvl()
 
       dvl.register {
         listen: args
@@ -1699,7 +1697,7 @@ do ->
       listen.push(v)
       onList[k] = v
 
-    out = dvl.def().name('selection')
+    out = dvl().name('selection')
 
     dvl.register {
       listen
@@ -1924,7 +1922,7 @@ dvl.misc.delay = (data, time = 1) ->
   data = dvl.wrap(data)
   time = dvl.wrap(time)
   timer = null
-  out = dvl.def()
+  out = dvl()
 
   timeoutFn = ->
     out.value(data.value())
@@ -2478,7 +2476,7 @@ do ->
       c.indicator = dvl.apply([sortOn, sortDir], (so, sd) -> if so is c.id then sd else 'none')
       return
 
-    compare = dvl.def(null)
+    compare = dvl(null)
     dvl.register {
       listen: compareList
       change: [compare]
@@ -2662,7 +2660,7 @@ do ->
         listen.push v
         nc.on[k] = v
 
-      change.push(nc.selection = dvl.def().name("#{c.id}_selection"))
+      change.push(nc.selection = dvl().name("#{c.id}_selection"))
 
     columns = newColumns
 

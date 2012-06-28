@@ -48,8 +48,8 @@
     realtime.value(!realtime.value());
   }
 
-  selHolder = dvl.def().name('sel_holder');
-  selData = dvl.def().name('sel_data');
+  selHolder = dvl().name('sel_holder');
+  selData = dvl().name('sel_data');
 
   var summaryText = dvl.applyAlways({
     args: [data, selData],
@@ -67,7 +67,7 @@
     text: summaryText
   });
 
-  window.timeWidth = dvl.def(600)
+  window.timeWidth = dvl(600)
 
   time({
     parent: d3.select('div.chart1'),

@@ -1,2 +1,2 @@
 #!/bin/bash
-coffee -cb dvl.coffee
+coffee -c dvl.coffee

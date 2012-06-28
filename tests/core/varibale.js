@@ -3,7 +3,7 @@ var dvl = require("../../dvl");
 var vows = require("vows"),
     assert = require("assert");
 
-var suite = vows.describe("dvl.def");
+var suite = vows.describe("dvl");
 
 suite.addBatch({
   "constants": {
@@ -61,45 +61,45 @@ suite.addBatch({
 suite.addBatch({
   "variables": {
     "returns the correct init value on nothing": function() {
-      var v = dvl.def();
+      var v = dvl();
       assert.strictEqual(v.value(), null);
     },
     "returns the correct init value on undefined": function() {
-      var v = dvl.def(undefined);
+      var v = dvl(undefined);
       assert.strictEqual(v.value(), null);
     },
     "returns the correct init value on null": function() {
-      var v = dvl.def(null);
+      var v = dvl(null);
       assert.strictEqual(v.value(), null);
     },
     "returns the correct init value": function() {
-      var v = dvl.def(5);
+      var v = dvl(5);
       assert.strictEqual(v.value(), 5);
     },
 
     "returns the correct set value on undefined": function() {
-      var v = dvl.def().value(undefined);
+      var v = dvl().value(undefined);
       assert.strictEqual(v.value(), null);
     },
     "returns the correct set value on null": function() {
-      var v = dvl.def().value(null);
+      var v = dvl().value(null);
       assert.strictEqual(v.value(), null);
     },
     "returns the correct set value": function() {
-      var v = dvl.def().value(5);
+      var v = dvl().value(5);
       assert.strictEqual(v.value(), 5);
     },
     "returns the correct set value on NaN": function() {
-      var v = dvl.def().value(NaN);
+      var v = dvl().value(NaN);
       assert.isNaN(v.value());
     },
 
     "no initial name": function() {
-      var v = dvl.def(5);
+      var v = dvl(5);
       assert.strictEqual(v.name(), '<anon>');
     },
     "setting name": function() {
-      var v = dvl.def(5).name("some_name");
+      var v = dvl(5).name("some_name");
       assert.strictEqual(v.name(), "some_name");
     },
   },
@@ -110,7 +110,7 @@ suite.addBatch({
     topic: function() {
       var t = {
         runs: 0,
-        a: dvl.def([]).compare(false)
+        a: dvl([]).compare(false)
       }
 
       dvl.register({
@@ -133,7 +133,7 @@ suite.addBatch({
 suite.addBatch({
   "lazy variables": {
     "returns the correct value form lazy": function() {
-      var v = dvl.def();
+      var v = dvl();
       v.lazyValue(function() { return 3; })
       assert.strictEqual(v.value(), 3);
     },

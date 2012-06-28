@@ -10,7 +10,7 @@ suite.addBatch({
     topic: function() {
       var t = {
         runs: 0,
-        a: dvl.def(3)
+        a: dvl(3)
       }
 
       dvl.register({
@@ -75,7 +75,7 @@ suite.addBatch({
     topic: function() {
       var t = {
         runs: 0,
-        a: dvl.def(3)
+        a: dvl(3)
       }
 
       dvl.register({
@@ -105,8 +105,8 @@ suite.addBatch({
     topic: function() {
       var t = {
         runs: 0,
-        a: dvl.def(3),
-        b: dvl.def()
+        a: dvl(3),
+        b: dvl()
       }
 
       dvl.register({
@@ -138,8 +138,8 @@ suite.addBatch({
   "hasChanged works": {
     topic: function() {
       var t = {
-        a: dvl.def(3),
-        b: dvl.def(4),
+        a: dvl(3),
+        b: dvl(4),
         c: dvl.const(5),
         status: ''
       }
@@ -179,8 +179,8 @@ suite.addBatch({
     topic: function() {
       var t = {
         runs: 0,
-        a: dvl.def(3),
-        b: dvl.def(null)
+        a: dvl(3),
+        b: dvl(null)
       }
 
       dvl.register({
@@ -212,8 +212,8 @@ suite.addBatch({
   "addListen": {
     topic: function() {
       var t = {
-        a: dvl.def(3),
-        b: dvl.def(4),
+        a: dvl(3),
+        b: dvl(4),
         status: ''
       }
 
@@ -263,8 +263,8 @@ suite.addBatch({
   "addChange": {
     topic: function() {
       var t = {
-        a: dvl.def(3),
-        b: dvl.def(3),
+        a: dvl(3),
+        b: dvl(3),
         changes: [],
         status: ''
       }
@@ -311,7 +311,7 @@ suite.addBatch({
   "remove basic": {
     topic: function() {
       var t = {
-        a: dvl.def(3),
+        a: dvl(3),
         status: ''
       }
 
@@ -348,7 +348,7 @@ suite.addBatch({
   "register order preserved - 1": {
     topic: function() {
       var t = {
-        a: dvl.def(3),
+        a: dvl(3),
         status: ''
       }
 
@@ -375,8 +375,8 @@ suite.addBatch({
   "register order preserved - 2": {
     topic: function() {
       var t = {
-        a: dvl.def(3),
-        b: dvl.def(3),
+        a: dvl(3),
+        b: dvl(3),
         status: ''
       }
 
@@ -403,8 +403,8 @@ suite.addBatch({
   "register order preserved - 3": {
     topic: function() {
       var t = {
-        a: dvl.def(3),
-        b: dvl.def(3),
+        a: dvl(3),
+        b: dvl(3),
         status: ''
       }
 
@@ -438,8 +438,8 @@ suite.addBatch({
   "register order preserved - 4": {
     topic: function() {
       var t = {
-        a: dvl.def(3),
-        b: dvl.def(5),
+        a: dvl(3),
+        b: dvl(5),
         status: ''
       }
 
@@ -466,5 +466,37 @@ suite.addBatch({
     },
   },
 });
+
+// suite.addBatch({
+//   "register order preserved - 5": {
+//     topic: function() {
+//       var t = {
+//         source: dvl(1),
+//         status: ''
+//       }
+
+//       dvl.register({ listen: [t.a], change: [t.b], fn: function() {
+//         t.b.notify();
+//         t.status += '&';
+//       }});
+
+//       dvl.register({ listen: [t.b], fn: function() { t.status += 'A' } });
+//       dvl.register({ listen: [t.a], fn: function() { t.status += 'B' } });
+//       dvl.register({ listen: [t.b], fn: function() { t.status += 'C' } });
+
+//       return t;
+//     },
+
+//     "correct init run": function(t) {
+//       assert.strictEqual(t.status, '&ABC');
+//     },
+
+//     "correct next run": function(t) {
+//       t.status = '';
+//       t.a.notify()
+//       assert.strictEqual(t.status, '&ABC');
+//     },
+//   },
+// });
 
 suite.export(module);

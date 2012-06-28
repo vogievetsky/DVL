@@ -1,6 +1,6 @@
 function rollup(data, dimension) {
-  var counts = dvl.def().name('counts');
-  var values = dvl.def().name('values');
+  var counts = dvl().name('counts');
+  var values = dvl().name('values');
 
   dvl.register({
     listen: [data, dimension],
@@ -60,7 +60,7 @@ function histogram(args) {
   var selHolder =  dvl.wrapVar(args.selHolder);
   var me = {};
   var transition = { duration: 200 };
-  var selTransition = dvl.def(transition);
+  var selTransition = dvl(transition);
 
   var roll = rollup(dataRaw, dimension);
   var data = roll.counts;
@@ -96,7 +96,7 @@ function histogram(args) {
 
   var zeroPoint = dvl.apply(dvl.zero, sx);
 
-  var selectedDims = dvl.def({}).name('selected_dims');
+  var selectedDims = dvl({}).name('selected_dims');
 
   dvl.register({
     listen: [dataRaw, selectedDims, selHolder],

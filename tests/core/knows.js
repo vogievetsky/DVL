@@ -8,7 +8,7 @@ var suite = vows.describe("dvl.knows");
 suite.addBatch({
   "knows tests": {
     "knows variables": function() {
-      var v = dvl.def(2);
+      var v = dvl(2);
       assert.strictEqual(dvl.knows(v), true);
     },
 
@@ -33,7 +33,7 @@ suite.addBatch({
     },
 
     "doesn't know fake variables": function() {
-      var v = dvl.def(2);
+      var v = dvl(2);
       var vFake = {};
       for (var key in v) vFake[key] = v[key];
       assert.strictEqual(dvl.knows(vFake), false);

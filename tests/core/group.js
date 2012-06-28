@@ -10,8 +10,8 @@ suite.addBatch({
     topic: function() {
       var t = {
         runs: 0,
-        a: dvl.def(1),
-        b: dvl.def(2),
+        a: dvl(1),
+        b: dvl(2),
         set: function(x) {
           t.a.value(x)
           t.b.value(x)
