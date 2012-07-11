@@ -467,36 +467,70 @@ suite.addBatch({
   },
 });
 
-// suite.addBatch({
-//   "register order preserved - 5": {
-//     topic: function() {
-//       var t = {
-//         source: dvl(1),
-//         status: ''
-//       }
+suite.addBatch({
+  "register order preserved - 5": {
+    topic: function() {
+      var t = {
+        source: dvl(1),
+        status: ''
+      };
 
-//       dvl.register({ listen: [t.a], change: [t.b], fn: function() {
-//         t.b.notify();
-//         t.status += '&';
-//       }});
+      var ap = t.source.apply(dvl.identity);
+      var dp = dvl();
 
-//       dvl.register({ listen: [t.b], fn: function() { t.status += 'A' } });
-//       dvl.register({ listen: [t.a], fn: function() { t.status += 'B' } });
-//       dvl.register({ listen: [t.b], fn: function() { t.status += 'C' } });
+      dvl.register({
+        listen: [t.source],
+        fn: function() {
+          t.status += 'A';
+        }
+      });
 
-//       return t;
-//     },
+      dvl.register({
+        listen: [t.source, ap],
+        fn: function() {
+          t.status += 'B';
+        }
+      });
 
-//     "correct init run": function(t) {
-//       assert.strictEqual(t.status, '&ABC');
-//     },
+      dvl.register({
+        listen: [t.source],
+        fn: function() {
+          t.status += 'C';
+        }
+      });
 
-//     "correct next run": function(t) {
-//       t.status = '';
-//       t.a.notify()
-//       assert.strictEqual(t.status, '&ABC');
-//     },
-//   },
-// });
+      dvl.register({
+        listen: [t.source],
+        change: [dp],
+        fn: function() {
+          t.status += 'D';
+          dp.value(t.source.value());
+        }
+      });
+
+      dvl.register({
+        listen: [dp],
+        fn: function() {
+          t.status += '#';
+        }
+      });
+
+      dvl.register({
+        listen: [t.source],
+        fn: function() {
+          t.status += 'E';
+        }
+      });
+
+      return t;
+    },
+
+    "correct run": function(t) {
+      t.status = '';
+      t.source.value(2);
+      assert.strictEqual(t.status, 'ABCDE#');
+    },
+  },
+});
 
 suite.export(module);

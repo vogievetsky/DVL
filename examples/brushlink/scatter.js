@@ -62,21 +62,19 @@ function scatter(args) {
 
   var startDataX = null;
   var startDataY = null;
-  var panelNode = cont.get().node();
-  function updateRect() {
+  var panelNode = cont.value().node();
+  var updateRect = dvl.group(function() {
     if (startDataX == null || startDataY == null) return;
 
     var mouse = d3.svg.mouse(panelNode);
     var mX = sx.value().invert(mouse[0]);
     var mY = sy.value().invert(mouse[1]);
 
-    selStartX.set(Math.min(startDataX, mX));
-    selStartY.set(Math.min(startDataY, mY));
-    selEndX.set(Math.max(startDataX, mX));
-    selEndY.set(Math.max(startDataY, mY));
-
-    dvl.notify(selStartX, selStartY, selEndX, selEndY);
-  }
+    selStartX.value(Math.min(startDataX, mX));
+    selStartY.value(Math.min(startDataY, mY));
+    selEndX.value(Math.max(startDataX, mX));
+    selEndY.value(Math.max(startDataY, mY));
+  })
 
   dvl.bindSingle({
     parent: cont,
@@ -86,32 +84,30 @@ function scatter(args) {
       height: innerHeight
     },
     on: {
-      mousedown: function() {
+      mousedown: dvl.group(function() {
         var mouse = d3.svg.mouse(panelNode);
         startDataX = sx.value().invert(mouse[0]);
         startDataY = sy.value().invert(mouse[1]);
 
-        selStartX.set(null);
-        selStartY.set(null);
-        selEndX.set(null);
-        selEndY.set(null);
-        selData.set(null);
-        selDuration.set(0).notify();
-
-        dvl.notify(selStartX, selStartY, selEndX, selEndY, selData);
-      },
-      mousemove: function() {
+        selStartX.value(null);
+        selStartY.value(null);
+        selEndX.value(null);
+        selEndY.value(null);
+        selData.value(null);
+        selDuration.value(0);
+      }),
+      mousemove: dvl.group(function() {
         if (startDataX == null || startDataY == null) return;
-        selHolder.set(me).notify();
+        selHolder.value(me);
         updateRect();
-      },
-      mouseup: function() {
+      }),
+      mouseup: dvl.group(function() {
         if (startDataX == null || startDataY == null) return;
         updateRect();
         startDataX = null;
         startDataY = null;
-        selDuration.set(duration).notify();
-      }
+        selDuration.value(duration);
+      })
     }
   });
 
@@ -122,17 +118,17 @@ function scatter(args) {
 
   dvl.register({
     listen: [mySelection, data, selStartX, selStartY, selEndX, selEndY, metricX, metricY],
-    change: [selData],
+    change: selData,
     fn: function() {
-      if (!mySelection.get()) return;
+      if (!mySelection.value()) return;
 
-      var _data = data.get();
-      var _selStartX = selStartX.get();
-      var _selStartY = selStartY.get();
-      var _selEndX = selEndX.get();
-      var _selEndY = selEndY.get();
-      var _metricX = metricX.get();
-      var _metricY = metricY.get();
+      var _data = data.value();
+      var _selStartX = selStartX.value();
+      var _selStartY = selStartY.value();
+      var _selEndX = selEndX.value();
+      var _selEndY = selEndY.value();
+      var _metricX = metricX.value();
+      var _metricY = metricY.value();
 
       if (_data == null || _selStartX == null || _selStartY == null || _selEndX == null || _selEndY == null || _metricX == null || _metricY == null) {
         selData.set(null).notify();
@@ -237,23 +233,17 @@ function scatter(args) {
     text: String
   });
 
-  var selectedColor = dvl.applyAlways({
-    args: selData,
-    fn: function(_selData) {
-      _selData = _selData || [];
-      return function(d) {
-        return (_selData.indexOf(d) != -1 ? '#41BF28' : '#4682b4');
-      }
+  var selectedColor = selData.applyAlways(function(_selData) {
+    _selData = _selData || [];
+    return function(d) {
+      return (_selData.indexOf(d) != -1 ? '#41BF28' : '#4682b4');
     }
   });
 
-  var fillColor = dvl.applyAlways({
-    args: selData,
-    fn: function(_selData) {
-      _selData = _selData || [];
-      return function(d) {
-        return (_selData.indexOf(d) != -1 ? '#41BF28' : 'none');
-      }
+  var fillColor = selData.applyAlways(function(_selData) {
+    _selData = _selData || [];
+    return function(d) {
+      return (_selData.indexOf(d) != -1 ? '#41BF28' : 'none');
     }
   });
 
@@ -277,24 +267,14 @@ function scatter(args) {
     parent: cont,
     self: 'rect.highlight',
     attr: {
-      x: dvl.apply(selStartX, sx),
-      y: dvl.apply(selEndY, sy),
-      width:  dvl.op.sub(
-        dvl.apply(selEndX, sx),
-        dvl.apply(selStartX, sx)
-      ),
-      height: dvl.op.sub(
-        dvl.apply(selStartY, sy),
-        dvl.apply(selEndY, sy)
-      )
+      x: selStartX.apply(sx),
+      y: selEndY.apply(sy),
+      width:  dvl.op.sub(selEndX.apply(sx), selStartX.apply(sx)),
+      height: dvl.op.sub(selStartY.apply(sy), selEndY.apply(sy))
     },
     style: {
       display: dvl.op.iff(mySelection, null, 'none')
     }
   })
 }
-
-
-
-
 

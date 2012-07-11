@@ -105,11 +105,11 @@ path {
   });
 
   var sx = dvl.apply(
-    [data, innerWidth],
-    function(data, width) {
+    [data, innerWidth, getX],
+    function(data, width, fn) {
       if (!data.length) return null
       return d3.time.scale()
-        .domain([data[0].time, data[data.length-1].time])
+        .domain([fn(data[0]), fn(data[data.length-1])])
         .range([0, width])
     }
   );
@@ -117,11 +117,11 @@ path {
   var sxTickFormat = sx.apply(function(d) { return d.tickFormat(10) });
 
   var sy = dvl.apply(
-    [data, innerHeight],
-    function(data, height) {
+    [data, innerHeight, getY],
+    function(data, height, fn) {
       if (!data.length) return null
       return d3.scale.linear()
-        .domain([d3.min(data, function(d) { return d.value }), d3.max(data, function(d) { return d.value })])
+        .domain([d3.min(data, fn), d3.max(data, fn)])
         .range([height, 0])
     }
   );
