@@ -58,18 +58,18 @@ function generateData() {
     data.push(genOne())
   }
 
-  var dataDVL = dvl(data, 'data');
+  var dataDVL = dvl(data).name('data').compare(false);
 
   setInterval(function() {
-    if (!realtime.get()) return;
+    if (!realtime.value()) return;
     data.push(genOne());
     while(data.length > 300) data.shift();
-    dataDVL.set(data).notify();
+    dataDVL.value(data);
   }, 250);
 
   return {
     data: dataDVL,
-    metrics: dvl(metrics, 'metrics'),
+    metrics: dvl(metrics).name('metrics'),
     realtime: realtime
   }
 }

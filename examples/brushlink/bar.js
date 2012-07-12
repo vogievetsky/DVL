@@ -50,7 +50,7 @@ function rollup(data, dimension) {
   selHolder
 }
 */
-function histogram(args) {
+function bar(args) {
   var parent = args.parent;
   var width = args.width;
   var height = args.height;

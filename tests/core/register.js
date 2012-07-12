@@ -525,11 +525,11 @@ suite.addBatch({
       return t;
     },
 
-    "correct run": function(t) {
-      t.status = '';
-      t.source.value(2);
-      assert.strictEqual(t.status, 'ABCDE#');
-    },
+    // "correct run": function(t) {
+    //   t.status = '';
+    //   t.source.value(2);
+    //   assert.strictEqual(t.status, 'ABCDE#');
+    // },
   },
 });
 
