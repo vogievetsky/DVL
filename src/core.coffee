@@ -37,16 +37,6 @@ function lift(fn) {
 }
 `
 
-Array::filter ?= (fun, thisp) ->
-  throw new TypeError() if typeof fun isnt 'function'
-
-  res = new Array()
-  for val in this
-    res.push val if fun.call(thisp, val, i, this)
-
-  return res
-
-
 dvl = (value) -> new DVLDef(value)
 dvl.version = '1.0.0'
 this.dvl = dvl
