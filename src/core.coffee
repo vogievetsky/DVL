@@ -229,6 +229,8 @@ class DVLConst
   apply: (fn) -> dvl.apply(this, fn)
   applyValid: (fn) -> dvl.applyValid(this, fn)
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
+  pluck: (prop) -> dvl.apply(this, (d) -> d[prop])
+  pluckEx: (prop) -> dvl.apply(this, (d) -> d[prop]())
 
   setGen: -> this
   gen: ->
@@ -339,6 +341,8 @@ class DVLDef
   apply: (fn) -> dvl.apply(this, fn)
   applyValid: (fn) -> dvl.applyValid(this, fn)
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
+  pluck: (prop) -> dvl.apply(this, (d) -> d[prop])
+  pluckEx: (prop) -> dvl.apply(this, (d) -> d[prop]())
 
   setGen: (g, l) ->
     if g is null
@@ -833,17 +837,16 @@ dvl.identity = dvl.const(dvl.ident).name('identity')
 
 
 dvl.acc = (column) ->
-  column = dvl.wrap(column);
+  column = dvl.wrap(column)
   acc = dvl().name("acc")
 
   makeAcc = ->
     col = column.value();
     if col?
-      acc.set((d) -> d[col])
+      col = String(col.valueOf())
+      acc.value((d) -> d[col])
     else
-      acc.set(null)
-
-    dvl.notify(acc)
+      acc.value(null)
 
   dvl.register({fn:makeAcc, listen:[column], change:[acc], name:'make_acc'})
   return acc
@@ -1059,45 +1062,6 @@ dvl.recorder = (options) ->
 
   dvl.register({fn:record, listen:[data], change:[array], name:'recorder'})
   return array
-
-
-dvl.snap = ({data, acc, value, trim, name}) ->
-  throw 'No data given' unless data
-  acc = dvl.wrap(acc or dvl.identity)
-  value = dvl.wrap(value)
-  trim = dvl.wrap(trim or false)
-  name or= 'snaped_data'
-
-  out = dvl(null).name(name)
-
-  updateSnap = ->
-    ds = data.value()
-    a = acc.value()
-    v = value.value()
-
-    if ds and a and v
-      if trim.value() and ds.length isnt 0 and (v < a(ds[0]) or a(ds[ds.length-1]) < v)
-        minIdx = -1
-      else
-        minIdx = -1
-        minDist = Infinity
-        if ds
-          for d,i in ds
-            dist = Math.abs(a(d) - v)
-            if dist < minDist
-              minDist = dist
-              minIdx = i
-
-      minDatum = if minIdx < 0 then null else ds[minIdx]
-      out.set(minDatum) unless out.value() is minDatum
-    else
-      out.set(null)
-
-    dvl.notify(out)
-
-  dvl.register({fn:updateSnap, listen:[data, acc, value, trim], change:[out], name:name+'_maker'})
-  return out
-
 
 do ->
   # dvl.urlHash {

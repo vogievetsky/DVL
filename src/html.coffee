@@ -153,6 +153,7 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
       _class = listClass.value()
 
       return unless _data
+      _data = _data.valueOf()
 
       addIcons = (el, position) ->
         icons.forEach (icon) ->
@@ -332,9 +333,9 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
     return
 
   dvl.register {
-    fn:updateSelection
-    listen:[selection, selectionLabel, title]
-    name:'selection_updater'
+    name: 'selection_updater'
+    listen: [selection, selectionLabel, title]
+    fn: updateSelection
   }
 
   return {
@@ -359,12 +360,15 @@ dvl.html.select = ({parent, data, label, selection, onChange, classStr, visible}
 
   selChange = ->
     _data = data.value()
-    return unless _data
-    _selectEl = selectEl.value()
-    i = _selectEl.property('value')
-    val = _data[i]
-    return if onChange?(val) is false
-    selection.value(val)
+    if _data
+      _data = _data.valueOf()
+      _selectEl = selectEl.value()
+      i = _selectEl.property('value')
+      val = _data[i]
+      return if onChange?(val) is false
+      selection.value(val)
+    else
+      selection.value(null)
     return
 
   selectEl = dvl.bindSingle {
@@ -397,6 +401,7 @@ dvl.html.select = ({parent, data, label, selection, onChange, classStr, visible}
       _data = data.value()
       _selection = selection.value()
       return unless _data
+      _data = _data.valueOf()
       idx = _data.indexOf(_selection)
       _selectEl = selectEl.value()
       if _selectEl.property('value') isnt idx
@@ -723,7 +728,7 @@ do ->
       listen
       change
       fn: ->
-        dataSorted = data.value() or []
+        dataSorted = (data.value() or []).valueOf()
 
         _compare = compare.value()
         dataSorted = dataSorted.slice().sort(_compare) if _compare
@@ -758,7 +763,7 @@ do ->
 
             c.selection.set(sel).notify()
           else
-            sel.style('display', 'none')     if visibleChanged
+            sel.style('display', 'none') if visibleChanged
 
         return
     }

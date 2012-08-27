@@ -33,26 +33,9 @@ function lift(fn) {
 }
 ;
 
-  var DVLBlock, DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify, _base,
+  var DVLBlock, DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify,
     __slice = [].slice,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
-
-  if ((_base = Array.prototype).filter == null) {
-    _base.filter = function(fun, thisp) {
-      var res, val, _i, _len;
-      if (typeof fun !== 'function') {
-        throw new TypeError();
-      }
-      res = new Array();
-      for (_i = 0, _len = this.length; _i < _len; _i++) {
-        val = this[_i];
-        if (fun.call(thisp, val, i, this)) {
-          res.push(val);
-        }
-      }
-      return res;
-    };
-  }
 
   dvl = function(value) {
     return new DVLDef(value);
@@ -371,6 +354,18 @@ function lift(fn) {
       return dvl.applyAlways(this, fn);
     };
 
+    DVLConst.prototype.pluck = function(prop) {
+      return dvl.apply(this, function(d) {
+        return d[prop];
+      });
+    };
+
+    DVLConst.prototype.pluckEx = function(prop) {
+      return dvl.apply(this, function(d) {
+        return d[prop]();
+      });
+    };
+
     DVLConst.prototype.setGen = function() {
       return this;
     };
@@ -551,6 +546,18 @@ function lift(fn) {
 
     DVLDef.prototype.applyAlways = function(fn) {
       return dvl.applyAlways(this, fn);
+    };
+
+    DVLDef.prototype.pluck = function(prop) {
+      return dvl.apply(this, function(d) {
+        return d[prop];
+      });
+    };
+
+    DVLDef.prototype.pluckEx = function(prop) {
+      return dvl.apply(this, function(d) {
+        return d[prop]();
+      });
     };
 
     DVLDef.prototype.setGen = function(g, l) {
@@ -1273,13 +1280,13 @@ function lift(fn) {
       var col;
       col = column.value();
       if (col != null) {
-        acc.set(function(d) {
+        col = String(col.valueOf());
+        return acc.value(function(d) {
           return d[col];
         });
       } else {
-        acc.set(null);
+        return acc.value(null);
       }
-      return dvl.notify(acc);
     };
     dvl.register({
       fn: makeAcc,
@@ -1538,57 +1545,6 @@ function lift(fn) {
       name: 'recorder'
     });
     return array;
-  };
-
-  dvl.snap = function(_arg) {
-    var acc, data, name, out, trim, updateSnap, value;
-    data = _arg.data, acc = _arg.acc, value = _arg.value, trim = _arg.trim, name = _arg.name;
-    if (!data) {
-      throw 'No data given';
-    }
-    acc = dvl.wrap(acc || dvl.identity);
-    value = dvl.wrap(value);
-    trim = dvl.wrap(trim || false);
-    name || (name = 'snaped_data');
-    out = dvl(null).name(name);
-    updateSnap = function() {
-      var a, d, dist, ds, i, minDatum, minDist, minIdx, v, _i, _len;
-      ds = data.value();
-      a = acc.value();
-      v = value.value();
-      if (ds && a && v) {
-        if (trim.value() && ds.length !== 0 && (v < a(ds[0]) || a(ds[ds.length - 1]) < v)) {
-          minIdx = -1;
-        } else {
-          minIdx = -1;
-          minDist = Infinity;
-          if (ds) {
-            for (i = _i = 0, _len = ds.length; _i < _len; i = ++_i) {
-              d = ds[i];
-              dist = Math.abs(a(d) - v);
-              if (dist < minDist) {
-                minDist = dist;
-                minIdx = i;
-              }
-            }
-          }
-        }
-        minDatum = minIdx < 0 ? null : ds[minIdx];
-        if (out.value() !== minDatum) {
-          out.set(minDatum);
-        }
-      } else {
-        out.set(null);
-      }
-      return dvl.notify(out);
-    };
-    dvl.register({
-      fn: updateSnap,
-      listen: [data, acc, value, trim],
-      change: [out],
-      name: name + '_maker'
-    });
-    return out;
   };
 
   (function() {
@@ -1892,6 +1848,7 @@ function lift(fn) {
           _data = data.value();
           _join = join.value();
           if (_data) {
+            _data = _data.valueOf();
             _transition = transition.value();
             _transitionExit = transitionExit.value();
             enter = [];
@@ -2122,7 +2079,9 @@ function lift(fn) {
     return dvl.apply({
       args: [data, acc],
       update: true,
-      fn: d3.min
+      fn: function(data, acc) {
+        return d3.min(data.valueOf(), acc);
+      }
     });
   };
 
@@ -2131,8 +2090,62 @@ function lift(fn) {
     return dvl.apply({
       args: [data, acc],
       update: true,
-      fn: d3.max
+      fn: function(data, acc) {
+        return d3.max(data.valueOf(), acc);
+      }
     });
+  };
+
+  dvl.snap = function(_arg) {
+    var acc, data, name, out, trim, updateSnap, value;
+    data = _arg.data, acc = _arg.acc, value = _arg.value, trim = _arg.trim, name = _arg.name;
+    if (!data) {
+      throw 'No data given';
+    }
+    acc = dvl.wrap(acc || dvl.identity);
+    value = dvl.wrap(value);
+    trim = dvl.wrap(trim || false);
+    name || (name = 'snaped_data');
+    out = dvl(null).name(name);
+    updateSnap = function() {
+      var a, d, dist, ds, i, minDatum, minDist, minIdx, v, _i, _len;
+      ds = data.value();
+      a = acc.value();
+      v = value.value();
+      if (ds && a && v) {
+        ds = ds.valueOf();
+        if (trim.value() && ds.length !== 0 && (v < a(ds[0]) || a(ds[ds.length - 1]) < v)) {
+          minIdx = -1;
+        } else {
+          minIdx = -1;
+          minDist = Infinity;
+          if (ds) {
+            for (i = _i = 0, _len = ds.length; _i < _len; i = ++_i) {
+              d = ds[i];
+              dist = Math.abs(a(d) - v);
+              if (dist < minDist) {
+                minDist = dist;
+                minIdx = i;
+              }
+            }
+          }
+        }
+        minDatum = minIdx < 0 ? null : ds[minIdx];
+        if (out.value() !== minDatum) {
+          out.set(minDatum);
+        }
+      } else {
+        out.set(null);
+      }
+      return dvl.notify(out);
+    };
+    dvl.register({
+      fn: updateSnap,
+      listen: [data, acc, value, trim],
+      change: [out],
+      name: name + '_maker'
+    });
+    return out;
   };
 
   dvl.misc = {};
@@ -2368,11 +2381,11 @@ function lift(fn) {
     }
     ul = d3.select(selector).append('ul').attr('class', classStr);
     onClick = function(val, i) {
-      var linkVal, sl, _base1, _sortFn;
+      var linkVal, sl, _base, _sortFn;
       if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) === false) {
         return;
       }
-      linkVal = typeof (_base1 = link.value()) === "function" ? _base1(val) : void 0;
+      linkVal = typeof (_base = link.value()) === "function" ? _base(val) : void 0;
       selection.set(val);
       sl = (selections.value() || []).slice();
       i = sl.indexOf(val);
@@ -2405,6 +2418,7 @@ function lift(fn) {
         if (!_data) {
           return;
         }
+        _data = _data.valueOf();
         addIcons = function(el, position) {
           icons.forEach(function(icon) {
             if (icon.position !== position) {
@@ -2569,9 +2583,9 @@ function lift(fn) {
       }
     };
     dvl.register({
-      fn: updateSelection,
+      name: 'selection_updater',
       listen: [selection, selectionLabel, title],
-      name: 'selection_updater'
+      fn: updateSelection
     });
     return {
       node: divCont.node(),
@@ -2596,16 +2610,18 @@ function lift(fn) {
     selChange = function() {
       var i, val, _data, _selectEl;
       _data = data.value();
-      if (!_data) {
-        return;
+      if (_data) {
+        _data = _data.valueOf();
+        _selectEl = selectEl.value();
+        i = _selectEl.property('value');
+        val = _data[i];
+        if ((typeof onChange === "function" ? onChange(val) : void 0) === false) {
+          return;
+        }
+        selection.value(val);
+      } else {
+        selection.value(null);
       }
-      _selectEl = selectEl.value();
-      i = _selectEl.property('value');
-      val = _data[i];
-      if ((typeof onChange === "function" ? onChange(val) : void 0) === false) {
-        return;
-      }
-      selection.value(val);
     };
     selectEl = dvl.bindSingle({
       parent: parent,
@@ -2640,6 +2656,7 @@ function lift(fn) {
         if (!_data) {
           return;
         }
+        _data = _data.valueOf();
         idx = _data.indexOf(_selection);
         _selectEl = selectEl.value();
         if (_selectEl.property('value') !== idx) {
@@ -2862,8 +2879,8 @@ function lift(fn) {
               }
               if (onClick.hasChanged() || visibleChanged) {
                 sel.on('click', function(d) {
-                  var _base1;
-                  return typeof (_base1 = onClick.value()) === "function" ? _base1(d.id) : void 0;
+                  var _base;
+                  return typeof (_base = onClick.value()) === "function" ? _base(d.id) : void 0;
                 });
               }
               if (c.title.hasChanged() || visibleChanged) {
@@ -2941,7 +2958,7 @@ function lift(fn) {
         change: change,
         fn: function() {
           var c, colSel, dataSorted, enterRowSel, i, k, rowSel, sel, v, visibleChanged, _compare, _j, _len1, _ref2, _rowClass, _rowLimit;
-          dataSorted = data.value() || [];
+          dataSorted = (data.value() || []).valueOf();
           _compare = compare.value();
           if (_compare) {
             dataSorted = dataSorted.slice().sort(_compare);

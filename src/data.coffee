@@ -7,7 +7,7 @@ dvl.data.min = (data, acc) ->
   return dvl.apply {
     args: [data, acc]
     update: true
-    fn: d3.min
+    fn: (data, acc) -> d3.min(data.valueOf(), acc)
   }
 
 dvl.data.max = (data, acc) ->
@@ -15,5 +15,5 @@ dvl.data.max = (data, acc) ->
   return dvl.apply {
     args: [data, acc]
     update: true
-    fn: d3.max
+    fn: (data, acc) -> d3.max(data.valueOf(), acc)
   }

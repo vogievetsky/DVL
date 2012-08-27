@@ -70,6 +70,7 @@ do ->
         _join = join.value()
 
         if _data
+          _data = _data.valueOf()
           _transition = transition.value()
           _transitionExit = transitionExit.value()
 
