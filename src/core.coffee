@@ -194,13 +194,13 @@ class DVLConst
   setGen: -> this
   gen: ->
     that = this
-    if dvl.typeOf(@v) == 'array'
+    if dvl.typeOf(@v) is 'array'
       (i) -> that.value[i]
     else
       () -> that.value
   genPrev: (i) -> @gen(i)
   len: ->
-    if dvl.typeOf(@v) == 'array'
+    if dvl.typeOf(@v) is 'array'
       @v.length
     else
       Infinity
@@ -318,7 +318,7 @@ class DVLDef
       return @vgen
     else
       that = this
-      if dvl.typeOf(@v) == 'array'
+      if dvl.typeOf(@v) is 'array'
         return ((i) -> that.value[i])
       else
         return (-> that.value)
@@ -329,7 +329,7 @@ class DVLDef
       return @vlen
     else
       if @v?
-        return if dvl.typeOf(@v) == 'array' then @v.length else Infinity
+        return if dvl.typeOf(@v) is 'array' then @v.length else Infinity
       else
         return 0
 
@@ -1070,7 +1070,7 @@ do ->
 
     updateHash = ->
       h = obj.value()
-      window.location.hash = h unless window.location.hash == h
+      window.location.hash = h unless window.location.hash is h
 
     dvl.register({fn:updateHash, listen:[obj], name:'hash_changer'})
     return
