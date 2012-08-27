@@ -38,27 +38,17 @@ function lift(fn) {
 `
 
 dvl = (value) -> new DVLDef(value)
-dvl.version = '1.0.0'
+dvl.version = '1.1.0'
 this.dvl = dvl
 if typeof module isnt 'undefined' and module.exports
   module.exports = dvl
   dvl.dvl = dvl
 
-
-do ->
-  array_ctor = (new Array).constructor
-  date_ctor  = (new Date).constructor
-  regex_ctor = (new RegExp).constructor
-  dvl.typeOf = (v) ->
-    if typeof(v) is 'object'
-      return 'null'  if v == null
-      return 'array' if v.constructor == array_ctor
-      return 'date'  if v.constructor == date_ctor
-      return 'object'
-    else
-      return 'regex' if v?.constructor == regex_ctor
-      return typeof(v)
-
+dvl.typeOf = do ->
+  toString = Object.prototype.toString
+  return (v) ->
+    type = toString.call(v)
+    return type.substring(8, type.length - 1).toLowerCase()
 
 dvl.util = {
   strObj: (obj) ->
@@ -76,7 +66,6 @@ dvl.util = {
 
     return String(obj)
 
-
   uniq: (array) ->
     seen = {}
     uniq = []
@@ -85,36 +74,6 @@ dvl.util = {
       seen[a] = 1
 
     return uniq
-
-
-  flip: (array) ->
-    map = {};
-    i = 0;
-    while i < array.length
-      map[array[i]] = i
-      i++
-
-    return map
-
-
-  getMinMax: (input, acc) ->
-    acc = ((x) -> x) unless acc
-    min = +Infinity
-    max = -Infinity
-    minIdx = -1
-    maxIdx = -1
-
-    for d,i in input
-      v = acc(d)
-      if v < min
-        min = v
-        minIdx = i
-      if max < v
-        max = v
-        maxIdx = i
-
-    return { min, max, minIdx, maxIdx }
-
 
   crossDomainPost: (url, params) ->
     frame = d3.select('body').append('iframe').style('display', 'none')
@@ -145,7 +104,7 @@ dvl.util = {
     # Both are NaN?
     return false if a isnt a and b isnt b
     # and Compare regular expressions.
-    return a.source is b.source and a.global is b.global and a.ignoreCase is b.ignoreCase and a.multiline is b.multiline if atype is 'regex'
+    return a.source is b.source and a.global is b.global and a.ignoreCase is b.ignoreCase and a.multiline is b.multiline if atype is 'regexp'
     # If a is not an object by this point, we can't handle it.
     return false unless atype is 'object' or atype is 'array'
     # Check if already compared

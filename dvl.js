@@ -41,7 +41,7 @@ function lift(fn) {
     return new DVLDef(value);
   };
 
-  dvl.version = '1.0.0';
+  dvl.version = '1.1.0';
 
   this.dvl = dvl;
 
@@ -50,29 +50,13 @@ function lift(fn) {
     dvl.dvl = dvl;
   }
 
-  (function() {
-    var array_ctor, date_ctor, regex_ctor;
-    array_ctor = (new Array).constructor;
-    date_ctor = (new Date).constructor;
-    regex_ctor = (new RegExp).constructor;
-    return dvl.typeOf = function(v) {
-      if (typeof v === 'object') {
-        if (v === null) {
-          return 'null';
-        }
-        if (v.constructor === array_ctor) {
-          return 'array';
-        }
-        if (v.constructor === date_ctor) {
-          return 'date';
-        }
-        return 'object';
-      } else {
-        if ((v != null ? v.constructor : void 0) === regex_ctor) {
-          return 'regex';
-        }
-        return typeof v;
-      }
+  dvl.typeOf = (function() {
+    var toString;
+    toString = Object.prototype.toString;
+    return function(v) {
+      var type;
+      type = toString.call(v);
+      return type.substring(8, type.length - 1).toLowerCase();
     };
   })();
 
@@ -111,46 +95,6 @@ function lift(fn) {
       }
       return uniq;
     },
-    flip: function(array) {
-      var i, map;
-      map = {};
-      i = 0;
-      while (i < array.length) {
-        map[array[i]] = i;
-        i++;
-      }
-      return map;
-    },
-    getMinMax: function(input, acc) {
-      var d, i, max, maxIdx, min, minIdx, v, _i, _len;
-      if (!acc) {
-        acc = (function(x) {
-          return x;
-        });
-      }
-      min = +Infinity;
-      max = -Infinity;
-      minIdx = -1;
-      maxIdx = -1;
-      for (i = _i = 0, _len = input.length; _i < _len; i = ++_i) {
-        d = input[i];
-        v = acc(d);
-        if (v < min) {
-          min = v;
-          minIdx = i;
-        }
-        if (max < v) {
-          max = v;
-          maxIdx = i;
-        }
-      }
-      return {
-        min: min,
-        max: max,
-        minIdx: minIdx,
-        maxIdx: maxIdx
-      };
-    },
     crossDomainPost: function(url, params) {
       var clean, frame, inputs, k, post_process, v;
       frame = d3.select('body').append('iframe').style('display', 'none');
@@ -188,7 +132,7 @@ function lift(fn) {
       if (a !== a && b !== b) {
         return false;
       }
-      if (atype === 'regex') {
+      if (atype === 'regexp') {
         return a.source === b.source && a.global === b.global && a.ignoreCase === b.ignoreCase && a.multiline === b.multiline;
       }
       if (!(atype === 'object' || atype === 'array')) {
@@ -3090,15 +3034,13 @@ function lift(fn) {
             args: [x, y, padding],
             fn: function(x, y, padding) {
               return function(d) {
-                var mmx, mmy, sx, sy;
-                mmx = dvl.util.getMinMax(d, (function(d) {
+                var sx, sy;
+                sx = d3.scale.linear().domain(d3.extent(d, function(d) {
                   return d[x];
-                }));
-                mmy = dvl.util.getMinMax(d, (function(d) {
+                })).range([padding, width - padding]);
+                sy = d3.scale.linear().domain(d3.extent(d, function(d) {
                   return d[y];
-                }));
-                sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width - padding]);
-                sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height - padding, padding]);
+                })).range([height - padding, padding]);
                 return d3.svg.line().x(function(dp) {
                   return sx(dp[x]);
                 }).y(function(dp) {

@@ -835,10 +835,8 @@ do ->
         lineFn = dvl.apply {
           args: [x, y, padding]
           fn: (x, y, padding) -> (d) ->
-            mmx = dvl.util.getMinMax(d, ((d) -> d[x]))
-            mmy = dvl.util.getMinMax(d, ((d) -> d[y]))
-            sx = d3.scale.linear().domain([mmx.min, mmx.max]).range([padding, width-padding])
-            sy = d3.scale.linear().domain([mmy.min, mmy.max]).range([height-padding, padding])
+            sx = d3.scale.linear().domain(d3.extent(d, (d) -> d[x])).range([padding,  width - padding])
+            sy = d3.scale.linear().domain(d3.extent(d, (d) -> d[y])).range([height - padding, padding])
             return d3.svg.line().x((dp) -> sx(dp[x])).y((dp) -> sy(dp[y]))(d)
         }
 
