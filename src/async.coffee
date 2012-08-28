@@ -110,13 +110,13 @@ do ->
 
       return
 
-    fo = null
+    worker = null
     addHoock = (url, data, dataFn, ret) ->
-      if fo
-        fo.addListen(url, data, dataFn)
-        fo.addChange(ret)
+      if worker
+        worker.addListen(url, data, dataFn)
+        worker.addChange(ret)
       else
-        fo = dvl.register {
+        worker = dvl.register {
           name:   'ajax_man'
           listen: [url, data]
           change: [ret, outstanding]

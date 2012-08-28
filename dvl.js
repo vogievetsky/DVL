@@ -33,12 +33,12 @@ function lift(fn) {
 }
 ;
 
-  var DVLBlock, DVLConst, DVLDef, DVLFunctionObject, bfsUpdate, bfsZero, changedInNotify, checkForCycle, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, registerers, start_notify_collect, toNotify, uniqById, variables, within_notify,
+  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, bfsUpdate, bfsZero, changedInNotify, checkForCycle, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, start_notify_collect, toNotify, uniqById, variables, within_notify, workers,
     __slice = [].slice,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   dvl = function(value) {
-    return new DVLDef(value);
+    return new DVLVar(value);
   };
 
   dvl.version = '1.1.0';
@@ -200,7 +200,7 @@ function lift(fn) {
 
   variables = {};
 
-  registerers = {};
+  workers = {};
 
   curBlock = null;
 
@@ -344,11 +344,11 @@ function lift(fn) {
 
   })();
 
-  DVLDef = (function() {
+  DVLVar = (function() {
 
-    DVLDef.name = 'DVLDef';
+    DVLVar.name = 'DVLVar';
 
-    function DVLDef(val) {
+    function DVLVar(val) {
       this.v = val != null ? val : null;
       this.id = nextObjId;
       this.prev = null;
@@ -368,7 +368,7 @@ function lift(fn) {
       return this;
     }
 
-    DVLDef.prototype.resolveLazy = function() {
+    DVLVar.prototype.resolveLazy = function() {
       if (this.lazy) {
         this.prev = this.v;
         this.v = this.lazy();
@@ -376,22 +376,22 @@ function lift(fn) {
       }
     };
 
-    DVLDef.prototype.toString = function() {
+    DVLVar.prototype.toString = function() {
       var tag;
       tag = this.n ? this.n + ':' : '';
       return "[" + this.tag + this.val + "]";
     };
 
-    DVLDef.prototype.hasChanged = function() {
+    DVLVar.prototype.hasChanged = function() {
       return this.changed;
     };
 
-    DVLDef.prototype.resetChanged = function() {
+    DVLVar.prototype.resetChanged = function() {
       this.changed = false;
       return this;
     };
 
-    DVLDef.prototype.value = function(val) {
+    DVLVar.prototype.value = function(val) {
       if (arguments.length) {
         val = val != null ? val : null;
         if (!(this.compareFn && this.compareFn(val, this.v))) {
@@ -405,7 +405,7 @@ function lift(fn) {
       }
     };
 
-    DVLDef.prototype.set = function(val) {
+    DVLVar.prototype.set = function(val) {
       val = val != null ? val : null;
       if (!this.changed) {
         this.prev = this.v;
@@ -417,14 +417,14 @@ function lift(fn) {
       return this;
     };
 
-    DVLDef.prototype.lazyValue = function(fn) {
+    DVLVar.prototype.lazyValue = function(fn) {
       this.lazy = fn;
       this.changed = true;
       dvl.notify(this);
       return this;
     };
 
-    DVLDef.prototype.update = function(val) {
+    DVLVar.prototype.update = function(val) {
       if (!dvl.util.isEqual(val, this.v)) {
         this.set(val);
         dvl.notify(this);
@@ -432,12 +432,12 @@ function lift(fn) {
       return this;
     };
 
-    DVLDef.prototype.get = function() {
+    DVLVar.prototype.get = function() {
       this.resolveLazy();
       return this.v;
     };
 
-    DVLDef.prototype.getPrev = function() {
+    DVLVar.prototype.getPrev = function() {
       this.resolveLazy();
       if (this.prev && this.changed) {
         return this.prev;
@@ -446,11 +446,11 @@ function lift(fn) {
       }
     };
 
-    DVLDef.prototype.notify = function() {
+    DVLVar.prototype.notify = function() {
       return dvl.notify(this);
     };
 
-    DVLDef.prototype.discard = function() {
+    DVLVar.prototype.discard = function() {
       if (this.listeners.length > 0) {
         throw "Cannot remove variable " + this.id + " because it has listeners.";
       }
@@ -461,7 +461,7 @@ function lift(fn) {
       return null;
     };
 
-    DVLDef.prototype.name = function() {
+    DVLVar.prototype.name = function() {
       var _ref;
       if (arguments.length === 0) {
         return (_ref = this.n) != null ? _ref : '<anon>';
@@ -471,7 +471,7 @@ function lift(fn) {
       }
     };
 
-    DVLDef.prototype.compare = function() {
+    DVLVar.prototype.compare = function() {
       if (arguments.length) {
         this.compareFn = arguments[0];
         return this;
@@ -480,31 +480,31 @@ function lift(fn) {
       }
     };
 
-    DVLDef.prototype.apply = function(fn) {
+    DVLVar.prototype.apply = function(fn) {
       return dvl.apply(this, fn);
     };
 
-    DVLDef.prototype.applyValid = function(fn) {
+    DVLVar.prototype.applyValid = function(fn) {
       return dvl.applyValid(this, fn);
     };
 
-    DVLDef.prototype.applyAlways = function(fn) {
+    DVLVar.prototype.applyAlways = function(fn) {
       return dvl.applyAlways(this, fn);
     };
 
-    DVLDef.prototype.pluck = function(prop) {
+    DVLVar.prototype.pluck = function(prop) {
       return dvl.apply(this, function(d) {
         return d[prop];
       });
     };
 
-    DVLDef.prototype.pluckEx = function(prop) {
+    DVLVar.prototype.pluckEx = function(prop) {
       return dvl.apply(this, function(d) {
         return d[prop]();
       });
     };
 
-    DVLDef.prototype.setGen = function(g, l) {
+    DVLVar.prototype.setGen = function(g, l) {
       if (g === null) {
         l = 0;
       } else {
@@ -521,7 +521,7 @@ function lift(fn) {
       return this;
     };
 
-    DVLDef.prototype.gen = function() {
+    DVLVar.prototype.gen = function() {
       var that;
       if (this.vgen !== void 0) {
         return this.vgen;
@@ -539,7 +539,7 @@ function lift(fn) {
       }
     };
 
-    DVLDef.prototype.genPrev = function() {
+    DVLVar.prototype.genPrev = function() {
       if (this.vgenPrev && this.changed) {
         return this.vgenPrev;
       } else {
@@ -547,7 +547,7 @@ function lift(fn) {
       }
     };
 
-    DVLDef.prototype.len = function() {
+    DVLVar.prototype.len = function() {
       if (this.vlen >= 0) {
         return this.vlen;
       } else {
@@ -563,12 +563,12 @@ function lift(fn) {
       }
     };
 
-    return DVLDef;
+    return DVLVar;
 
   })();
 
   dvl.def = function(value) {
-    return new DVLDef(value);
+    return new DVLVar(value);
   };
 
   dvl["const"] = function(value) {
@@ -576,14 +576,14 @@ function lift(fn) {
   };
 
   dvl.knows = function(v) {
-    return v instanceof DVLConst || v instanceof DVLDef;
+    return v instanceof DVLConst || v instanceof DVLVar;
   };
 
-  DVLFunctionObject = (function() {
+  DVLWorker = (function() {
 
-    DVLFunctionObject.name = 'DVLFunctionObject';
+    DVLWorker.name = 'DVLWorker';
 
-    function DVLFunctionObject(id, name, ctx, fn, listen, change) {
+    function DVLWorker(id, name, ctx, fn, listen, change) {
       this.id = id;
       this.name = name;
       this.ctx = ctx;
@@ -598,7 +598,7 @@ function lift(fn) {
       return this;
     }
 
-    DVLFunctionObject.prototype.addChange = function() {
+    DVLWorker.prototype.addChange = function() {
       var l, uv, v, _i, _j, _len, _len1, _ref;
       uv = uniqById(arguments);
       if (uv.length) {
@@ -619,7 +619,7 @@ function lift(fn) {
       return this;
     };
 
-    DVLFunctionObject.prototype.addListen = function() {
+    DVLWorker.prototype.addListen = function() {
       var c, changedSave, i, uv, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref;
       uv = uniqById(arguments);
       if (uv.length) {
@@ -653,9 +653,9 @@ function lift(fn) {
       return this;
     };
 
-    DVLFunctionObject.prototype.discard = function() {
+    DVLWorker.prototype.discard = function() {
       var cv, lf, queue, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
-      delete registerers[this.id];
+      delete workers[this.id];
       bfsZero([this]);
       queue = [];
       _ref = this.change;
@@ -682,7 +682,7 @@ function lift(fn) {
       this.change = this.listen = this.depends = null;
     };
 
-    return DVLFunctionObject;
+    return DVLWorker;
 
   })();
 
@@ -833,9 +833,9 @@ function lift(fn) {
     return res;
   };
 
-  checkForCycle = function(fo) {
+  checkForCycle = function(worker) {
     var stack, v, visited, w, _i, _len, _ref;
-    stack = fo.depends.slice();
+    stack = worker.depends.slice();
     visited = {};
     while (stack.length > 0) {
       v = stack.pop();
@@ -843,7 +843,7 @@ function lift(fn) {
       _ref = v.depends;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         w = _ref[_i];
-        if (w === fo) {
+        if (w === worker) {
           throw "circular dependancy detected around " + w.id;
         }
         if (!visited[w.id]) {
@@ -855,6 +855,8 @@ function lift(fn) {
 
   bfsUpdate = function(stack) {
     var nextLevel, v, w, _i, _len, _ref;
+    dvl.sortGraph();
+    return;
     while (stack.length > 0) {
       v = stack.pop();
       nextLevel = v.level + 1;
@@ -871,6 +873,8 @@ function lift(fn) {
 
   bfsZero = function(queue) {
     var v, w, _i, _len, _ref;
+    dvl.sortGraph();
+    return;
     while (queue.length > 0) {
       v = queue.shift();
       _ref = v.depends;
@@ -882,8 +886,116 @@ function lift(fn) {
     }
   };
 
+  PriorityQueue = (function() {
+
+    PriorityQueue.name = 'PriorityQueue';
+
+    function PriorityQueue(cmp) {
+      this.cmp = cmp;
+      this.queue = [];
+      this.sorted = true;
+    }
+
+    PriorityQueue.prototype.length = function() {
+      return this.queue.length;
+    };
+
+    PriorityQueue.prototype.valueOf = function() {
+      return this.queue;
+    };
+
+    PriorityQueue.prototype.push = function(l) {
+      this.queue.push(l);
+      this.sorted = false;
+    };
+
+    PriorityQueue.prototype.shift = function() {
+      if (!this.sorted) {
+        this.queue.sort(this.cmp);
+        this.sorted = true;
+      }
+      return this.queue.pop();
+    };
+
+    return PriorityQueue;
+
+  })();
+
+  dvl.sortGraph = function() {
+    var L, getInboundCount, getUpdates, id, idPriorityQueue, inboundCount, nextLevel, nextWorker, nwid, visitedFos, worker, workerUpdates, _i, _len;
+    nextLevel = 0;
+    visitedFos = {};
+    idPriorityQueue = new PriorityQueue(function(a, b) {
+      return b.id - a.id;
+    });
+    getInboundCount = function(worker) {
+      var count, prevWorker, seen, v, _i, _j, _len, _len1, _ref, _ref1;
+      seen = {};
+      count = 0;
+      _ref = worker.listen;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        v = _ref[_i];
+        _ref1 = v.changers;
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+          prevWorker = _ref1[_j];
+          if (seen.hasOwnProperty(prevWorker.id)) {
+            continue;
+          }
+          seen[prevWorker.id] = true;
+          count++;
+        }
+      }
+      return count;
+    };
+    getUpdates = function(worker) {
+      var nextWorker, ret, v, _i, _j, _len, _len1, _ref, _ref1;
+      ret = [];
+      _ref = worker.change;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        v = _ref[_i];
+        _ref1 = v.listeners;
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+          nextWorker = _ref1[_j];
+          ret.push(nextWorker);
+        }
+      }
+      return ret;
+    };
+    L = [];
+    inboundCount = {};
+    for (id in workers) {
+      worker = workers[id];
+      if (worker.depends.length === 0) {
+        inboundCount[id] = 0;
+        idPriorityQueue.push(worker);
+      }
+    }
+    while (idPriorityQueue.length()) {
+      worker = idPriorityQueue.shift();
+      L.push(worker.name);
+      worker.level = nextLevel;
+      nextLevel++;
+      workerUpdates = getUpdates(worker);
+      for (_i = 0, _len = workerUpdates.length; _i < _len; _i++) {
+        nextWorker = workerUpdates[_i];
+        nwid = nextWorker.id;
+        if (inboundCount.hasOwnProperty(nwid)) {
+          if (inboundCount[nwid] === 0) {
+            throw "shit reached a 0 inbound count node";
+          }
+        } else {
+          inboundCount[nwid] = getInboundCount(nextWorker);
+        }
+        inboundCount[nwid]--;
+        if (inboundCount[nwid] === 0) {
+          idPriorityQueue.push(nextWorker);
+        }
+      }
+    }
+  };
+
   dvl.register = function(_arg) {
-    var c, cf, change, changedSave, ctx, cv, fn, fo, force, i, id, l, lf, listen, listenConst, lv, name, noRun, v, _i, _j, _k, _l, _len, _len1, _len10, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _len9, _m, _n, _o, _p, _q, _r, _ref, _ref1, _s;
+    var c, cf, change, changedSave, ctx, cv, fn, force, i, id, l, lf, listen, listenConst, lv, name, noRun, v, worker, _i, _j, _k, _l, _len, _len1, _len10, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _len9, _m, _n, _o, _p, _q, _r, _ref, _ref1, _s;
     ctx = _arg.ctx, fn = _arg.fn, listen = _arg.listen, change = _arg.change, name = _arg.name, force = _arg.force, noRun = _arg.noRun;
     if (curNotifyListener) {
       throw 'cannot call register from within a notify';
@@ -910,28 +1022,28 @@ function lift(fn) {
     change = uniqById(change);
     if (listen.length !== 0 || change.length !== 0 || force) {
       id = ++nextObjId;
-      fo = new DVLFunctionObject(id, name || 'fn', ctx, fn, listen, change);
+      worker = new DVLWorker(id, name || 'fn', ctx, fn, listen, change);
       for (_j = 0, _len1 = listen.length; _j < _len1; _j++) {
         v = listen[_j];
         if (!v) {
           throw "No such DVL variable " + id + " in listeners";
         }
-        v.listeners.push(fo);
+        v.listeners.push(worker);
       }
       for (_k = 0, _len2 = change.length; _k < _len2; _k++) {
         v = change[_k];
         if (!v) {
           throw "No such DVL variable " + id + " in changers";
         }
-        v.changers.push(fo);
+        v.changers.push(worker);
       }
       for (_l = 0, _len3 = change.length; _l < _len3; _l++) {
         cv = change[_l];
         _ref = cv.listeners;
         for (_m = 0, _len4 = _ref.length; _m < _len4; _m++) {
           lf = _ref[_m];
-          lf.depends.push(fo);
-          fo.level = Math.max(fo.level, lf.level + 1);
+          lf.depends.push(worker);
+          worker.level = Math.max(worker.level, lf.level + 1);
         }
       }
       for (_n = 0, _len5 = listen.length; _n < _len5; _n++) {
@@ -939,12 +1051,12 @@ function lift(fn) {
         _ref1 = lv.changers;
         for (_o = 0, _len6 = _ref1.length; _o < _len6; _o++) {
           cf = _ref1[_o];
-          fo.depends.push(cf);
+          worker.depends.push(cf);
         }
       }
-      registerers[id] = fo;
-      checkForCycle(fo);
-      bfsUpdate([fo]);
+      workers[id] = worker;
+      checkForCycle(worker);
+      bfsUpdate([worker]);
     }
     if (!noRun) {
       changedSave = [];
@@ -957,7 +1069,7 @@ function lift(fn) {
         l = listenConst[_q];
         l.changed = true;
       }
-      start_notify_collect(fo);
+      start_notify_collect(worker);
       fn.apply(ctx);
       end_notify_collect();
       for (i = _r = 0, _len9 = changedSave.length; _r < _len9; i = ++_r) {
@@ -969,29 +1081,29 @@ function lift(fn) {
         l.changed = false;
       }
     }
-    return fo;
+    return worker;
   };
 
   dvl.clearAll = function() {
-    var k, l, v;
-    for (k in registerers) {
-      l = registerers[k];
-      l.listen = l.change = l.depends = null;
+    var id, v, worker;
+    for (id in workers) {
+      worker = workers[id];
+      worker.workeristen = worker.change = worker.depends = null;
     }
-    for (k in variables) {
-      v = variables[k];
+    for (id in variables) {
+      v = variables[id];
       v.listeners = v.changers = null;
     }
     nextObjId = 1;
     variables = {};
-    registerers = {};
+    workers = {};
   };
 
   levelPriorityQueue = (function() {
-    var compare, queue, sorted;
+    var compare, compare_old, queue, sorted;
     queue = [];
     sorted = true;
-    compare = function(a, b) {
+    compare_old = function(a, b) {
       var levelDiff;
       levelDiff = a.level - b.level;
       if (levelDiff === 0) {
@@ -999,6 +1111,9 @@ function lift(fn) {
       } else {
         return levelDiff;
       }
+    };
+    compare = function(a, b) {
+      return b.level - a.level;
     };
     return {
       push: function(l) {
@@ -1048,7 +1163,7 @@ function lift(fn) {
     }
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
-      if (!(v instanceof DVLDef)) {
+      if (!(v instanceof DVLVar)) {
         continue;
       }
       if (__indexOf.call(curCollectListener.change, v) < 0) {
@@ -1065,7 +1180,7 @@ function lift(fn) {
     }
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
-      if (!(v instanceof DVLDef)) {
+      if (!(v instanceof DVLVar)) {
         continue;
       }
       if (__indexOf.call(curNotifyListener.change, v) < 0) {
@@ -1093,7 +1208,7 @@ function lift(fn) {
     changedInNotify = [];
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
-      if (!(v instanceof DVLDef)) {
+      if (!(v instanceof DVLVar)) {
         continue;
       }
       changedInNotify.push(v);
@@ -1130,7 +1245,7 @@ function lift(fn) {
   dvl.notify = init_notify;
 
   dvl.graphToDot = function(lastTrace, showId) {
-    var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, _i, _j, _k, _len, _len1, _len2, _name, _ref, _ref1;
+    var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, worker, _i, _j, _k, _len, _len1, _len2, _name, _ref, _ref1;
     execOrder = {};
     if (lastTrace && lastNotifyRun) {
       for (pos in lastNotifyRun) {
@@ -1139,12 +1254,12 @@ function lift(fn) {
       }
     }
     nameMap = {};
-    for (k in registerers) {
-      l = registerers[k];
-      fnName = l.id.replace(/\n/g, '');
-      fnName = fnName + ' (' + l.level + ')';
+    for (id in workers) {
+      worker = workers[id];
+      fnName = id.replace(/\n/g, '');
+      fnName = fnName + ' (' + worker.level + ')';
       fnName = '"' + fnName + '"';
-      nameMap[l.id] = fnName;
+      nameMap[id] = fnName;
     }
     for (id in variables) {
       v = variables[id];
@@ -1161,8 +1276,8 @@ function lift(fn) {
       color = execOrder[id] ? 'red' : 'black';
       dot.push("  " + nameMap[id] + " [color=" + color + "];");
     }
-    for (k in registerers) {
-      l = registerers[k];
+    for (k in workers) {
+      l = workers[k];
       levels[_name = l.level] || (levels[_name] = []);
       levels[l.level].push(nameMap[l.id]);
       color = execOrder[l.id] ? 'red' : 'black';
@@ -1492,7 +1607,7 @@ function lift(fn) {
   };
 
   (function() {
-    var addHoock, fo, inputChange, onHashChange, vars;
+    var addHoock, inputChange, onHashChange, vars, worker;
     vars = [];
     inputChange = function() {
       var obj, v, _i, _len;
@@ -1514,12 +1629,12 @@ function lift(fn) {
         }
       }
     };
-    fo = null;
+    worker = null;
     addHoock = function(v) {
-      if (fo) {
-        fo.addListen(v);
+      if (worker) {
+        worker.addListen(v);
       } else {
-        fo = dvl.register({
+        worker = dvl.register({
           name: 'hash_man',
           listen: [v],
           fn: inputChange,
@@ -3087,7 +3202,7 @@ function lift(fn) {
     ajaxManagers = [];
     normalRequester = null;
     makeManager = function() {
-      var addHoock, fo, getData, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries;
+      var addHoock, getData, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries, worker;
       nextQueryId = 0;
       initQueue = [];
       queries = {};
@@ -3199,13 +3314,13 @@ function lift(fn) {
           }
         }
       };
-      fo = null;
+      worker = null;
       addHoock = function(url, data, dataFn, ret) {
-        if (fo) {
-          fo.addListen(url, data, dataFn);
-          fo.addChange(ret);
+        if (worker) {
+          worker.addListen(url, data, dataFn);
+          worker.addChange(ret);
         } else {
-          fo = dvl.register({
+          worker = dvl.register({
             name: 'ajax_man',
             listen: [url, data],
             change: [ret, outstanding],

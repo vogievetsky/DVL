@@ -470,33 +470,34 @@ suite.addBatch({
 suite.addBatch({
   "register order preserved - 5": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         source: dvl(1),
         status: ''
       };
 
-      var ap = t.source.apply(dvl.identity);
+      var bp = t.source.apply(dvl.identity);
       var dp = dvl();
 
       dvl.register({
         listen: [t.source],
         fn: function() {
           t.status += 'A';
-        }
+        }, name: 'A'
       });
 
       dvl.register({
-        listen: [t.source, ap],
+        listen: [t.source, bp],
         fn: function() {
           t.status += 'B';
-        }
+        }, name: 'B'
       });
 
       dvl.register({
         listen: [t.source],
         fn: function() {
           t.status += 'C';
-        }
+        }, name: 'C'
       });
 
       dvl.register({
@@ -505,31 +506,32 @@ suite.addBatch({
         fn: function() {
           t.status += 'D';
           dp.value(t.source.value());
-        }
-      });
-
-      dvl.register({
-        listen: [dp],
-        fn: function() {
-          t.status += '#';
-        }
+        }, name: 'D'
       });
 
       dvl.register({
         listen: [t.source],
         fn: function() {
           t.status += 'E';
-        }
+        }, name: 'E'
+      });
+
+      dvl.register({
+        listen: [dp],
+        fn: function() {
+          t.status += '#';
+        }, name: '#'
       });
 
       return t;
     },
 
-    // "correct run": function(t) {
-    //   t.status = '';
-    //   t.source.value(2);
-    //   assert.strictEqual(t.status, 'ABCDE#');
-    // },
+    "correct run": function(t) {
+      dvl.sortGraph();
+      t.status = '';
+      t.source.value(2);
+      assert.strictEqual(t.status, 'ABCDE#');
+    },
   },
 });
 
