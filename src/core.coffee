@@ -336,15 +336,14 @@ class DVLVar
 dvl.def   = (value) -> new DVLVar(value)
 dvl.const = (value) -> new DVLConst(value)
 
-dvl.knows = (v) -> v instanceof DVLConst or v instanceof DVLVar
+dvl.knows = (v) -> v instanceof DVLVar or v instanceof DVLConst
 
 
 class DVLWorker
   constructor: (@id, @name, @ctx, @fn, @listen, @change) ->
-    @depends = []
-    @level = 0
+    @updates = []
+    @level = -1
     curBlock.addMemeber(this) if curBlock
-    return this
 
   addChange: ->
     uv = uniqById(arguments)
@@ -353,11 +352,9 @@ class DVLWorker
       for v in uv
         @change.push(v)
         v.changers.push(this)
-        for l in v.listeners
-          l.depends.push(this)
-          @level = Math.max(@level, l.level+1)
+        for nextWorker in v.listeners
+          @updates.push(nextWorker)
 
-      checkForCycle(this)
       bfsUpdate([this])
 
     return this
@@ -369,10 +366,9 @@ class DVLWorker
       for v in uv
         @listen.push(v)
         v.listeners.push(this)
-        for c in v.changers
-          @depends.push(c)
+        for prevWorker in v.changers
+          prevWorker.updates.push(this)
 
-      checkForCycle(this)
       bfsUpdate([this])
 
     uv = uniqById(arguments, true)
@@ -393,11 +389,9 @@ class DVLWorker
 
     bfsZero([this])
 
-    queue = []
-    for cv in @change
-      for lf in cv.listeners
-        queue.push lf
-        lf.depends.splice(lf.depends.indexOf(this), 1)
+    for v in @listen
+      for prevWorker in v.changers
+        prevWorker.updates.splice(prevWorker.updates.indexOf(this), 1)
 
     for v in @change
       v.changers.splice(v.changers.indexOf(this), 1)
@@ -405,9 +399,8 @@ class DVLWorker
     for v in @listen
       v.listeners.splice(v.listeners.indexOf(this), 1)
 
-    # I think this hould be queue [ToDo]
-    bfsUpdate(@depends) # do not care if @update gets trashed
-    @change = @listen = @depends = null # cause an error if we hit these
+    bfsUpdate([])
+    @change = @listen = @updates = null # cause an error if we hit these
     return
 
 
@@ -497,49 +490,14 @@ uniqById = (vs, allowConst) ->
   return res
 
 
-checkForCycle = (worker) ->
-  stack = worker.depends.slice()
-  visited = {}
-
-  while stack.length > 0
-    v = stack.pop()
-    visited[v.id] = true
-
-    for w in v.depends
-      throw "circular dependancy detected around #{w.id}" if w is worker
-      stack.push w if not visited[w.id]
-
-  return
-
-
 bfsUpdate = (stack) ->
   dvl.sortGraph()
-  return
-
-  while stack.length > 0
-    v = stack.pop()
-    nextLevel = v.level+1
-
-    for w in v.depends
-      if w.level < nextLevel
-        w.level = nextLevel
-        stack.push w
-
   return
 
 
 bfsZero = (queue) ->
   dvl.sortGraph()
   return
-
-  while queue.length > 0
-    v = queue.shift()
-    for w in v.depends
-      w.level = 0
-      queue.push w
-
-  return
-
 
 
 class PriorityQueue
@@ -577,7 +535,7 @@ class PriorityQueue
 # else
 #   return L (a topologically sorted order)
 dvl.sortGraph = ->
-  nextLevel = 0
+  nodesProcessed = 0
   visitedFos = {}
   idPriorityQueue = new PriorityQueue((a, b) -> b.id - a.id)
 
@@ -600,44 +558,45 @@ dvl.sortGraph = ->
 
     return ret #uniqById(ret)
 
-  L = []
   inboundCount = {}
 
   # S ← Set of all nodes with no incoming edges
   # TODO: This can be optimized out to be it's own array
   for id, worker of workers
-    if worker.depends.length is 0
+    isSource = true
+    for v in worker.listen
+      if v.changers.length
+        isSource = false
+        break
+
+    if isSource
       inboundCount[id] = 0 # I do not think this is needed
       idPriorityQueue.push worker
 
   while idPriorityQueue.length()
     worker = idPriorityQueue.shift()
-    L.push worker.name # Hack
-    worker.level = nextLevel
-    nextLevel++
+    worker.level = nodesProcessed
+    nodesProcessed++
 
     workerUpdates = getUpdates(worker)
-    #console.log 'numDep:', worker.name, workerUpdates.length
     for nextWorker in workerUpdates
       nwid = nextWorker.id
-      if inboundCount.hasOwnProperty(nwid)
-        throw "shit reached a 0 inbound count node" if inboundCount[nwid] is 0
-      else
+      if not inboundCount.hasOwnProperty(nwid)
         inboundCount[nwid] = getInboundCount(nextWorker)
-      #console.log 'inboundCount[nwid]', inboundCount[nwid]
       inboundCount[nwid]--
       if inboundCount[nwid] is 0
-        #console.log 'push', nextWorker.name
         idPriorityQueue.push nextWorker
 
-  #console.log 'dvl.sortGraph', L
+  if nodesProcessed isnt Object.keys(workers).length
+    throw new Error('there is a cycle')
+
   return
 
 
 
 dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
-  throw 'cannot call register from within a notify' if curNotifyListener
-  throw 'fn must be a function' if typeof(fn) != 'function'
+  throw new Error('cannot call register from within a notify') if curNotifyListener
+  throw new TypeError('fn must be a function') if typeof(fn) != 'function'
 
   listen = [listen] unless dvl.typeOf(listen) is 'array'
   change = [change] unless dvl.typeOf(change) is 'array'
@@ -646,13 +605,14 @@ dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
   if listen
     for v in listen
       listenConst.push v if v instanceof DVLConst
+
   listen = uniqById(listen)
   change = uniqById(change)
 
   if listen.length isnt 0 or change.length isnt 0 or force
     # Make function/context holder object; set level to 0
     id = ++nextObjId
-    worker = new DVLWorker(id, (name or 'fn'), ctx, fn, listen, change)
+    worker = new DVLWorker(id, name or 'fn', ctx, fn, listen, change)
 
     # Append listen and change to variables
     for v in listen
@@ -664,17 +624,15 @@ dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
       v.changers.push worker
 
     # Update dependancy graph
-    for cv in change
-      for lf in cv.listeners
-        lf.depends.push worker
-        worker.level = Math.max(worker.level, lf.level+1)
+    for v in change
+      for nextWorker in v.listeners
+        worker.updates.push nextWorker
 
-    for lv in listen
-      for cf in lv.changers
-        worker.depends.push cf
+    for v in listen
+      for prevWorker in v.changers
+        prevWorker.updates.push worker
 
     workers[id] = worker
-    checkForCycle(worker)
     bfsUpdate([worker])
 
   if not noRun
@@ -701,7 +659,7 @@ dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
 dvl.clearAll = ->
   # disolve the graph to make the garbage collection job as easy as possible
   for id, worker of workers
-    worker.workeristen = worker.change = worker.depends = null
+    worker.listen = worker.change = worker.updates = null
 
   for id, v of variables
     v.listeners = v.changers = null
@@ -713,31 +671,7 @@ dvl.clearAll = ->
   return
 
 
-levelPriorityQueue = do ->
-  queue = []
-  sorted = true
-
-  compare_old = (a, b) ->
-    levelDiff = a.level - b.level
-    return if levelDiff is 0 then b.id - a.id else levelDiff
-
-  compare = (a, b) -> b.level - a.level
-
-  return {
-    push: (l) ->
-      queue.push l
-      sorted = false
-      return
-
-    shift: ->
-      if not sorted
-        queue.sort(compare)
-        sorted = true
-      return queue.pop()
-
-    length: ->
-      return queue.length
-  }
+levelPriorityQueue = new PriorityQueue((a, b) -> b.level - a.level)
 
 curNotifyListener = null
 curCollectListener = null

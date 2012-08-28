@@ -33,7 +33,7 @@ function lift(fn) {
 }
 ;
 
-  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, bfsUpdate, bfsZero, changedInNotify, checkForCycle, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, start_notify_collect, toNotify, uniqById, variables, within_notify, workers,
+  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, bfsUpdate, bfsZero, changedInNotify, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, start_notify_collect, toNotify, uniqById, variables, within_notify, workers,
     __slice = [].slice,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -576,7 +576,7 @@ function lift(fn) {
   };
 
   dvl.knows = function(v) {
-    return v instanceof DVLConst || v instanceof DVLVar;
+    return v instanceof DVLVar || v instanceof DVLConst;
   };
 
   DVLWorker = (function() {
@@ -590,16 +590,15 @@ function lift(fn) {
       this.fn = fn;
       this.listen = listen;
       this.change = change;
-      this.depends = [];
-      this.level = 0;
+      this.updates = [];
+      this.level = -1;
       if (curBlock) {
         curBlock.addMemeber(this);
       }
-      return this;
     }
 
     DVLWorker.prototype.addChange = function() {
-      var l, uv, v, _i, _j, _len, _len1, _ref;
+      var nextWorker, uv, v, _i, _j, _len, _len1, _ref;
       uv = uniqById(arguments);
       if (uv.length) {
         for (_i = 0, _len = uv.length; _i < _len; _i++) {
@@ -608,19 +607,17 @@ function lift(fn) {
           v.changers.push(this);
           _ref = v.listeners;
           for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
-            l = _ref[_j];
-            l.depends.push(this);
-            this.level = Math.max(this.level, l.level + 1);
+            nextWorker = _ref[_j];
+            this.updates.push(nextWorker);
           }
         }
-        checkForCycle(this);
         bfsUpdate([this]);
       }
       return this;
     };
 
     DVLWorker.prototype.addListen = function() {
-      var c, changedSave, i, uv, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref;
+      var changedSave, i, prevWorker, uv, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref;
       uv = uniqById(arguments);
       if (uv.length) {
         for (_i = 0, _len = uv.length; _i < _len; _i++) {
@@ -629,11 +626,10 @@ function lift(fn) {
           v.listeners.push(this);
           _ref = v.changers;
           for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
-            c = _ref[_j];
-            this.depends.push(c);
+            prevWorker = _ref[_j];
+            prevWorker.updates.push(this);
           }
         }
-        checkForCycle(this);
         bfsUpdate([this]);
       }
       uv = uniqById(arguments, true);
@@ -654,18 +650,16 @@ function lift(fn) {
     };
 
     DVLWorker.prototype.discard = function() {
-      var cv, lf, queue, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
+      var prevWorker, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
       delete workers[this.id];
       bfsZero([this]);
-      queue = [];
-      _ref = this.change;
+      _ref = this.listen;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        cv = _ref[_i];
-        _ref1 = cv.listeners;
+        v = _ref[_i];
+        _ref1 = v.changers;
         for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-          lf = _ref1[_j];
-          queue.push(lf);
-          lf.depends.splice(lf.depends.indexOf(this), 1);
+          prevWorker = _ref1[_j];
+          prevWorker.updates.splice(prevWorker.updates.indexOf(this), 1);
         }
       }
       _ref2 = this.change;
@@ -678,8 +672,8 @@ function lift(fn) {
         v = _ref3[_l];
         v.listeners.splice(v.listeners.indexOf(this), 1);
       }
-      bfsUpdate(this.depends);
-      this.change = this.listen = this.depends = null;
+      bfsUpdate([]);
+      this.change = this.listen = this.updates = null;
     };
 
     return DVLWorker;
@@ -833,57 +827,12 @@ function lift(fn) {
     return res;
   };
 
-  checkForCycle = function(worker) {
-    var stack, v, visited, w, _i, _len, _ref;
-    stack = worker.depends.slice();
-    visited = {};
-    while (stack.length > 0) {
-      v = stack.pop();
-      visited[v.id] = true;
-      _ref = v.depends;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        w = _ref[_i];
-        if (w === worker) {
-          throw "circular dependancy detected around " + w.id;
-        }
-        if (!visited[w.id]) {
-          stack.push(w);
-        }
-      }
-    }
-  };
-
   bfsUpdate = function(stack) {
-    var nextLevel, v, w, _i, _len, _ref;
     dvl.sortGraph();
-    return;
-    while (stack.length > 0) {
-      v = stack.pop();
-      nextLevel = v.level + 1;
-      _ref = v.depends;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        w = _ref[_i];
-        if (w.level < nextLevel) {
-          w.level = nextLevel;
-          stack.push(w);
-        }
-      }
-    }
   };
 
   bfsZero = function(queue) {
-    var v, w, _i, _len, _ref;
     dvl.sortGraph();
-    return;
-    while (queue.length > 0) {
-      v = queue.shift();
-      _ref = v.depends;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        w = _ref[_i];
-        w.level = 0;
-        queue.push(w);
-      }
-    }
   };
 
   PriorityQueue = (function() {
@@ -922,8 +871,8 @@ function lift(fn) {
   })();
 
   dvl.sortGraph = function() {
-    var L, getInboundCount, getUpdates, id, idPriorityQueue, inboundCount, nextLevel, nextWorker, nwid, visitedFos, worker, workerUpdates, _i, _len;
-    nextLevel = 0;
+    var getInboundCount, getUpdates, id, idPriorityQueue, inboundCount, isSource, nextWorker, nodesProcessed, nwid, v, visitedFos, worker, workerUpdates, _i, _j, _len, _len1, _ref;
+    nodesProcessed = 0;
     visitedFos = {};
     idPriorityQueue = new PriorityQueue(function(a, b) {
       return b.id - a.id;
@@ -961,29 +910,32 @@ function lift(fn) {
       }
       return ret;
     };
-    L = [];
     inboundCount = {};
     for (id in workers) {
       worker = workers[id];
-      if (worker.depends.length === 0) {
+      isSource = true;
+      _ref = worker.listen;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        v = _ref[_i];
+        if (v.changers.length) {
+          isSource = false;
+          break;
+        }
+      }
+      if (isSource) {
         inboundCount[id] = 0;
         idPriorityQueue.push(worker);
       }
     }
     while (idPriorityQueue.length()) {
       worker = idPriorityQueue.shift();
-      L.push(worker.name);
-      worker.level = nextLevel;
-      nextLevel++;
+      worker.level = nodesProcessed;
+      nodesProcessed++;
       workerUpdates = getUpdates(worker);
-      for (_i = 0, _len = workerUpdates.length; _i < _len; _i++) {
-        nextWorker = workerUpdates[_i];
+      for (_j = 0, _len1 = workerUpdates.length; _j < _len1; _j++) {
+        nextWorker = workerUpdates[_j];
         nwid = nextWorker.id;
-        if (inboundCount.hasOwnProperty(nwid)) {
-          if (inboundCount[nwid] === 0) {
-            throw "shit reached a 0 inbound count node";
-          }
-        } else {
+        if (!inboundCount.hasOwnProperty(nwid)) {
           inboundCount[nwid] = getInboundCount(nextWorker);
         }
         inboundCount[nwid]--;
@@ -992,16 +944,19 @@ function lift(fn) {
         }
       }
     }
+    if (nodesProcessed !== Object.keys(workers).length) {
+      throw new Error('there is a cycle');
+    }
   };
 
   dvl.register = function(_arg) {
-    var c, cf, change, changedSave, ctx, cv, fn, force, i, id, l, lf, listen, listenConst, lv, name, noRun, v, worker, _i, _j, _k, _l, _len, _len1, _len10, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _len9, _m, _n, _o, _p, _q, _r, _ref, _ref1, _s;
+    var c, change, changedSave, ctx, fn, force, i, id, l, listen, listenConst, name, nextWorker, noRun, prevWorker, v, worker, _i, _j, _k, _l, _len, _len1, _len10, _len2, _len3, _len4, _len5, _len6, _len7, _len8, _len9, _m, _n, _o, _p, _q, _r, _ref, _ref1, _s;
     ctx = _arg.ctx, fn = _arg.fn, listen = _arg.listen, change = _arg.change, name = _arg.name, force = _arg.force, noRun = _arg.noRun;
     if (curNotifyListener) {
-      throw 'cannot call register from within a notify';
+      throw new Error('cannot call register from within a notify');
     }
     if (typeof fn !== 'function') {
-      throw 'fn must be a function';
+      throw new TypeError('fn must be a function');
     }
     if (dvl.typeOf(listen) !== 'array') {
       listen = [listen];
@@ -1038,24 +993,22 @@ function lift(fn) {
         v.changers.push(worker);
       }
       for (_l = 0, _len3 = change.length; _l < _len3; _l++) {
-        cv = change[_l];
-        _ref = cv.listeners;
+        v = change[_l];
+        _ref = v.listeners;
         for (_m = 0, _len4 = _ref.length; _m < _len4; _m++) {
-          lf = _ref[_m];
-          lf.depends.push(worker);
-          worker.level = Math.max(worker.level, lf.level + 1);
+          nextWorker = _ref[_m];
+          worker.updates.push(nextWorker);
         }
       }
       for (_n = 0, _len5 = listen.length; _n < _len5; _n++) {
-        lv = listen[_n];
-        _ref1 = lv.changers;
+        v = listen[_n];
+        _ref1 = v.changers;
         for (_o = 0, _len6 = _ref1.length; _o < _len6; _o++) {
-          cf = _ref1[_o];
-          worker.depends.push(cf);
+          prevWorker = _ref1[_o];
+          prevWorker.updates.push(worker);
         }
       }
       workers[id] = worker;
-      checkForCycle(worker);
       bfsUpdate([worker]);
     }
     if (!noRun) {
@@ -1088,7 +1041,7 @@ function lift(fn) {
     var id, v, worker;
     for (id in workers) {
       worker = workers[id];
-      worker.workeristen = worker.change = worker.depends = null;
+      worker.listen = worker.change = worker.updates = null;
     }
     for (id in variables) {
       v = variables[id];
@@ -1099,39 +1052,9 @@ function lift(fn) {
     workers = {};
   };
 
-  levelPriorityQueue = (function() {
-    var compare, compare_old, queue, sorted;
-    queue = [];
-    sorted = true;
-    compare_old = function(a, b) {
-      var levelDiff;
-      levelDiff = a.level - b.level;
-      if (levelDiff === 0) {
-        return b.id - a.id;
-      } else {
-        return levelDiff;
-      }
-    };
-    compare = function(a, b) {
-      return b.level - a.level;
-    };
-    return {
-      push: function(l) {
-        queue.push(l);
-        sorted = false;
-      },
-      shift: function() {
-        if (!sorted) {
-          queue.sort(compare);
-          sorted = true;
-        }
-        return queue.pop();
-      },
-      length: function() {
-        return queue.length;
-      }
-    };
-  })();
+  levelPriorityQueue = new PriorityQueue(function(a, b) {
+    return b.level - a.level;
+  });
 
   curNotifyListener = null;
 

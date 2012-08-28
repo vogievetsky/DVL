@@ -8,6 +8,7 @@ var suite = vows.describe("dvl.register");
 suite.addBatch({
   "basic register": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         runs: 0,
         a: dvl(3)
@@ -45,6 +46,7 @@ suite.addBatch({
 suite.addBatch({
   "basic register / const": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         runs: 0,
         a: dvl.const(3)
@@ -73,6 +75,7 @@ suite.addBatch({
 suite.addBatch({
   "basic register / no init run": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         runs: 0,
         a: dvl(3)
@@ -103,6 +106,7 @@ suite.addBatch({
 suite.addBatch({
   "change and listen register": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         runs: 0,
         a: dvl(3),
@@ -137,6 +141,7 @@ suite.addBatch({
 suite.addBatch({
   "hasChanged works": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         a: dvl(3),
         b: dvl(4),
@@ -177,6 +182,7 @@ suite.addBatch({
 suite.addBatch({
   "circular register": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         runs: 0,
         a: dvl(3),
@@ -211,6 +217,7 @@ suite.addBatch({
 suite.addBatch({
   "addListen": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         a: dvl(3),
         b: dvl(4),
@@ -262,6 +269,7 @@ suite.addBatch({
 suite.addBatch({
   "addChange": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         a: dvl(3),
         b: dvl(3),
@@ -310,6 +318,7 @@ suite.addBatch({
 suite.addBatch({
   "remove basic": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         a: dvl(3),
         status: ''
@@ -347,6 +356,7 @@ suite.addBatch({
 suite.addBatch({
   "register order preserved - 1": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         a: dvl(3),
         status: ''
@@ -374,6 +384,7 @@ suite.addBatch({
 suite.addBatch({
   "register order preserved - 2": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         a: dvl(3),
         b: dvl(3),
@@ -402,6 +413,7 @@ suite.addBatch({
 suite.addBatch({
   "register order preserved - 3": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         a: dvl(3),
         b: dvl(3),
@@ -437,6 +449,7 @@ suite.addBatch({
 suite.addBatch({
   "register order preserved - 4": {
     topic: function() {
+      dvl.clearAll();
       var t = {
         a: dvl(3),
         b: dvl(5),
