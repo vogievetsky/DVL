@@ -139,6 +139,54 @@ suite.addBatch({
 });
 
 suite.addBatch({
+  "double link": {
+    topic: function() {
+      dvl.clearAll();
+      var t = {
+        runs: 0,
+        a: dvl(3),
+        b1: dvl(),
+        b2: dvl()
+      }
+
+      dvl.register({
+        listen: [t.a],
+        change: [t.b1, t.b2],
+        fn: function() {
+          t.b1.value(t.a.value() * 4)
+          t.b2.value(t.a.value() * 5)
+        }
+      });
+
+      var c = dvl();
+      dvl.register({
+        listen: [c],
+        fn: function() {}
+      })
+
+      dvl.register({
+        listen: [t.b1, t.b2],
+        change: [c],
+        fn: function() {
+          t.runs++
+        }
+      });
+
+      return t;
+    },
+
+    "correct initial run": function(t) {
+      assert.strictEqual(t.runs, 1);
+    },
+
+    "correct next run": function(t) {
+      t.a.value(4);
+      assert.strictEqual(t.runs, 2);
+    }
+  },
+});
+
+suite.addBatch({
   "hasChanged works": {
     topic: function() {
       dvl.clearAll();
@@ -496,21 +544,21 @@ suite.addBatch({
         listen: [t.source],
         fn: function() {
           t.status += 'A';
-        }, name: 'A'
+        }
       });
 
       dvl.register({
         listen: [t.source, bp],
         fn: function() {
           t.status += 'B';
-        }, name: 'B'
+        }
       });
 
       dvl.register({
         listen: [t.source],
         fn: function() {
           t.status += 'C';
-        }, name: 'C'
+        }
       });
 
       dvl.register({
@@ -519,28 +567,27 @@ suite.addBatch({
         fn: function() {
           t.status += 'D';
           dp.value(t.source.value());
-        }, name: 'D'
+        }
       });
 
       dvl.register({
         listen: [t.source],
         fn: function() {
           t.status += 'E';
-        }, name: 'E'
+        }
       });
 
       dvl.register({
         listen: [dp],
         fn: function() {
           t.status += '#';
-        }, name: '#'
+        }
       });
 
       return t;
     },
 
     "correct run": function(t) {
-      dvl.sortGraph();
       t.status = '';
       t.source.value(2);
       assert.strictEqual(t.status, 'ABCDE#');

@@ -3,40 +3,6 @@
 # DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
 
-
-`
-function lift(fn) {
-  var fn = arguments[0];
-  if ('function' !== typeof fn) throw new TypeError();
-
-  return function(/* args: to fn */) {
-    var args = Array.prototype.slice.call(arguments),
-        n = args.length,
-        i;
-
-    for (i = 0; i < n; i++) {
-      if ('function' === typeof args[i]) {
-        return function(/* args2 to function wrapper */) {
-          var args2 = Array.prototype.slice.call(arguments),
-              reduced = [],
-              i, v;
-
-          for (i = 0; i < n; i++) {
-            v = args[i];
-            reduced.push('function' === typeof v ? v.apply(this, args2) : v);
-          }
-
-          return fn.apply(null, reduced);
-        };
-      }
-    }
-
-    // Fell through so there are no functions in the arguments to fn -> call it!
-    return fn.apply(null, args);
-  };
-}
-`
-
 dvl = (value) -> new DVLVar(value)
 dvl.version = '1.1.0'
 this.dvl = dvl
@@ -150,9 +116,34 @@ dvl.util = {
       .replace(/"/g, '&quot;')
 }
 
+class Set
+  constructor: ->
+    @map = {}
+    @len = 0
+
+  valueOf: -> @map
+
+  length: -> @len
+
+  add: (obj) ->
+    if not @map.hasOwnProperty(obj.id)
+      @map[obj.id] = obj
+      @len++
+    return this
+
+  remove: (obj) ->
+    if @map.hasOwnProperty(obj.id)
+      delete @map[obj.id]
+      @len--
+    return this
+
+
 nextObjId = 1
-variables = {}
-workers = {}
+
+variables = new Set()
+workers = new Set()
+sourceWorkers = new Set()
+
 curBlock = null
 default_compare = (a, b) -> a is b
 
@@ -208,7 +199,7 @@ class DVLConst
 class DVLVar
   constructor: (val) ->
     @v = val ? null
-    @id = nextObjId
+    @id = nextObjId++
     @prev = null
     @changed = false
     @vgen = undefined
@@ -218,8 +209,7 @@ class DVLVar
     @listeners = []
     @changers = []
     @compareFn = default_compare
-    variables[@id] = this
-    nextObjId++
+    variables.add(this)
     curBlock.addMemeber(this) if curBlock
     return this
 
@@ -282,7 +272,7 @@ class DVLVar
       throw "Cannot remove variable #{@id} because it has listeners."
     if @changers.length > 0
       throw "Cannot remove variable #{@id} because it has changers."
-    delete variables[@id]
+    variables.remove(this)
     return null
   name: ->
     if arguments.length is 0
@@ -340,9 +330,32 @@ dvl.knows = (v) -> v instanceof DVLVar or v instanceof DVLConst
 
 
 class DVLWorker
-  constructor: (@id, @name, @ctx, @fn, @listen, @change) ->
-    @updates = []
-    @level = -1
+  constructor: (@name, @ctx, @fn, @listen, @change) ->
+    @id = nextObjId++
+    @updates = new Set()
+    @level = workers.length() # place at the end
+    workers.add(this)
+
+    # Append listen and change to variables and dependency graph
+    hasPrev = false
+    for v in @listen
+      v.listeners.push(this)
+      for prevWorker in v.changers
+        prevWorker.updates.add(this)
+        hasPrev = true
+
+    for v in @change
+      v.changers.push(this)
+      for nextWorker in v.listeners
+        @updates.add(nextWorker)
+        sourceWorkers.remove(nextWorker)
+
+    if not hasPrev
+      sourceWorkers.add(this)
+
+    # the optimization is that if we are adding a sink worker then it's level is just the last level
+    sortGraph() if @updates.length()
+
     curBlock.addMemeber(this) if curBlock
 
   addChange: ->
@@ -353,9 +366,10 @@ class DVLWorker
         @change.push(v)
         v.changers.push(this)
         for nextWorker in v.listeners
-          @updates.push(nextWorker)
+          @updates.add(nextWorker)
+          sourceWorkers.remove(nextWorker)
 
-      bfsUpdate([this])
+      sortGraph()
 
     return this
 
@@ -363,13 +377,18 @@ class DVLWorker
     uv = uniqById(arguments)
 
     if uv.length
+      hasPrev = false
       for v in uv
         @listen.push(v)
         v.listeners.push(this)
         for prevWorker in v.changers
-          prevWorker.updates.push(this)
+          prevWorker.updates.add(this)
+          hasPrev = false
 
-      bfsUpdate([this])
+      if hasPrev
+        sourceWorkers.remove(this)
+
+      sortGraph()
 
     uv = uniqById(arguments, true)
     start_notify_collect(this)
@@ -385,13 +404,12 @@ class DVLWorker
 
   discard: ->
     # Find the register object
-    delete workers[@id]
-
-    bfsZero([this])
+    sourceWorkers.remove(this)
+    workers.remove(this)
 
     for v in @listen
       for prevWorker in v.changers
-        prevWorker.updates.splice(prevWorker.updates.indexOf(this), 1)
+        prevWorker.updates.remove(this)
 
     for v in @change
       v.changers.splice(v.changers.indexOf(this), 1)
@@ -399,9 +417,49 @@ class DVLWorker
     for v in @listen
       v.listeners.splice(v.listeners.indexOf(this), 1)
 
-    bfsUpdate([])
+    sortGraph()
     @change = @listen = @updates = null # cause an error if we hit these
     return
+
+dvl.register = ({ctx, fn, listen, change, name, noRun}) ->
+  throw new Error('cannot call register from within a notify') if curNotifyListener
+  throw new TypeError('fn must be a function') if typeof(fn) != 'function'
+
+  listen = [listen] unless dvl.typeOf(listen) is 'array'
+  change = [change] unless dvl.typeOf(change) is 'array'
+
+  listenConst = []
+  if listen
+    for v in listen
+      listenConst.push v if v instanceof DVLConst
+
+  listen = uniqById(listen)
+  change = uniqById(change)
+
+  # Make function/context holder object
+  worker = new DVLWorker(name or 'fn', ctx, fn, listen, change)
+
+  if not noRun
+    # Save changes and run the function with everything as changed.
+    changedSave = []
+    for l,i in listen
+      changedSave[i] = l.changed
+      l.changed = true
+    for l in listenConst
+      l.changed = true
+
+    start_notify_collect(worker)
+    fn.call(ctx)
+    end_notify_collect()
+
+    for c,i in changedSave
+      listen[i].changed = c
+    for l in listenConst
+      l.changed = false
+
+  return worker
+
+
 
 
 class DVLBlock
@@ -490,54 +548,34 @@ uniqById = (vs, allowConst) ->
   return res
 
 
-bfsUpdate = (stack) ->
-  dvl.sortGraph()
+dvl.workerInfo = (worker) ->
+  console.log '-----------------'
+  console.log 'listen:', worker.listen.map((v) -> v.id)
+  console.log 'listen:', worker.listen.map((v) -> v.changers.map((w) -> w.id))
   return
 
+_totalTimeUsed = 0
+_numTimesUsed = 0
+sortGraph = ->
+  # L ← Empty list that will contain the sorted elements
+  # S ← Set of all nodes with no incoming edges
+  # while S is non-empty do
+  #   remove a node n from S
+  #   insert n into L
+  #   for each node m with an edge e from n to m do
+  #     remove edge e from the graph
+  #     if m has no other incoming edges then
+  #       insert m into S
+  # if graph has edges then
+  #   return error (graph has at least one cycle)
+  # else
+  #   return L (a topologically sorted order)
+  _initTime = Date.now()
 
-bfsZero = (queue) ->
-  dvl.sortGraph()
-  return
-
-
-class PriorityQueue
-  constructor: (@cmp) ->
-    @queue = []
-    @sorted = true
-
-  length: -> @queue.length
-
-  valueOf: -> @queue
-
-  push: (l) ->
-    @queue.push l
-    @sorted = false
-    return
-
-  shift: ->
-    if not @sorted
-      @queue.sort(@cmp)
-      @sorted = true
-    return @queue.pop()
-
-
-# L ← Empty list that will contain the sorted elements
-# S ← Set of all nodes with no incoming edges
-# while S is non-empty do
-#   remove a node n from S
-#   insert n into L
-#   for each node m with an edge e from n to m do
-#     remove edge e from the graph
-#     if m has no other incoming edges then
-#       insert m into S
-# if graph has edges then
-#   return error (graph has at least one cycle)
-# else
-#   return L (a topologically sorted order)
-dvl.sortGraph = ->
   nodesProcessed = 0
   visitedFos = {}
-  idPriorityQueue = new PriorityQueue((a, b) -> b.id - a.id)
+  #idPriorityQueue = new PriorityQueue((a, b) -> b.id - a.id)
+  idPriorityQueue = new PriorityQueue('id')
 
   # This can be precomputed
   getInboundCount = (worker) ->
@@ -550,128 +588,64 @@ dvl.sortGraph = ->
         count++
     return count
 
-  getUpdates = (worker) ->
-    ret = []
-    for v in worker.change
-      for nextWorker in v.listeners
-        ret.push(nextWorker)
-
-    return ret #uniqById(ret)
-
   inboundCount = {}
 
   # S ← Set of all nodes with no incoming edges
   # TODO: This can be optimized out to be it's own array
-  for id, worker of workers
-    isSource = true
-    for v in worker.listen
-      if v.changers.length
-        isSource = false
-        break
+  # for id, worker of workers.valueOf()
+  #   isSource = true
+  #   for v in worker.listen
+  #     if v.changers.length
+  #       isSource = false
+  #       break
 
-    if isSource
-      inboundCount[id] = 0 # I do not think this is needed
-      idPriorityQueue.push worker
+  #   if isSource
+  #     idPriorityQueue.push worker
+
+  for id, worker of sourceWorkers.valueOf()
+    idPriorityQueue.push worker
 
   while idPriorityQueue.length()
     worker = idPriorityQueue.shift()
-    worker.level = nodesProcessed
-    nodesProcessed++
+    worker.level = nodesProcessed++
 
-    workerUpdates = getUpdates(worker)
-    for nextWorker in workerUpdates
-      nwid = nextWorker.id
-      if not inboundCount.hasOwnProperty(nwid)
-        inboundCount[nwid] = getInboundCount(nextWorker)
-      inboundCount[nwid]--
-      if inboundCount[nwid] is 0
+    for nwid, nextWorker of worker.updates.valueOf()
+      ic = if inboundCount.hasOwnProperty(nwid) then inboundCount[nwid] else getInboundCount(nextWorker)
+
+      if --ic is 0
         idPriorityQueue.push nextWorker
+      else
+        inboundCount[nwid] = ic
 
-  if nodesProcessed isnt Object.keys(workers).length
+  if nodesProcessed isnt workers.length()
     throw new Error('there is a cycle')
 
+  _totalTimeUsed += Date.now() - _initTime
+  _numTimesUsed++
   return
 
-
-
-dvl.register = ({ctx, fn, listen, change, name, force, noRun}) ->
-  throw new Error('cannot call register from within a notify') if curNotifyListener
-  throw new TypeError('fn must be a function') if typeof(fn) != 'function'
-
-  listen = [listen] unless dvl.typeOf(listen) is 'array'
-  change = [change] unless dvl.typeOf(change) is 'array'
-
-  listenConst = []
-  if listen
-    for v in listen
-      listenConst.push v if v instanceof DVLConst
-
-  listen = uniqById(listen)
-  change = uniqById(change)
-
-  if listen.length isnt 0 or change.length isnt 0 or force
-    # Make function/context holder object; set level to 0
-    id = ++nextObjId
-    worker = new DVLWorker(id, name or 'fn', ctx, fn, listen, change)
-
-    # Append listen and change to variables
-    for v in listen
-      throw "No such DVL variable #{id} in listeners" unless v
-      v.listeners.push worker
-
-    for v in change
-      throw "No such DVL variable #{id} in changers" unless v
-      v.changers.push worker
-
-    # Update dependancy graph
-    for v in change
-      for nextWorker in v.listeners
-        worker.updates.push nextWorker
-
-    for v in listen
-      for prevWorker in v.changers
-        prevWorker.updates.push worker
-
-    workers[id] = worker
-    bfsUpdate([worker])
-
-  if not noRun
-    # Save changes and run the function with everything as changed.
-    changedSave = []
-    for l,i in listen
-      changedSave[i] = l.changed
-      l.changed = true
-    for l in listenConst
-      l.changed = true
-
-    start_notify_collect(worker)
-    fn.apply ctx
-    end_notify_collect()
-
-    for c,i in changedSave
-      listen[i].changed = c
-    for l in listenConst
-      l.changed = false
-
-  return worker
+setTimeout((->
+  console.log 'total times used:', _totalTimeUsed, 'num times used:', _numTimesUsed
+), 2000)
 
 
 dvl.clearAll = ->
   # disolve the graph to make the garbage collection job as easy as possible
-  for id, worker of workers
+  for id, worker of workers.valueOf()
     worker.listen = worker.change = worker.updates = null
 
-  for id, v of variables
+  for id, v of variables.valueOf()
     v.listeners = v.changers = null
 
   # reset everything
   nextObjId = 1
-  variables = {}
-  workers = {}
+  variables = new Set()
+  workers = new Set()
+  sourceWorkers = new Set()
   return
 
 
-levelPriorityQueue = new PriorityQueue((a, b) -> b.level - a.level)
+levelPriorityQueue = new PriorityQueue('level')
 
 curNotifyListener = null
 curCollectListener = null
@@ -767,7 +741,7 @@ dvl.graphToDot = (lastTrace, showId) ->
 
   nameMap = {}
 
-  for id, worker of workers
+  for id, worker of workers.valueOf()
     fnName = id.replace(/\n/g, '')
     #fnName = fnName.replace(/_\d+/, '') unless showId
     fnName = fnName + ' (' + worker.level + ')'
@@ -775,7 +749,7 @@ dvl.graphToDot = (lastTrace, showId) ->
     fnName = '"' + fnName + '"'
     nameMap[id] = fnName
 
-  for id, v of variables
+  for id, v of variables.valueOf()
     varName = id.replace(/\n/g, '')
     #varName = varName.replace(/_\d+/, '') unless showId
     # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]
@@ -787,7 +761,7 @@ dvl.graphToDot = (lastTrace, showId) ->
   dot.push '  rankdir=LR;'
 
   levels = []
-  for id,v of variables
+  for id, v of variables.valueOf()
     color = if execOrder[id] then 'red' else 'black'
     dot.push "  #{nameMap[id]} [color=#{color}];"
 

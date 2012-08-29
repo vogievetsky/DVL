@@ -117,11 +117,10 @@ do ->
         worker.addChange(ret)
       else
         worker = dvl.register {
-          name:   'ajax_man'
+          name:   'ajax_manager'
           listen: [url, data]
           change: [ret, outstanding]
           fn:     inputChange
-          force:  true
         }
 
       return

@@ -1,2 +1,2 @@
 #!/bin/bash
-coffee -c -w -j dvl.js src/core.coffee src/bind.coffee src/data.coffee src/misc.coffee src/svg.coffee src/html.coffee src/async.coffee &
+coffee -c -w -j dvl.js src/basic.coffee src/core.coffee src/bind.coffee src/data.coffee src/misc.coffee src/svg.coffee src/html.coffee src/async.coffee &
