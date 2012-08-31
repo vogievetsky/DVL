@@ -140,9 +140,8 @@ class Set
 
 nextObjId = 1
 
-variables = new Set()
-workers = new Set()
-sourceWorkers = new Set()
+variables = []
+workers = []
 
 curBlock = null
 default_compare = (a, b) -> a is b
@@ -209,7 +208,7 @@ class DVLVar
     @listeners = []
     @changers = []
     @compareFn = default_compare
-    variables.add(this)
+    variables.push(this)
     curBlock.addMemeber(this) if curBlock
     return this
 
@@ -272,7 +271,7 @@ class DVLVar
       throw "Cannot remove variable #{@id} because it has listeners."
     if @changers.length > 0
       throw "Cannot remove variable #{@id} because it has changers."
-    variables.remove(this)
+    variables.splice(variables.indexOf(this), 1)
     return null
   name: ->
     if arguments.length is 0
@@ -333,8 +332,8 @@ class DVLWorker
   constructor: (@name, @ctx, @fn, @listen, @change) ->
     @id = nextObjId++
     @updates = new Set()
-    @level = workers.length() # place at the end
-    workers.add(this)
+    @level = workers.length # place at the end
+    workers.push(this)
 
     # Append listen and change to variables and dependency graph
     hasPrev = false
@@ -348,13 +347,14 @@ class DVLWorker
       v.changers.push(this)
       for nextWorker in v.listeners
         @updates.add(nextWorker)
-        sourceWorkers.remove(nextWorker)
-
-    if not hasPrev
-      sourceWorkers.add(this)
 
     # the optimization is that if we are adding a sink worker then it's level is just the last level
-    sortGraph() if @updates.length()
+    if @updates.length()
+      min = Infinity
+      for nwid, nextWorker of @updates.valueOf()
+        lvl = nextWorker.level
+        min = lvl if lvl < min
+      sortGraph(min)
 
     curBlock.addMemeber(this) if curBlock
 
@@ -362,14 +362,15 @@ class DVLWorker
     uv = uniqById(arguments)
 
     if uv.length
+      updatesChanged = false
       for v in uv
         @change.push(v)
         v.changers.push(this)
         for nextWorker in v.listeners
           @updates.add(nextWorker)
-          sourceWorkers.remove(nextWorker)
+          updatesChanged = true
 
-      sortGraph()
+      sortGraph() if updatesChanged
 
     return this
 
@@ -377,18 +378,16 @@ class DVLWorker
     uv = uniqById(arguments)
 
     if uv.length
-      hasPrev = false
+      updatesChanged = false
       for v in uv
         @listen.push(v)
         v.listeners.push(this)
         for prevWorker in v.changers
           prevWorker.updates.add(this)
+          updatesChanged = true
           hasPrev = false
 
-      if hasPrev
-        sourceWorkers.remove(this)
-
-      sortGraph()
+      sortGraph() if updatesChanged
 
     uv = uniqById(arguments, true)
     start_notify_collect(this)
@@ -404,8 +403,7 @@ class DVLWorker
 
   discard: ->
     # Find the register object
-    sourceWorkers.remove(this)
-    workers.remove(this)
+    workers.splice(workers.indexOf(this), 1)
 
     for v in @listen
       for prevWorker in v.changers
@@ -547,16 +545,8 @@ uniqById = (vs, allowConst) ->
         res.push v
   return res
 
-
-dvl.workerInfo = (worker) ->
-  console.log '-----------------'
-  console.log 'listen:', worker.listen.map((v) -> v.id)
-  console.log 'listen:', worker.listen.map((v) -> v.changers.map((w) -> w.id))
-  return
-
-_totalTimeUsed = 0
-_numTimesUsed = 0
-sortGraph = ->
+# Sorts the graph. Will sort nodes at levels [0, workers.length)
+sortGraph = (from = 0) ->
   # L ← Empty list that will contain the sorted elements
   # S ← Set of all nodes with no incoming edges
   # while S is non-empty do
@@ -570,78 +560,76 @@ sortGraph = ->
   #   return error (graph has at least one cycle)
   # else
   #   return L (a topologically sorted order)
-  _initTime = Date.now()
 
-  nodesProcessed = 0
-  visitedFos = {}
-  #idPriorityQueue = new PriorityQueue((a, b) -> b.id - a.id)
   idPriorityQueue = new PriorityQueue('id')
 
   # This can be precomputed
-  getInboundCount = (worker) ->
+  getInboundCount = (worker, from) ->
     seen = {}
     count = 0
     for v in worker.listen
       for prevWorker in v.changers
-        continue if seen.hasOwnProperty(prevWorker.id)
-        seen[prevWorker.id] = true
-        count++
+        if from <= prevWorker.level and not seen[prevWorker.id]
+          seen[prevWorker.id] = true
+          ++count
     return count
 
   inboundCount = {}
 
+  _sources = []
+
   # S ← Set of all nodes with no incoming edges
   # TODO: This can be optimized out to be it's own array
-  # for id, worker of workers.valueOf()
-  #   isSource = true
-  #   for v in worker.listen
-  #     if v.changers.length
-  #       isSource = false
-  #       break
+  i = from
+  workersLength = workers.length
+  while i < workersLength
+    worker = workers[i++]
+    isSource = true
 
-  #   if isSource
-  #     idPriorityQueue.push worker
+    j = 0
+    workerListen = worker.listen
+    workerListenLength = workerListen.length
+    while j < workerListenLength and isSource
+      v = workerListen[j++]
+      for prevWorker in v.changers
+        if from <= prevWorker.level
+          isSource = false
+          break
 
-  for id, worker of sourceWorkers.valueOf()
-    idPriorityQueue.push worker
+    if isSource
+      idPriorityQueue.push worker
 
+  level = from
   while idPriorityQueue.length()
     worker = idPriorityQueue.shift()
-    worker.level = nodesProcessed++
+    workers[worker.level = level++] = worker
 
     for nwid, nextWorker of worker.updates.valueOf()
-      ic = if inboundCount.hasOwnProperty(nwid) then inboundCount[nwid] else getInboundCount(nextWorker)
-
-      if --ic is 0
+      ic = inboundCount[nwid] or getInboundCount(nextWorker, from)
+      ic--
+      if ic is 0
         idPriorityQueue.push nextWorker
       else
         inboundCount[nwid] = ic
 
-  if nodesProcessed isnt workers.length()
+  if level isnt workers.length
+    #console.log 'f', from, level, workers.length, dbg
     throw new Error('there is a cycle')
 
-  _totalTimeUsed += Date.now() - _initTime
-  _numTimesUsed++
   return
-
-setTimeout((->
-  console.log 'total times used:', _totalTimeUsed, 'num times used:', _numTimesUsed
-), 2000)
-
 
 dvl.clearAll = ->
   # disolve the graph to make the garbage collection job as easy as possible
-  for id, worker of workers.valueOf()
+  for worker in workers
     worker.listen = worker.change = worker.updates = null
 
-  for id, v of variables.valueOf()
+  for v in variables
     v.listeners = v.changers = null
 
   # reset everything
   nextObjId = 1
-  variables = new Set()
-  workers = new Set()
-  sourceWorkers = new Set()
+  variables = []
+  workers = []
   return
 
 
@@ -671,7 +659,7 @@ end_notify_collect = ->
 
 
 collect_notify = ->
-  throw 'bad stuff happened collect' unless curCollectListener
+  throw 'bad stuff happened during a collect block' unless curCollectListener
 
   for v in arguments
     continue unless v instanceof DVLVar
@@ -682,7 +670,7 @@ collect_notify = ->
 
 
 within_notify = ->
-  throw 'bad stuff happened within' unless curNotifyListener
+  throw 'bad stuff happened within a notify block' unless curNotifyListener
 
   for v in arguments
     continue unless v instanceof DVLVar
@@ -741,7 +729,8 @@ dvl.graphToDot = (lastTrace, showId) ->
 
   nameMap = {}
 
-  for id, worker of workers.valueOf()
+  for worker in workers
+    id = worker.id
     fnName = id.replace(/\n/g, '')
     #fnName = fnName.replace(/_\d+/, '') unless showId
     fnName = fnName + ' (' + worker.level + ')'
@@ -749,7 +738,8 @@ dvl.graphToDot = (lastTrace, showId) ->
     fnName = '"' + fnName + '"'
     nameMap[id] = fnName
 
-  for id, v of variables.valueOf()
+  for v of variables
+    id = v.id
     varName = id.replace(/\n/g, '')
     #varName = varName.replace(/_\d+/, '') unless showId
     # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]

@@ -33,7 +33,7 @@ function lift(fn) {
 }
 ;
 
-  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, Set, changedInNotify, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, sortGraph, sourceWorkers, start_notify_collect, toNotify, uniqById, variables, within_notify, workers, _numTimesUsed, _totalTimeUsed,
+  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, Set, changedInNotify, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, sortGraph, start_notify_collect, toNotify, uniqById, variables, within_notify, workers,
     __slice = [].slice,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -312,11 +312,9 @@ function lift(fn) {
 
   nextObjId = 1;
 
-  variables = new Set();
+  variables = [];
 
-  workers = new Set();
-
-  sourceWorkers = new Set();
+  workers = [];
 
   curBlock = null;
 
@@ -476,7 +474,7 @@ function lift(fn) {
       this.listeners = [];
       this.changers = [];
       this.compareFn = default_compare;
-      variables.add(this);
+      variables.push(this);
       if (curBlock) {
         curBlock.addMemeber(this);
       }
@@ -572,7 +570,7 @@ function lift(fn) {
       if (this.changers.length > 0) {
         throw "Cannot remove variable " + this.id + " because it has changers.";
       }
-      variables.remove(this);
+      variables.splice(variables.indexOf(this), 1);
       return null;
     };
 
@@ -699,7 +697,7 @@ function lift(fn) {
     DVLWorker.name = 'DVLWorker';
 
     function DVLWorker(name, ctx, fn, listen, change) {
-      var hasPrev, nextWorker, prevWorker, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
+      var hasPrev, lvl, min, nextWorker, nwid, prevWorker, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3, _ref4;
       this.name = name;
       this.ctx = ctx;
       this.fn = fn;
@@ -707,8 +705,8 @@ function lift(fn) {
       this.change = change;
       this.id = nextObjId++;
       this.updates = new Set();
-      this.level = workers.length();
-      workers.add(this);
+      this.level = workers.length;
+      workers.push(this);
       hasPrev = false;
       _ref = this.listen;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -729,14 +727,19 @@ function lift(fn) {
         for (_l = 0, _len3 = _ref3.length; _l < _len3; _l++) {
           nextWorker = _ref3[_l];
           this.updates.add(nextWorker);
-          sourceWorkers.remove(nextWorker);
         }
       }
-      if (!hasPrev) {
-        sourceWorkers.add(this);
-      }
       if (this.updates.length()) {
-        sortGraph();
+        min = Infinity;
+        _ref4 = this.updates.valueOf();
+        for (nwid in _ref4) {
+          nextWorker = _ref4[nwid];
+          lvl = nextWorker.level;
+          if (lvl < min) {
+            min = lvl;
+          }
+        }
+        sortGraph(min);
       }
       if (curBlock) {
         curBlock.addMemeber(this);
@@ -744,9 +747,10 @@ function lift(fn) {
     }
 
     DVLWorker.prototype.addChange = function() {
-      var nextWorker, uv, v, _i, _j, _len, _len1, _ref;
+      var nextWorker, updatesChanged, uv, v, _i, _j, _len, _len1, _ref;
       uv = uniqById(arguments);
       if (uv.length) {
+        updatesChanged = false;
         for (_i = 0, _len = uv.length; _i < _len; _i++) {
           v = uv[_i];
           this.change.push(v);
@@ -755,19 +759,21 @@ function lift(fn) {
           for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
             nextWorker = _ref[_j];
             this.updates.add(nextWorker);
-            sourceWorkers.remove(nextWorker);
+            updatesChanged = true;
           }
         }
-        sortGraph();
+        if (updatesChanged) {
+          sortGraph();
+        }
       }
       return this;
     };
 
     DVLWorker.prototype.addListen = function() {
-      var changedSave, hasPrev, i, prevWorker, uv, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref;
+      var changedSave, hasPrev, i, prevWorker, updatesChanged, uv, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref;
       uv = uniqById(arguments);
       if (uv.length) {
-        hasPrev = false;
+        updatesChanged = false;
         for (_i = 0, _len = uv.length; _i < _len; _i++) {
           v = uv[_i];
           this.listen.push(v);
@@ -776,13 +782,13 @@ function lift(fn) {
           for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
             prevWorker = _ref[_j];
             prevWorker.updates.add(this);
+            updatesChanged = true;
             hasPrev = false;
           }
         }
-        if (hasPrev) {
-          sourceWorkers.remove(this);
+        if (updatesChanged) {
+          sortGraph();
         }
-        sortGraph();
       }
       uv = uniqById(arguments, true);
       start_notify_collect(this);
@@ -803,8 +809,7 @@ function lift(fn) {
 
     DVLWorker.prototype.discard = function() {
       var prevWorker, v, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
-      sourceWorkers.remove(this);
-      workers.remove(this);
+      workers.splice(workers.indexOf(this), 1);
       _ref = this.listen;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         v = _ref[_i];
@@ -1032,29 +1037,13 @@ function lift(fn) {
     return res;
   };
 
-  dvl.workerInfo = function(worker) {
-    console.log('-----------------');
-    console.log('listen:', worker.listen.map(function(v) {
-      return v.id;
-    }));
-    console.log('listen:', worker.listen.map(function(v) {
-      return v.changers.map(function(w) {
-        return w.id;
-      });
-    }));
-  };
-
-  _totalTimeUsed = 0;
-
-  _numTimesUsed = 0;
-
-  sortGraph = function() {
-    var getInboundCount, ic, id, idPriorityQueue, inboundCount, nextWorker, nodesProcessed, nwid, visitedFos, worker, _initTime, _ref, _ref1;
-    _initTime = Date.now();
-    nodesProcessed = 0;
-    visitedFos = {};
+  sortGraph = function(from) {
+    var getInboundCount, i, ic, idPriorityQueue, inboundCount, isSource, j, level, nextWorker, nwid, prevWorker, v, worker, workerListen, workerListenLength, workersLength, _i, _len, _ref, _ref1, _sources;
+    if (from == null) {
+      from = 0;
+    }
     idPriorityQueue = new PriorityQueue('id');
-    getInboundCount = function(worker) {
+    getInboundCount = function(worker, from) {
       var count, prevWorker, seen, v, _i, _j, _len, _len1, _ref, _ref1;
       seen = {};
       count = 0;
@@ -1064,62 +1053,73 @@ function lift(fn) {
         _ref1 = v.changers;
         for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
           prevWorker = _ref1[_j];
-          if (seen.hasOwnProperty(prevWorker.id)) {
-            continue;
+          if (from <= prevWorker.level && !seen[prevWorker.id]) {
+            seen[prevWorker.id] = true;
+            ++count;
           }
-          seen[prevWorker.id] = true;
-          count++;
         }
       }
       return count;
     };
     inboundCount = {};
-    _ref = sourceWorkers.valueOf();
-    for (id in _ref) {
-      worker = _ref[id];
-      idPriorityQueue.push(worker);
+    _sources = [];
+    i = from;
+    workersLength = workers.length;
+    while (i < workersLength) {
+      worker = workers[i++];
+      isSource = true;
+      j = 0;
+      workerListen = worker.listen;
+      workerListenLength = workerListen.length;
+      while (j < workerListenLength && isSource) {
+        v = workerListen[j++];
+        _ref = v.changers;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          prevWorker = _ref[_i];
+          if (from <= prevWorker.level) {
+            isSource = false;
+            break;
+          }
+        }
+      }
+      if (isSource) {
+        idPriorityQueue.push(worker);
+      }
     }
+    level = from;
     while (idPriorityQueue.length()) {
       worker = idPriorityQueue.shift();
-      worker.level = nodesProcessed++;
+      workers[worker.level = level++] = worker;
       _ref1 = worker.updates.valueOf();
       for (nwid in _ref1) {
         nextWorker = _ref1[nwid];
-        ic = inboundCount.hasOwnProperty(nwid) ? inboundCount[nwid] : getInboundCount(nextWorker);
-        if (--ic === 0) {
+        ic = inboundCount[nwid] || getInboundCount(nextWorker, from);
+        ic--;
+        if (ic === 0) {
           idPriorityQueue.push(nextWorker);
         } else {
           inboundCount[nwid] = ic;
         }
       }
     }
-    if (nodesProcessed !== workers.length()) {
+    if (level !== workers.length) {
       throw new Error('there is a cycle');
     }
-    _totalTimeUsed += Date.now() - _initTime;
-    _numTimesUsed++;
   };
 
-  setTimeout((function() {
-    return console.log('total times used:', _totalTimeUsed, 'num times used:', _numTimesUsed);
-  }), 2000);
-
   dvl.clearAll = function() {
-    var id, v, worker, _ref, _ref1;
-    _ref = workers.valueOf();
-    for (id in _ref) {
-      worker = _ref[id];
+    var v, worker, _i, _j, _len, _len1;
+    for (_i = 0, _len = workers.length; _i < _len; _i++) {
+      worker = workers[_i];
       worker.listen = worker.change = worker.updates = null;
     }
-    _ref1 = variables.valueOf();
-    for (id in _ref1) {
-      v = _ref1[id];
+    for (_j = 0, _len1 = variables.length; _j < _len1; _j++) {
+      v = variables[_j];
       v.listeners = v.changers = null;
     }
     nextObjId = 1;
-    variables = new Set();
-    workers = new Set();
-    sourceWorkers = new Set();
+    variables = [];
+    workers = [];
   };
 
   levelPriorityQueue = new PriorityQueue('level');
@@ -1150,7 +1150,7 @@ function lift(fn) {
   collect_notify = function() {
     var v, _i, _len;
     if (!curCollectListener) {
-      throw 'bad stuff happened collect';
+      throw 'bad stuff happened during a collect block';
     }
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
@@ -1167,7 +1167,7 @@ function lift(fn) {
   within_notify = function() {
     var l, v, _i, _j, _len, _len1, _ref;
     if (!curNotifyListener) {
-      throw 'bad stuff happened within';
+      throw 'bad stuff happened within a notify block';
     }
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
@@ -1236,7 +1236,7 @@ function lift(fn) {
   dvl.notify = init_notify;
 
   dvl.graphToDot = function(lastTrace, showId) {
-    var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, worker, _i, _j, _k, _len, _len1, _len2, _name, _ref, _ref1, _ref2, _ref3, _ref4;
+    var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, worker, _i, _j, _k, _l, _len, _len1, _len2, _len3, _name, _ref, _ref1, _ref2;
     execOrder = {};
     if (lastTrace && lastNotifyRun) {
       for (pos in lastNotifyRun) {
@@ -1245,17 +1245,16 @@ function lift(fn) {
       }
     }
     nameMap = {};
-    _ref = workers.valueOf();
-    for (id in _ref) {
-      worker = _ref[id];
+    for (_i = 0, _len = workers.length; _i < _len; _i++) {
+      worker = workers[_i];
+      id = worker.id;
       fnName = id.replace(/\n/g, '');
       fnName = fnName + ' (' + worker.level + ')';
       fnName = '"' + fnName + '"';
       nameMap[id] = fnName;
     }
-    _ref1 = variables.valueOf();
-    for (id in _ref1) {
-      v = _ref1[id];
+    for (v in variables) {
+      id = v.id;
       varName = id.replace(/\n/g, '');
       varName = '"' + varName + '"';
       nameMap[id] = varName;
@@ -1264,9 +1263,9 @@ function lift(fn) {
     dot.push('digraph G {');
     dot.push('  rankdir=LR;');
     levels = [];
-    _ref2 = variables.valueOf();
-    for (id in _ref2) {
-      v = _ref2[id];
+    _ref = variables.valueOf();
+    for (id in _ref) {
+      v = _ref[id];
       color = execOrder[id] ? 'red' : 'black';
       dot.push("  " + nameMap[id] + " [color=" + color + "];");
     }
@@ -1276,21 +1275,21 @@ function lift(fn) {
       levels[l.level].push(nameMap[l.id]);
       color = execOrder[l.id] ? 'red' : 'black';
       dot.push("  " + nameMap[l.id] + " [shape=box,color=" + color + "];");
-      _ref3 = l.listen;
-      for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
-        v = _ref3[_i];
+      _ref1 = l.listen;
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        v = _ref1[_j];
         color = execOrder[v.id] && execOrder[l.id] ? 'red' : 'black';
         dot.push("  " + nameMap[v.id] + " -> " + nameMap[l.id] + " [color=" + color + "];");
       }
-      _ref4 = l.change;
-      for (_j = 0, _len1 = _ref4.length; _j < _len1; _j++) {
-        w = _ref4[_j];
+      _ref2 = l.change;
+      for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
+        w = _ref2[_k];
         color = execOrder[l.id] && execOrder[w.id] ? 'red' : 'black';
         dot.push("  " + nameMap[l.id] + " -> " + nameMap[w.id] + " [color=" + color + "];");
       }
     }
-    for (_k = 0, _len2 = levels.length; _k < _len2; _k++) {
-      level = levels[_k];
+    for (_l = 0, _len3 = levels.length; _l < _len3; _l++) {
+      level = levels[_l];
       dot.push('{ rank = same; ' + level.join('; ') + '; }');
     }
     dot.push('}');
