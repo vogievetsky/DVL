@@ -93,6 +93,7 @@ do ->
       bundle = []
       for id, q of queries
         continue unless q.url.hasChanged() or q.data.hasChanged() or q.dataFn.hasChanged()
+        continue if q.status is 'requesting'
 
         if q.status is 'virgin'
           if q.url.value()

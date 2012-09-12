@@ -3284,6 +3284,9 @@ function lift(fn) {
           if (!(q.url.hasChanged() || q.data.hasChanged() || q.dataFn.hasChanged())) {
             continue;
           }
+          if (q.status === 'requesting') {
+            continue;
+          }
           if (q.status === 'virgin') {
             if (q.url.value()) {
               initQueue.push(q);
