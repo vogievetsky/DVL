@@ -3251,13 +3251,11 @@ function lift(fn) {
           dataFn: _dataFn,
           method: _method
         };
-        if (q.curAjax) {
-          q.curAjax.abort();
-        }
         if ((_url != null) && (_method === 'GET' || ((_data != null) && (_dataFn != null))) && _dataType) {
           if (q.invalidOnLoad.value()) {
-            q.res.update(null);
+            q.res.value(null);
           }
+          outstanding.value(outstanding.value() + 1);
           q.curAjax = q.requester.request({
             url: _url,
             data: _data,
@@ -3269,7 +3267,11 @@ function lift(fn) {
             fn: q.fn,
             outstanding: outstanding,
             complete: function(err, data) {
-              return getData.call(ctx, err, data);
+              outstanding.value(outstanding.value() - 1);
+              if (err === 'abort') {
+                return;
+              }
+              getData.call(ctx, err, data);
             }
           });
         } else {
@@ -3282,9 +3284,6 @@ function lift(fn) {
         for (id in queries) {
           q = queries[id];
           if (!(q.url.hasChanged() || q.data.hasChanged() || q.dataFn.hasChanged())) {
-            continue;
-          }
-          if (q.status === 'requesting') {
             continue;
           }
           if (q.status === 'virgin') {
@@ -3302,6 +3301,13 @@ function lift(fn) {
         if (bundle.length > 0) {
           for (_i = 0, _len = bundle.length; _i < _len; _i++) {
             q = bundle[_i];
+            if (q.status === 'ready') {
+              delete q.resVal;
+            }
+            if (q.status === 'requesting') {
+              q.curAjax.abort();
+              q.curAjax = null;
+            }
             q.status = 'requesting';
           }
           for (_j = 0, _len1 = bundle.length; _j < _len1; _j++) {
@@ -3394,8 +3400,8 @@ function lift(fn) {
     normal: function() {
       return {
         request: function(_arg) {
-          var ajax, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, method, outstanding, processData, url;
-          url = _arg.url, data = _arg.data, dataFn = _arg.dataFn, method = _arg.method, dataType = _arg.dataType, contentType = _arg.contentType, processData = _arg.processData, fn = _arg.fn, outstanding = _arg.outstanding, complete = _arg.complete;
+          var ajax, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, method, processData, url;
+          url = _arg.url, data = _arg.data, dataFn = _arg.dataFn, method = _arg.method, dataType = _arg.dataType, contentType = _arg.contentType, processData = _arg.processData, fn = _arg.fn, complete = _arg.complete;
           dataVal = method !== 'GET' ? dataFn(data) : null;
           getData = function(resVal) {
             var ajax, ctx;
@@ -3411,9 +3417,6 @@ function lift(fn) {
           };
           getError = function(xhr, textStatus) {
             var ajax;
-            if (textStatus === "abort") {
-              return;
-            }
             ajax = null;
             complete(xhr.responseText || textStatus, null);
           };
@@ -3426,14 +3429,10 @@ function lift(fn) {
             processData: processData,
             success: getData,
             error: getError,
-            complete: function() {
-              return outstanding.value(outstanding.value() - 1);
-            },
             context: {
               url: url
             }
           });
-          outstanding.value(outstanding.value() + 1);
           return {
             abort: function() {
               if (ajax) {
@@ -3493,8 +3492,8 @@ function lift(fn) {
       });
       return {
         request: function(_arg1) {
-          var added, c, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, key, method, outstanding, processData, url;
-          url = _arg1.url, data = _arg1.data, dataFn = _arg1.dataFn, method = _arg1.method, dataType = _arg1.dataType, contentType = _arg1.contentType, processData = _arg1.processData, fn = _arg1.fn, outstanding = _arg1.outstanding, complete = _arg1.complete;
+          var added, c, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, key, method, processData, url;
+          url = _arg1.url, data = _arg1.data, dataFn = _arg1.dataFn, method = _arg1.method, dataType = _arg1.dataType, contentType = _arg1.contentType, processData = _arg1.processData, fn = _arg1.fn, complete = _arg1.complete;
           dataVal = method !== 'GET' ? dataFn(data) : null;
           key = keyFn(url, data, method, dataType, contentType, processData);
           c = cache[key];
@@ -3548,12 +3547,8 @@ function lift(fn) {
               contentType: contentType,
               processData: processData,
               success: getData,
-              error: getError,
-              complete: function() {
-                return outstanding.value(outstanding.value() - 1);
-              }
+              error: getError
             });
-            outstanding.value(outstanding.value() + 1);
           }
           if (c.resVal) {
             complete(null, c.resVal);
@@ -3572,6 +3567,7 @@ function lift(fn) {
                 c.waiting = c.waiting.filter(function(l) {
                   return l !== complete;
                 });
+                complete('abort', null);
                 if (c.waiting.length === 0 && c.ajax) {
                   c.ajax.abort();
                   c.ajax = null;

@@ -66,11 +66,11 @@ do ->
         dataFn: _dataFn
         method: _method
       }
-      q.curAjax.abort() if q.curAjax
       if _url? and (_method is 'GET' or (_data? and _dataFn?)) and _dataType
         if q.invalidOnLoad.value()
-          q.res.update(null)
+          q.res.value(null)
 
+        outstanding.value(outstanding.value() + 1)
         q.curAjax = q.requester.request {
           url: _url
           data: _data
@@ -81,7 +81,11 @@ do ->
           processData: q.processData.value()
           fn: q.fn
           outstanding
-          complete: (err, data) -> getData.call(ctx, err, data)
+          complete: (err, data) ->
+            outstanding.value(outstanding.value() - 1)
+            return if err is 'abort'
+            getData.call(ctx, err, data)
+            return
         }
 
       else
@@ -93,7 +97,6 @@ do ->
       bundle = []
       for id, q of queries
         continue unless q.url.hasChanged() or q.data.hasChanged() or q.dataFn.hasChanged()
-        continue if q.status is 'requesting'
 
         if q.status is 'virgin'
           if q.url.value()
@@ -106,7 +109,14 @@ do ->
           bundle.push(q)
 
       if bundle.length > 0
-        q.status = 'requesting' for q in bundle
+        for q in bundle
+          if q.status is 'ready'
+            delete q.resVal
+          if q.status is 'requesting'
+            q.curAjax.abort()
+            q.curAjax = null
+          q.status = 'requesting'
+
         makeRequest(q, bundle)  for q in bundle
 
       return
@@ -186,9 +196,9 @@ do ->
 
 
 dvl.ajax.requester = {
-  normal: () ->
+  normal: ->
     return {
-      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete}) ->
+      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, complete}) ->
         dataVal = if method isnt 'GET' then dataFn(data) else null
 
         getData = (resVal) ->
@@ -201,7 +211,6 @@ dvl.ajax.requester = {
           return
 
         getError = (xhr, textStatus) ->
-          return if textStatus is "abort"
           ajax = null
           complete(xhr.responseText or textStatus, null)
           return
@@ -215,11 +224,8 @@ dvl.ajax.requester = {
           processData
           success:     getData
           error:       getError
-          complete:    -> outstanding.value(outstanding.value() - 1)
           context:     { url }
         }
-
-        outstanding.value(outstanding.value() + 1)
 
         return {
           abort: ->
@@ -264,7 +270,7 @@ dvl.ajax.requester = {
 
 
     return {
-      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, outstanding, complete}) ->
+      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, complete}) ->
         dataVal = if method isnt 'GET' then dataFn(data) else null
         key = keyFn(url, data, method, dataType, contentType, processData)
 
@@ -310,10 +316,7 @@ dvl.ajax.requester = {
             processData
             success:     getData
             error:       getError
-            complete:    -> outstanding.value(outstanding.value() - 1)
           }
-
-          outstanding.value(outstanding.value() + 1)
 
         if c.resVal
           complete(null, c.resVal)
@@ -329,6 +332,7 @@ dvl.ajax.requester = {
             abort: ->
               return unless c.waiting
               c.waiting = c.waiting.filter((l) -> l isnt complete)
+              complete('abort', null)
 
               if c.waiting.length is 0 and c.ajax
                 c.ajax.abort()
