@@ -3195,10 +3195,10 @@ function lift(fn) {
     ajaxManagers = [];
     normalRequester = null;
     makeManager = function() {
-      var addHoock, getData, initQueue, inputChange, makeRequest, maybeDone, nextQueryId, queries, worker;
+      var addHoock, getData, initRequestBundle, inputChange, makeRequest, maybeDone, nextQueryId, queries, worker;
       nextQueryId = 0;
-      initQueue = [];
-      queries = {};
+      initRequestBundle = [];
+      queries = [];
       maybeDone = function(request) {
         var notify, q, _i, _j, _len, _len1, _ref;
         for (_i = 0, _len = request.length; _i < _len; _i++) {
@@ -3210,33 +3210,30 @@ function lift(fn) {
         notify = [];
         for (_j = 0, _len1 = request.length; _j < _len1; _j++) {
           q = request[_j];
-          if (q.hasOwnProperty('resVal')) {
-            q.res.set((_ref = q.resVal) != null ? _ref : null);
-            notify.push(q.res);
-            q.status = '';
-            delete q.resVal;
-          }
+          q.res.set((_ref = q.resVal) != null ? _ref : null);
+          notify.push(q.res);
+          q.status = '';
+          q.requestBundle = null;
+          delete q.resVal;
         }
         dvl.notify.apply(null, notify);
       };
       getData = function(err, resVal) {
         var q;
         q = this.q;
-        if (this.url === q.url.value() && (this.method === 'GET' || (this.data === q.data.value() && this.dataFn === q.dataFn.value()))) {
-          if (err) {
-            q.resVal = null;
-            if (q.onError) {
-              q.onError(err);
-            }
-          } else {
-            q.resVal = this.url ? resVal : null;
+        if (err) {
+          q.resVal = null;
+          if (q.onError) {
+            q.onError(err);
           }
+        } else {
+          q.resVal = this.url ? resVal : null;
         }
         q.status = 'ready';
         q.curAjax = null;
-        maybeDone(this.request);
+        maybeDone(q.requestBundle);
       };
-      makeRequest = function(q, request) {
+      makeRequest = function(q) {
         var ctx, _data, _dataFn, _dataType, _method, _url;
         _url = q.url.value();
         _data = q.data.value();
@@ -3245,7 +3242,6 @@ function lift(fn) {
         _dataType = q.type.value();
         ctx = {
           q: q,
-          request: request,
           url: _url,
           data: _data,
           dataFn: _dataFn,
@@ -3279,41 +3275,42 @@ function lift(fn) {
         }
       };
       inputChange = function() {
-        var bundle, id, q, _i, _j, _len, _len1;
-        bundle = [];
-        for (id in queries) {
-          q = queries[id];
+        var makeRequestLater, newRequestBundle, q, _i, _j, _len, _len1;
+        makeRequestLater = [];
+        newRequestBundle = [];
+        for (_i = 0, _len = queries.length; _i < _len; _i++) {
+          q = queries[_i];
           if (!(q.url.hasChanged() || q.data.hasChanged() || q.dataFn.hasChanged())) {
             continue;
           }
           if (q.status === 'virgin') {
             if (q.url.value()) {
-              initQueue.push(q);
+              initRequestBundle.push(q);
               q.status = 'requesting';
-              makeRequest(q, initQueue);
+              q.requestBundle = initRequestBundle;
+              makeRequestLater.push(q);
             } else {
               q.status = '';
             }
-          } else {
-            bundle.push(q);
-          }
-        }
-        if (bundle.length > 0) {
-          for (_i = 0, _len = bundle.length; _i < _len; _i++) {
-            q = bundle[_i];
-            if (q.status === 'ready') {
-              delete q.resVal;
-            }
-            if (q.status === 'requesting') {
+          } else if (q.requestBundle) {
+            if (q.curAjax) {
               q.curAjax.abort();
               q.curAjax = null;
+            } else {
+              delete q.resVal;
             }
             q.status = 'requesting';
+            makeRequestLater.push(q);
+          } else {
+            newRequestBundle.push(q);
+            q.status = 'requesting';
+            q.requestBundle = newRequestBundle;
+            makeRequestLater.push(q);
           }
-          for (_j = 0, _len1 = bundle.length; _j < _len1; _j++) {
-            q = bundle[_j];
-            makeRequest(q, bundle);
-          }
+        }
+        for (_j = 0, _len1 = makeRequestLater.length; _j < _len1; _j++) {
+          q = makeRequestLater[_j];
+          makeRequest(q);
         }
       };
       worker = null;
@@ -3347,12 +3344,14 @@ function lift(fn) {
           type: type,
           requester: requester,
           onError: onError,
-          invalidOnLoad: invalidOnLoad
+          invalidOnLoad: invalidOnLoad,
+          requestBundle: null,
+          curAjax: null
         };
         if (fn) {
           q.fn = fn;
         }
-        queries[q.id] = q;
+        queries.push(q);
         addHoock(url, data, dataFn, res);
         return res;
       };

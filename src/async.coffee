@@ -19,8 +19,8 @@ do ->
 
   makeManager = ->
     nextQueryId = 0
-    initQueue = []
-    queries = {}
+    initRequestBundle = []
+    queries = []
 
     maybeDone = (request) ->
       for q in request
@@ -28,31 +28,30 @@ do ->
 
       notify = []
       for q in request
-        if q.hasOwnProperty('resVal')
-          q.res.set(q.resVal ? null)
-          notify.push(q.res)
-          q.status = ''
-          delete q.resVal
+        q.res.set(q.resVal ? null)
+        notify.push(q.res)
+        q.status = ''
+        q.requestBundle = null
+        delete q.resVal
 
       dvl.notify.apply(null, notify)
       return
 
     getData = (err, resVal) ->
-      q = this.q
-      if @url is q.url.value() and (@method is 'GET' or (@data is q.data.value() and @dataFn is q.dataFn.value()))
-        if err
-          q.resVal = null
-          q.onError(err) if q.onError
-        else
-          q.resVal = if @url then resVal else null
+      q = @q
+      if err
+        q.resVal = null
+        q.onError(err) if q.onError
+      else
+        q.resVal = if @url then resVal else null
 
       q.status = 'ready'
       q.curAjax = null
 
-      maybeDone(this.request)
+      maybeDone(q.requestBundle)
       return
 
-    makeRequest = (q, request) ->
+    makeRequest = (q) ->
       _url = q.url.value()
       _data = q.data.value()
       _dataFn = q.dataFn.value()
@@ -60,7 +59,6 @@ do ->
       _dataType = q.type.value()
       ctx = {
         q
-        request
         url:    _url
         data:   _data
         dataFn: _dataFn
@@ -94,31 +92,37 @@ do ->
       return
 
     inputChange = ->
-      bundle = []
-      for id, q of queries
+      makeRequestLater = []
+      newRequestBundle = []
+      for q in queries
         continue unless q.url.hasChanged() or q.data.hasChanged() or q.dataFn.hasChanged()
 
         if q.status is 'virgin'
           if q.url.value()
-            initQueue.push q
+            initRequestBundle.push(q)
             q.status = 'requesting'
-            makeRequest(q, initQueue)
+            q.requestBundle = initRequestBundle
+            makeRequestLater.push(q)
           else
             q.status = ''
-        else
-          bundle.push(q)
-
-      if bundle.length > 0
-        for q in bundle
-          if q.status is 'ready'
-            delete q.resVal
-          if q.status is 'requesting'
+        else if q.requestBundle
+          # We are already waiting on this query so...
+          if q.curAjax
+            # If there a request out there for it, abort it.
             q.curAjax.abort()
             q.curAjax = null
+          else
+            # So the request already completed, sadly we need to scrap it.
+            delete q.resVal
           q.status = 'requesting'
+          makeRequestLater.push(q)
+        else
+          newRequestBundle.push(q)
+          q.status = 'requesting'
+          q.requestBundle = newRequestBundle
+          makeRequestLater.push(q)
 
-        makeRequest(q, bundle)  for q in bundle
-
+      makeRequest(q) for q in makeRequestLater
       return
 
     worker = null
@@ -135,7 +139,6 @@ do ->
         }
 
       return
-
 
     return (url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name) ->
       nextQueryId++
@@ -154,9 +157,11 @@ do ->
         requester
         onError
         invalidOnLoad
+        requestBundle: null
+        curAjax: null
       }
       q.fn = fn if fn
-      queries[q.id] = q
+      queries.push(q)
       addHoock(url, data, dataFn, res)
       return res
 
