@@ -4,7 +4,7 @@ do ->
   id_class_spliter = /(?=[#.:])/
   def_data_fn = dvl.const((d) -> [d])
   class_concat = dvl.op((s, d) -> s + ' ' + (d or ''))
-  dvl.bind = ({parent, self, data, join, attr, style, text, html, on:argsOn, transition, transitionExit}) ->
+  dvl.bind = ({parent, self, data, join, attr, style, property, text, html, on:argsOn, transition, transitionExit}) ->
     throw "'parent' not defiend" unless parent
     throw "'self' not defiend" unless typeof self is 'string'
     parts = self.split(id_class_spliter)
@@ -49,6 +49,12 @@ do ->
       v = dvl.wrap(v)
       listen.push(v)
       styleList[k] = v
+
+    propertyList = {}
+    for k, v of property
+      v = dvl.wrap(v)
+      listen.push(v)
+      propertyList[k] = v
 
     onList = {}
     for k, v of argsOn
@@ -107,6 +113,7 @@ do ->
           add1('html', html)  if html
           add2('attr', k, v)  for k, v of attrList
           add2('style', k, v) for k, v of styleList
+          add2('property', k, v) for k, v of propertyList
           addO('on', k, v)    for k, v of onList
 
           # d3 stuff
@@ -139,7 +146,7 @@ do ->
     return out
 
 
-  dvl.bindSingle = ({parent, self, datum, attr, style, text, html, on:argsOn, transition}) ->
+  dvl.bindSingle = ({parent, self, datum, attr, style, property, text, html, on:argsOn, transition}) ->
     if typeof self is 'string'
       throw "'parent' not defiend for string self" unless parent
       parts = self.split(id_class_spliter)
@@ -187,6 +194,12 @@ do ->
       listen.push(v)
       styleList[k] = v
 
+    propertyList = {}
+    for k, v of property
+      v = dvl.wrap(v)
+      listen.push(v)
+      propertyList[k] = v
+
     onList = {}
     for k, v of argsOn
       v = dvl.wrap(v)
@@ -207,6 +220,9 @@ do ->
 
         for k, v of styleList
           sel.style(k, v.value()) if v.hasChanged() or force
+
+        for k, v of propertyList
+          sel.property(k, v.value()) if v.hasChanged() or force
 
         for k, v of onList
           sel.on(k, v.value()) if v.hasChanged() or force

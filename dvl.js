@@ -33,7 +33,7 @@ function lift(fn) {
 }
 ;
 
-  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, Set, changedInNotify, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, sortGraph, start_notify_collect, toNotify, uniqById, variables, within_notify, workers,
+  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, Set, changedInNotify, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, getBase, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, sortGraph, start_notify_collect, toNotify, uniqById, variables, within_notify, workers,
     __slice = [].slice,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -400,6 +400,14 @@ function lift(fn) {
       }
     };
 
+    DVLConst.prototype.verify = function() {
+      if (arguments.length) {
+        return this;
+      } else {
+        return null;
+      }
+    };
+
     DVLConst.prototype.apply = function(fn) {
       return dvl.apply(this, fn);
     };
@@ -424,34 +432,8 @@ function lift(fn) {
       });
     };
 
-    DVLConst.prototype.setGen = function() {
-      return this;
-    };
-
-    DVLConst.prototype.gen = function() {
-      var that;
-      that = this;
-      if (dvl.typeOf(this.v) === 'array') {
-        return function(i) {
-          return that.value[i];
-        };
-      } else {
-        return function() {
-          return that.value;
-        };
-      }
-    };
-
-    DVLConst.prototype.genPrev = function(i) {
-      return this.gen(i);
-    };
-
-    DVLConst.prototype.len = function() {
-      if (dvl.typeOf(this.v) === 'array') {
-        return this.v.length;
-      } else {
-        return Infinity;
-      }
+    DVLConst.prototype.project = function(fnDown, fnUp) {
+      return dvl["const"](this.v != null ? fnDown.call(null, this.v) : null);
     };
 
     return DVLConst;
@@ -496,7 +478,11 @@ function lift(fn) {
     };
 
     DVLVar.prototype.hasChanged = function() {
-      return this.changed;
+      if (this.proj) {
+        return this.proj.parent.hasChanged();
+      } else {
+        return this.changed;
+      }
     };
 
     DVLVar.prototype.resetChanged = function() {
@@ -505,21 +491,38 @@ function lift(fn) {
     };
 
     DVLVar.prototype.value = function(val) {
+      var fnDown, parent, pv, _ref;
       if (arguments.length) {
         val = val != null ? val : null;
-        if (!(this.compareFn && this.compareFn(val, this.v))) {
-          this.set(val);
-          dvl.notify(this);
+        if (val !== null && this.verifyFn && !this.verifyFn.call(this, val)) {
+          return this;
         }
+        if (this.compareFn && this.compareFn.call(this, val, this.v)) {
+          return this;
+        }
+        this.set(val);
+        dvl.notify(this);
         return this;
       } else {
-        this.resolveLazy();
+        if (this.proj) {
+          _ref = this.proj, parent = _ref.parent, fnDown = _ref.fnDown;
+          pv = parent.value();
+          this.v = pv != null ? fnDown.call(this.v, pv) : null;
+        } else {
+          this.resolveLazy();
+        }
         return this.v;
       }
     };
 
     DVLVar.prototype.set = function(val) {
+      var fnUp, parent, _ref;
       val = val != null ? val : null;
+      if (this.proj) {
+        _ref = this.proj, parent = _ref.parent, fnUp = _ref.fnUp;
+        parent.value(fnUp.call(parent.value(), val));
+        return this;
+      }
       if (!this.changed) {
         this.prev = this.v;
       }
@@ -546,8 +549,7 @@ function lift(fn) {
     };
 
     DVLVar.prototype.get = function() {
-      this.resolveLazy();
-      return this.v;
+      return this.value();
     };
 
     DVLVar.prototype.getPrev = function() {
@@ -593,6 +595,15 @@ function lift(fn) {
       }
     };
 
+    DVLVar.prototype.verify = function() {
+      if (arguments.length) {
+        this.verifyFn = arguments[0];
+        return this;
+      } else {
+        return this.verifyFn;
+      }
+    };
+
     DVLVar.prototype.apply = function(fn) {
       return dvl.apply(this, fn);
     };
@@ -617,68 +628,27 @@ function lift(fn) {
       });
     };
 
-    DVLVar.prototype.setGen = function(g, l) {
-      if (g === null) {
-        l = 0;
-      } else {
-        if (l === void 0) {
-          l = Infinity;
-        }
-      }
-      if (!this.changed) {
-        this.vgenPrev = this.vgen;
-      }
-      this.vgen = g;
-      this.vlen = l;
-      this.changed = true;
-      return this;
-    };
-
-    DVLVar.prototype.gen = function() {
-      var that;
-      if (this.vgen !== void 0) {
-        return this.vgen;
-      } else {
-        that = this;
-        if (dvl.typeOf(this.v) === 'array') {
-          return (function(i) {
-            return that.value[i];
-          });
-        } else {
-          return (function() {
-            return that.value;
-          });
-        }
-      }
-    };
-
-    DVLVar.prototype.genPrev = function() {
-      if (this.vgenPrev && this.changed) {
-        return this.vgenPrev;
-      } else {
-        return this.gen();
-      }
-    };
-
-    DVLVar.prototype.len = function() {
-      if (this.vlen >= 0) {
-        return this.vlen;
-      } else {
-        if (this.v != null) {
-          if (dvl.typeOf(this.v) === 'array') {
-            return this.v.length;
-          } else {
-            return Infinity;
-          }
-        } else {
-          return 0;
-        }
-      }
+    DVLVar.prototype.project = function(fnDown, fnUp) {
+      var v;
+      v = dvl();
+      v.proj = {
+        parent: this,
+        fnDown: fnDown,
+        fnUp: fnUp
+      };
+      return v;
     };
 
     return DVLVar;
 
   })();
+
+  getBase = function(v) {
+    while (v.proj) {
+      v = v.proj.parent;
+    }
+    return v;
+  };
 
   dvl.def = function(value) {
     return new DVLVar(value);
@@ -861,8 +831,8 @@ function lift(fn) {
         }
       }
     }
-    listen = uniqById(listen);
-    change = uniqById(change);
+    listen = uniqById(listen).map(getBase);
+    change = uniqById(change).map(getBase);
     worker = new DVLWorker(name || 'fn', ctx, fn, listen, change);
     if (!noRun) {
       changedSave = [];
@@ -1157,6 +1127,7 @@ function lift(fn) {
       if (!(v instanceof DVLVar)) {
         continue;
       }
+      v = getBase(v);
       if (__indexOf.call(curCollectListener.change, v) < 0) {
         throw "changed unregisterd object " + v.id;
       }
@@ -1174,6 +1145,7 @@ function lift(fn) {
       if (!(v instanceof DVLVar)) {
         continue;
       }
+      v = getBase(v);
       if (__indexOf.call(curNotifyListener.change, v) < 0) {
         throw "changed unregisterd object " + v.id;
       }
@@ -1202,6 +1174,7 @@ function lift(fn) {
       if (!(v instanceof DVLVar)) {
         continue;
       }
+      v = getBase(v);
       changedInNotify.push(v);
       lastNotifyRun.push(v.id);
       _ref = v.listeners;
@@ -1825,8 +1798,8 @@ function lift(fn) {
       return s + ' ' + (d || '');
     });
     dvl.bind = function(_arg) {
-      var argsOn, attr, attrList, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, self, staticClass, staticId, style, styleList, text, transition, transitionExit, v, _i, _len;
-      parent = _arg.parent, self = _arg.self, data = _arg.data, join = _arg.join, attr = _arg.attr, style = _arg.style, text = _arg.text, html = _arg.html, argsOn = _arg.on, transition = _arg.transition, transitionExit = _arg.transitionExit;
+      var argsOn, attr, attrList, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, property, propertyList, self, staticClass, staticId, style, styleList, text, transition, transitionExit, v, _i, _len;
+      parent = _arg.parent, self = _arg.self, data = _arg.data, join = _arg.join, attr = _arg.attr, style = _arg.style, property = _arg.property, text = _arg.text, html = _arg.html, argsOn = _arg.on, transition = _arg.transition, transitionExit = _arg.transitionExit;
       if (!parent) {
         throw "'parent' not defiend";
       }
@@ -1878,6 +1851,13 @@ function lift(fn) {
         v = dvl.wrap(v);
         listen.push(v);
         styleList[k] = v;
+      }
+      propertyList = {};
+      for (k in property) {
+        v = property[k];
+        v = dvl.wrap(v);
+        listen.push(v);
+        propertyList[k] = v;
       }
       onList = {};
       for (k in argsOn) {
@@ -1977,6 +1957,10 @@ function lift(fn) {
               v = styleList[k];
               add2('style', k, v);
             }
+            for (k in propertyList) {
+              v = propertyList[k];
+              add2('property', k, v);
+            }
             for (k in onList) {
               v = onList[k];
               addO('on', k, v);
@@ -2020,8 +2004,8 @@ function lift(fn) {
       return out;
     };
     return dvl.bindSingle = function(_arg) {
-      var argsOn, attr, attrList, datum, html, k, listen, nodeType, onList, parent, part, parts, self, staticClass, staticId, style, styleList, text, transition, v, _i, _len;
-      parent = _arg.parent, self = _arg.self, datum = _arg.datum, attr = _arg.attr, style = _arg.style, text = _arg.text, html = _arg.html, argsOn = _arg.on, transition = _arg.transition;
+      var argsOn, attr, attrList, datum, html, k, listen, nodeType, onList, parent, part, parts, property, propertyList, self, staticClass, staticId, style, styleList, text, transition, v, _i, _len;
+      parent = _arg.parent, self = _arg.self, datum = _arg.datum, attr = _arg.attr, style = _arg.style, property = _arg.property, text = _arg.text, html = _arg.html, argsOn = _arg.on, transition = _arg.transition;
       if (typeof self === 'string') {
         if (!parent) {
           throw "'parent' not defiend for string self";
@@ -2073,6 +2057,13 @@ function lift(fn) {
         listen.push(v);
         styleList[k] = v;
       }
+      propertyList = {};
+      for (k in property) {
+        v = property[k];
+        v = dvl.wrap(v);
+        listen.push(v);
+        propertyList[k] = v;
+      }
       onList = {};
       for (k in argsOn) {
         v = argsOn[k];
@@ -2101,6 +2092,12 @@ function lift(fn) {
             v = styleList[k];
             if (v.hasChanged() || force) {
               sel.style(k, v.value());
+            }
+          }
+          for (k in propertyList) {
+            v = propertyList[k];
+            if (v.hasChanged() || force) {
+              sel.property(k, v.value());
             }
           }
           for (k in onList) {
@@ -2377,10 +2374,10 @@ function lift(fn) {
   };
 
   dvl.html.list = function(_arg) {
-    var classStr, data, extras, i, icons, label, link, listClass, onClick, onEnter, onLeave, onSelect, selection, selections, selector, sortFn, ul, _i, _len;
-    selector = _arg.selector, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, sortFn = _arg.sortFn;
-    if (!selector) {
-      throw 'must have selector';
+    var classStr, data, extras, i, icons, label, link, listClass, onClick, onEnter, onLeave, onSelect, parent, selection, selections, sortFn, ul, _i, _len;
+    parent = _arg.parent, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, sortFn = _arg.sortFn;
+    if (!parent) {
+      throw 'must have parent';
     }
     if (!data) {
       throw 'must have data';
@@ -2431,7 +2428,7 @@ function lift(fn) {
         }
       });
     }
-    ul = d3.select(selector).append('ul').attr('class', classStr);
+    ul = dvl.valueOf(parent).append('ul').attr('class', classStr);
     onClick = function(val, i) {
       var linkVal, sl, _base, _sortFn;
       if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) === false) {
@@ -2591,7 +2588,7 @@ function lift(fn) {
     });
     menuCont = divCont.append('div').attr('class', 'menu_cont').style('position', 'absolute').style('z-index', 1000).style('display', 'none');
     dvl.html.list({
-      selector: menuCont.node(),
+      parent: menuCont,
       data: data,
       label: label,
       link: link,
@@ -2647,8 +2644,8 @@ function lift(fn) {
   };
 
   dvl.html.select = function(_arg) {
-    var classStr, data, label, onChange, parent, selChange, selectEl, selection, visible;
-    parent = _arg.parent, data = _arg.data, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr, visible = _arg.visible;
+    var classStr, data, focus, label, onChange, parent, selChange, selectEl, selection, visible;
+    parent = _arg.parent, data = _arg.data, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr, focus = _arg.focus, visible = _arg.visible;
     if (!parent) {
       throw 'must have parent';
     }
@@ -2656,6 +2653,7 @@ function lift(fn) {
       throw 'must have data';
     }
     selection = dvl.wrapVar(selection, 'selection');
+    focus = dvl.wrapVar(focus != null ? focus : false);
     visible = dvl.wrap(visible != null ? visible : true);
     data = dvl.wrap(data);
     label = dvl.wrap(label || dvl.identity);
@@ -2685,7 +2683,13 @@ function lift(fn) {
         display: dvl.op.iff(visible, null, 'none')
       },
       on: {
-        change: selChange
+        change: selChange,
+        focus: function() {
+          focus.value(true);
+        },
+        blur: function() {
+          focus.value(false);
+        }
       }
     });
     dvl.bind({
@@ -2716,8 +2720,30 @@ function lift(fn) {
         }
       }
     });
+    dvl.register({
+      listen: [selectEl, focus],
+      fn: function() {
+        var _focus, _selectEl;
+        _selectEl = selectEl.value();
+        _focus = focus.value();
+        if (!(_selectEl && (_focus != null))) {
+          return;
+        }
+        _selectEl = _selectEl.node();
+        return _focus === (_selectEl === document.activeElement);
+        if (_focus) {
+          _selectEl.focus();
+        } else {
+          _selectEl.blur();
+        }
+      }
+    });
     selChange();
-    return selection;
+    return {
+      node: selectEl.value(),
+      selection: selection,
+      focus: focus
+    };
   };
 
   dvl.compare = function(acc, reverse, ignoreCase) {
@@ -2876,16 +2902,19 @@ function lift(fn) {
         compare: compare,
         on: onRow
       });
-      return {};
+      return {
+        node: table
+      };
     };
     dvl.html.table.header = function(_arg) {
-      var c, columns, enterTh, listen, nc, newColumns, onClick, parent, sel, thead, _i, _len, _ref;
+      var c, columns, enterTh, headerRow, listen, nc, newColumns, onClick, parent, sel, thead, _i, _len, _ref;
       parent = _arg.parent, columns = _arg.columns, onClick = _arg.onClick;
       if (!parent) {
         throw 'there needs to be a parent';
       }
       onClick = dvl.wrap(onClick);
-      thead = dvl.valueOf(parent).append('thead').append('tr');
+      thead = dvl.valueOf(parent).append('thead');
+      headerRow = thead.append('tr');
       listen = [onClick];
       newColumns = [];
       for (_i = 0, _len = columns.length; _i < _len; _i++) {
@@ -2901,7 +2930,7 @@ function lift(fn) {
         listen.push(nc.title, nc["class"], nc.visible, nc.tooltip, nc.indicator);
       }
       columns = newColumns;
-      sel = thead.selectAll('th').data(columns);
+      sel = headerRow.selectAll('th').data(columns);
       enterTh = sel.enter().append('th');
       enterTh.append('span');
       enterTh.append('div').attr('class', 'indicator').style('display', 'none');
@@ -2913,7 +2942,7 @@ function lift(fn) {
           var c, i, ind, visibleChanged, _indicator, _j, _len1;
           for (i = _j = 0, _len1 = columns.length; _j < _len1; i = ++_j) {
             c = columns[i];
-            sel = thead.select("th:nth-child(" + (i + 1) + ")");
+            sel = headerRow.select("th:nth-child(" + (i + 1) + ")");
             visibleChanged = c.visible.hasChanged();
             if (c.visible.value()) {
               sel.datum(c);
@@ -2955,6 +2984,9 @@ function lift(fn) {
           }
         }
       });
+      return {
+        node: thead
+      };
     };
     dvl.html.table.body = function(_arg) {
       var c, change, classStr, columns, compare, data, k, listen, nc, newColumns, onRow, onRowNew, parent, render, rowClass, rowLimit, tbody, v, _i, _j, _len, _len1, _ref, _ref1;
@@ -3068,6 +3100,9 @@ function lift(fn) {
         render = typeof c.render === 'function' ? c.render : dvl.html.table.render[c.render];
         render.call(c, c.selection, c.value);
       }
+      return {
+        node: tbody
+      };
     };
     return dvl.html.table.render = {
       text: function(selection, value) {
@@ -3129,6 +3164,21 @@ function lift(fn) {
             "class": value
           }
         });
+      },
+      button: function(_arg) {
+        var classStr, onObj;
+        classStr = _arg.classStr, onObj = _arg.on;
+        return function(selection, value) {
+          return dvl.bind({
+            parent: selection,
+            self: 'button',
+            attr: {
+              "class": classStr
+            },
+            on: onObj,
+            text: value
+          });
+        };
       },
       sparkline: function(_arg) {
         var height, padding, width, x, y;

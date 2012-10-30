@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Projection</title>
+    <script src="../../d3/d3.v2.js"></script>
+    <script src="../../dvl.js"></script>
+  </head>
+  <body>
+    <div class="out"></div>
+    <div class="opts"></div>
+    <script>
+      function projectOn(v, attr) {
+        return v.compare(false).project(
+          function(p) { return p[attr]; },
+          function(c) { this[attr] = c; return this }
+        )
+      }
+
+      var color = dvl({ r: 10, g: 10, b: 10 })
+
+      dvl.bindSingle({
+        self: d3.select('.out'),
+        datum: color,
+        text: JSON.stringify
+      })
+
+      dvl.debug('color', color)
+
+      var options = [0, 10, 20, 30, 40, 50, 60, 70, 80];
+      dvl.html.select({
+        parent: d3.select('.opts'),
+        data: options,
+        selection: projectOn(color, 'r')
+      });
+      dvl.html.select({
+        parent: d3.select('.opts'),
+        data: options,
+        selection: projectOn(color, 'g')
+      });
+      dvl.html.select({
+        parent: d3.select('.opts'),
+        data: options,
+        selection: projectOn(color, 'b')
+      });
+
+    </script>
+  </body>
+</html>

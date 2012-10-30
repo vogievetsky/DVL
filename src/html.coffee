@@ -81,8 +81,8 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({selector, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons, extras, classStr, sortFn}) ->
-  throw 'must have selector' unless selector
+dvl.html.list = ({parent, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons, extras, classStr, sortFn}) ->
+  throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection  = dvl.wrapVar(selection, 'selection')
   selections = dvl.wrapVar(selections or [], 'selections')
@@ -119,7 +119,7 @@ dvl.html.list = ({selector, data, label, link, class:listClass, selection, selec
             return null
     )
 
-  ul = d3.select(selector).append('ul').attr('class', classStr)
+  ul = dvl.valueOf(parent).append('ul').attr('class', classStr)
 
   onClick = (val, i) ->
     return if onSelect?(val, i) is false
@@ -290,7 +290,7 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
     .style('display', 'none')
 
   dvl.html.list {
-    selector: menuCont.node()
+    parent: menuCont
     data
     label
     link
@@ -349,10 +349,11 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
 ##
 ##  Select (dropdown box) made with HTML
 ##
-dvl.html.select = ({parent, data, label, selection, onChange, classStr, visible}) ->
+dvl.html.select = ({parent, data, label, selection, onChange, classStr, focus, visible}) ->
   throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection = dvl.wrapVar(selection, 'selection')
+  focus = dvl.wrapVar(focus ? false)
   visible = dvl.wrap(visible ? true)
 
   data = dvl.wrap(data)
@@ -382,6 +383,12 @@ dvl.html.select = ({parent, data, label, selection, onChange, classStr, visible}
     }
     on: {
       change: selChange
+      focus: ->
+        focus.value(true)
+        return
+      blur: ->
+        focus.value(false)
+        return
     }
   }
 
@@ -409,8 +416,27 @@ dvl.html.select = ({parent, data, label, selection, onChange, classStr, visible}
       return
   }
 
+  dvl.register {
+    listen: [selectEl, focus]
+    fn: ->
+      _selectEl = selectEl.value()
+      _focus = focus.value()
+      return unless _selectEl and _focus?
+      _selectEl = _selectEl.node()
+      return _focus is (_selectEl is document.activeElement)
+      if _focus
+        _selectEl.focus()
+      else
+        _selectEl.blur()
+      return
+  }
+
   selChange()
-  return selection
+  return {
+    node: selectEl.value()
+    selection
+    focus
+  }
 
 
 
@@ -589,7 +615,9 @@ do ->
       on:      onRow
     }
 
-    return {}
+    return {
+      node: table
+    }
 
 
   ##-------------------------------------------------------
@@ -609,7 +637,8 @@ do ->
     throw 'there needs to be a parent' unless parent
     onClick = dvl.wrap(onClick)
 
-    thead = dvl.valueOf(parent).append('thead').append('tr')
+    thead = dvl.valueOf(parent).append('thead')
+    headerRow = thead.append('tr')
 
     listen = [onClick]
     newColumns = []
@@ -627,7 +656,7 @@ do ->
     columns = newColumns
 
     # Init step
-    sel = thead.selectAll('th').data(columns)
+    sel = headerRow.selectAll('th').data(columns)
     enterTh = sel.enter().append('th')
     enterTh.append('span')
     enterTh.append('div').attr('class', 'indicator').style('display', 'none')
@@ -639,7 +668,7 @@ do ->
       listen
       fn: ->
         for c,i in columns
-          sel = thead.select("th:nth-child(#{i+1})")
+          sel = headerRow.select("th:nth-child(#{i+1})")
           visibleChanged = c.visible.hasChanged()
           if c.visible.value()
             sel.datum(c)
@@ -663,7 +692,9 @@ do ->
         return
     }
 
-    return
+    return {
+      node: thead
+    }
 
   ##-------------------------------------------------------
   ##
@@ -772,7 +803,9 @@ do ->
       render = if typeof c.render is 'function' then c.render else dvl.html.table.render[c.render]
       render.call(c, c.selection, c.value)
 
-    return
+    return {
+      node: tbody
+    }
 
 
   dvl.html.table.render = {
@@ -827,6 +860,17 @@ do ->
         attr: {
           class: value
         }
+      }
+
+    button: ({classStr, on: onObj}) -> (selection, value) ->
+      return dvl.bind {
+        parent: selection
+        self: 'button'
+        attr: {
+          class: classStr
+        }
+        on: onObj
+        text: value
       }
 
     sparkline: ({width, height, x, y, padding}) ->

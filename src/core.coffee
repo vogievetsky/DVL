@@ -175,25 +175,13 @@ class DVLConst
       @n = arguments[0]
       return this
   compare: -> if arguments.length then this else default_compare
+  verify: -> if arguments.length then this else null
   apply: (fn) -> dvl.apply(this, fn)
   applyValid: (fn) -> dvl.applyValid(this, fn)
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
   pluck: (prop) -> dvl.apply(this, (d) -> d[prop])
   pluckEx: (prop) -> dvl.apply(this, (d) -> d[prop]())
-
-  setGen: -> this
-  gen: ->
-    that = this
-    if dvl.typeOf(@v) is 'array'
-      (i) -> that.value[i]
-    else
-      () -> that.value
-  genPrev: (i) -> @gen(i)
-  len: ->
-    if dvl.typeOf(@v) is 'array'
-      @v.length
-    else
-      Infinity
+  project: (fnDown, fnUp) -> dvl.const(if @v? then fnDown.call(null, @v) else null)
 
 class DVLVar
   constructor: (val) ->
@@ -223,7 +211,7 @@ class DVLVar
     tag = if @n then @n + ':' else ''
     return "[#{@tag}#{@val}]"
 
-  hasChanged: -> @changed
+  hasChanged: -> if @proj then @proj.parent.hasChanged() else @changed
 
   resetChanged: ->
     @changed = false
@@ -232,16 +220,26 @@ class DVLVar
   value: (val) ->
     if arguments.length
       val = val ? null
-      if not (@compareFn and @compareFn(val, @v))
-        this.set(val)
-        dvl.notify(this)
+      return this if val isnt null and @verifyFn and not @verifyFn.call(this, val)
+      return this if @compareFn and @compareFn.call(this, val, @v)
+      this.set(val)
+      dvl.notify(this)
       return this
     else
-      @resolveLazy()
+      if @proj
+        { parent, fnDown } = @proj
+        pv = parent.value()
+        @v = if pv? then fnDown.call(@v, pv) else null
+      else
+        @resolveLazy()
       return @v
 
   set: (val) ->
     val = val ? null
+    if @proj
+      { parent, fnUp } = @proj
+      parent.value(fnUp.call(parent.value(), val))
+      return this
     @prev = @v unless @changed
     @v = val
     @vgen = undefined
@@ -258,9 +256,7 @@ class DVLVar
       this.set(val)
       dvl.notify(this)
     return this
-  get: ->
-    @resolveLazy()
-    return @v
+  get: -> @value()
   getPrev: ->
     @resolveLazy()
     if @prev and @changed then @prev else @v
@@ -285,41 +281,31 @@ class DVLVar
       return this
     else
       return @compareFn
+  verify: ->
+    if arguments.length
+      @verifyFn = arguments[0]
+      return this
+    else
+      return @verifyFn
   apply: (fn) -> dvl.apply(this, fn)
   applyValid: (fn) -> dvl.applyValid(this, fn)
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
   pluck: (prop) -> dvl.apply(this, (d) -> d[prop])
   pluckEx: (prop) -> dvl.apply(this, (d) -> d[prop]())
+  project: (fnDown, fnUp) ->
+    v = dvl()
+    v.proj = {
+      parent: this
+      fnDown
+      fnUp
+    }
+    return v
 
-  setGen: (g, l) ->
-    if g is null
-      l = 0
-    else
-      l = Infinity if l is undefined
-    @vgenPrev = @vgen unless @changed
-    @vgen = g
-    @vlen = l
-    @changed = true
-    return this
-  gen: ->
-    if @vgen != undefined
-      return @vgen
-    else
-      that = this
-      if dvl.typeOf(@v) is 'array'
-        return ((i) -> that.value[i])
-      else
-        return (-> that.value)
-  genPrev: ->
-    if @vgenPrev and @changed then @vgenPrev else @gen()
-  len: ->
-    if @vlen >= 0
-      return @vlen
-    else
-      if @v?
-        return if dvl.typeOf(@v) is 'array' then @v.length else Infinity
-      else
-        return 0
+
+getBase = (v) ->
+  while v.proj
+    v = v.proj.parent
+  return v
 
 
 dvl.def   = (value) -> new DVLVar(value)
@@ -431,8 +417,8 @@ dvl.register = ({ctx, fn, listen, change, name, noRun}) ->
     for v in listen
       listenConst.push v if v instanceof DVLConst
 
-  listen = uniqById(listen)
-  change = uniqById(change)
+  listen = uniqById(listen).map(getBase)
+  change = uniqById(change).map(getBase)
 
   # Make function/context holder object
   worker = new DVLWorker(name or 'fn', ctx, fn, listen, change)
@@ -663,6 +649,7 @@ collect_notify = ->
 
   for v in arguments
     continue unless v instanceof DVLVar
+    v = getBase(v)
     throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
     toNotify.push v
 
@@ -674,6 +661,7 @@ within_notify = ->
 
   for v in arguments
     continue unless v instanceof DVLVar
+    v = getBase(v)
     throw "changed unregisterd object #{v.id}" if v not in curNotifyListener.change
     changedInNotify.push v
     lastNotifyRun.push v.id
@@ -693,6 +681,7 @@ init_notify = ->
 
   for v in arguments
     continue unless v instanceof DVLVar
+    v = getBase(v)
     changedInNotify.push v
     lastNotifyRun.push v.id
     levelPriorityQueue.push l for l in v.listeners
