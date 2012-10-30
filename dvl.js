@@ -432,8 +432,8 @@ function lift(fn) {
       });
     };
 
-    DVLConst.prototype.project = function(fnDown, fnUp) {
-      return dvl["const"](this.v != null ? fnDown.call(null, this.v) : null);
+    DVLConst.prototype.project = function(fns) {
+      return dvl["const"]((this.v != null) && (fns != null ? fns.down : void 0) ? fns.down.call(null, this.v) : null);
     };
 
     return DVLConst;
@@ -628,14 +628,33 @@ function lift(fn) {
       });
     };
 
-    DVLVar.prototype.project = function(fnDown, fnUp) {
-      var v;
+    DVLVar.prototype.project = function(fns) {
+      var me, v;
+      fns = dvl.wrap(fns);
       v = dvl();
-      v.proj = {
-        parent: this,
-        fnDown: fnDown,
-        fnUp: fnUp
-      };
+      me = this;
+      dvl.register({
+        listen: fns,
+        change: me,
+        fn: function() {
+          var _fns;
+          _fns = fns.value();
+          if (!_fns) {
+            _fns = {
+              down: function() {
+                return null;
+              },
+              up: function() {}
+            };
+          }
+          v.proj = {
+            parent: me,
+            fnDown: _fns.down,
+            fnUp: _fns.up
+          };
+          me.notify();
+        }
+      });
       return v;
     };
 

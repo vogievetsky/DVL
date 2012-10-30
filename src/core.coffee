@@ -181,7 +181,7 @@ class DVLConst
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
   pluck: (prop) -> dvl.apply(this, (d) -> d[prop])
   pluckEx: (prop) -> dvl.apply(this, (d) -> d[prop]())
-  project: (fnDown, fnUp) -> dvl.const(if @v? then fnDown.call(null, @v) else null)
+  project: (fns) -> dvl.const(if @v? and fns?.down then fns.down.call(null, @v) else null)
 
 class DVLVar
   constructor: (val) ->
@@ -292,12 +292,27 @@ class DVLVar
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
   pluck: (prop) -> dvl.apply(this, (d) -> d[prop])
   pluckEx: (prop) -> dvl.apply(this, (d) -> d[prop]())
-  project: (fnDown, fnUp) ->
+  project: (fns) ->
+    fns = dvl.wrap(fns)
     v = dvl()
-    v.proj = {
-      parent: this
-      fnDown
-      fnUp
+    me = this
+    dvl.register {
+      listen: fns
+      change: me
+      fn: ->
+        _fns = fns.value()
+        if not _fns
+          _fns = {
+            down: -> null
+            up: -> return
+          }
+        v.proj = {
+          parent: me
+          fnDown: _fns.down
+          fnUp:   _fns.up
+        }
+        me.notify()
+        return
     }
     return v
 
