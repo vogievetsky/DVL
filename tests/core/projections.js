@@ -59,6 +59,13 @@ suite.addBatch({
       })
       t.r = t.color.project(projFns)
 
+      dvl.register({
+        listen: t.r,
+        fn: function() {
+          t.rChanged = t.r.hasChanged()
+        }
+      })
+
       t.rCopy = t.r.apply(dvl.identity)
 
       t.avg = t.color.apply(function(a) { return (a.r + a.g + a.b) / 3; })
@@ -94,6 +101,11 @@ suite.addBatch({
     "correct on change": function(t) {
       t.key.value('g')
       assert.strictEqual(t.r.value(), 2);
+    },
+
+    "correct hasChanged": function(t) {
+      t.color.value({ r: 31, g: 32, b: 33 })
+      assert.strictEqual(t.rChanged, true);
     }
   },
 });

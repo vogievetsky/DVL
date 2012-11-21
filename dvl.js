@@ -118,7 +118,7 @@ function lift(fn) {
     return new DVLVar(value);
   };
 
-  dvl.version = '1.1.0';
+  dvl.version = '1.2.1';
 
   this.dvl = dvl;
 
@@ -145,6 +145,9 @@ function lift(fn) {
         str = [];
         keys = [];
         for (k in obj) {
+          if (!obj.hasOwnProperty(k)) {
+            continue;
+          }
           keys.push(k);
         }
         keys.sort();
@@ -497,7 +500,7 @@ function lift(fn) {
         if (val !== null && this.verifyFn && !this.verifyFn.call(this, val)) {
           return this;
         }
-        if (this.compareFn && this.compareFn.call(this, val, this.v)) {
+        if (this.compareFn && this.compareFn.call(this, val, this.value())) {
           return this;
         }
         this.set(val);
@@ -2393,8 +2396,8 @@ function lift(fn) {
   };
 
   dvl.html.list = function(_arg) {
-    var classStr, data, extras, i, icons, label, link, listClass, onClick, onEnter, onLeave, onSelect, parent, selection, selections, sortFn, ul, _i, _len;
-    parent = _arg.parent, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, sortFn = _arg.sortFn;
+    var classStr, data, extras, i, icons, label, link, listClass, onClick, onEnter, onLeave, onSelect, parent, selection, selections, ul, _i, _len;
+    parent = _arg.parent, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr;
     if (!parent) {
       throw 'must have parent';
     }
@@ -2403,7 +2406,6 @@ function lift(fn) {
     }
     selection = dvl.wrapVar(selection, 'selection');
     selections = dvl.wrapVar(selections || [], 'selections');
-    sortFn = dvl.wrap(sortFn);
     data = dvl.wrap(data);
     label = dvl.wrap(label || dvl.identity);
     link = dvl.wrap(link);
@@ -2448,32 +2450,25 @@ function lift(fn) {
       });
     }
     ul = dvl.valueOf(parent).append('ul').attr('class', classStr);
-    onClick = function(val, i) {
-      var linkVal, sl, _base, _sortFn;
+    onClick = dvl.group(function(val, i) {
+      var linkVal, _base, _selections;
       if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) === false) {
         return;
       }
       linkVal = typeof (_base = link.value()) === "function" ? _base(val) : void 0;
-      selection.set(val);
-      sl = (selections.value() || []).slice();
-      i = sl.indexOf(val);
+      selection.value(val);
+      _selections = (selections.value() || []).slice();
+      i = _selections.indexOf(val);
       if (i === -1) {
-        sl.push(val);
-        _sortFn = sortFn.value();
-        if (typeof _sortFn === 'function') {
-          sl.sort(_sortFn);
-        } else {
-          sl.sort();
-        }
+        _selections.push(val);
       } else {
-        sl.splice(i, 1);
+        _selections.splice(i, 1);
       }
-      selections.set(sl);
-      dvl.notify(selection, selections);
+      selections.value(_selections);
       if (linkVal) {
         window.location.href = linkVal;
       }
-    };
+    });
     dvl.register({
       name: 'update_html_list',
       listen: [data, label, link],
@@ -2537,11 +2532,11 @@ function lift(fn) {
     };
   };
 
-  dvl.html.dropdownList = function(_arg) {
-    var classStr, close, data, divCont, getClass, icons, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOffset, menuOpen, myOnSelect, onEnter, onLeave, onSelect, open, selectedDiv, selection, selectionLabel, selections, selector, sortFn, title, updateSelection, valueSpan;
-    selector = _arg.selector, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, classStr = _arg.classStr, menuAnchor = _arg.menuAnchor, menuOffset = _arg.menuOffset, title = _arg.title, icons = _arg.icons, sortFn = _arg.sortFn, keepOnClick = _arg.keepOnClick;
-    if (!selector) {
-      throw 'must have selector';
+  dvl.html.dropdown = function(_arg) {
+    var classStr, close, data, disabled, divCont, icons, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, onEnter, onLeave, onSelect, open, parent, selection, selectionLabel, selections, title, updateSelection, valueSpan;
+    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled;
+    if (!parent) {
+      throw 'must have parent';
     }
     if (!data) {
       throw 'must have data';
@@ -2549,45 +2544,44 @@ function lift(fn) {
     selection = dvl.wrapVar(selection, 'selection');
     selections = dvl.wrapVar(selections, 'selections');
     menuAnchor = dvl.wrap(menuAnchor || 'left');
-    menuOffset = dvl.wrap(menuOffset || {
-      x: 0,
-      y: 0
-    });
     data = dvl.wrap(data);
     label = dvl.wrap(label || dvl.identity);
     selectionLabel = dvl.wrap(selectionLabel || label);
     link = dvl.wrap(link);
+    disabled = dvl.wrap(disabled != null ? disabled : false);
     if (title) {
       title = dvl.wrap(title);
     }
     icons || (icons = []);
-    menuOpen = false;
-    getClass = function() {
-      return (classStr != null ? classStr : '') + ' ' + (menuOpen ? 'open' : 'closed');
-    };
-    divCont = d3.select(selector).append('div').attr('class', getClass()).style('position', 'relative');
-    selectedDiv = divCont.append('div').attr('class', 'selected');
-    valueSpan = selectedDiv.append('span');
-    open = function() {
-      var anchor, height, offset, pos, sp;
-      sp = $(selectedDiv.node());
-      pos = sp.position();
-      height = sp.outerHeight(true);
-      anchor = menuAnchor.value();
-      offset = menuOffset.value();
-      menuCont.style('display', null).style('top', (pos.top + height + offset.y) + 'px');
-      if (anchor === 'left') {
-        menuCont.style('left', (pos.left + offset.x) + 'px');
-      } else {
-        menuCont.style('right', (pos.left - offset.x) + 'px');
+    menuOpen = dvl(false);
+    divCont = dvl.bindSingle({
+      parent: parent,
+      self: 'div',
+      attr: {
+        "class": dvl.applyAlways({
+          args: [classStr, menuOpen, disabled],
+          fn: function(_classStr, _menuOpen, _disabled) {
+            return [_classStr || '', _menuOpen ? 'open' : 'closed', _disabled ? 'disabled' : ''].join(' ');
+          }
+        })
+      },
+      style: {
+        position: 'relative'
       }
-      menuOpen = true;
-      divCont.attr('class', getClass());
+    }).value();
+    valueSpan = divCont.append('span');
+    open = function() {
+      menuCont.style('display', null).style('top', '100%');
+      if (menuAnchor.value() === 'left') {
+        menuCont.style('left', 0).style('right', null);
+      } else {
+        menuCont.style('left', null).style('right', 0);
+      }
+      menuOpen.value(true);
     };
     close = function() {
       menuCont.style('display', 'none');
-      menuOpen = false;
-      divCont.attr('class', getClass());
+      menuOpen.value(false);
     };
     myOnSelect = function(text, i) {
       if (!keepOnClick) {
@@ -2605,28 +2599,30 @@ function lift(fn) {
         return typeof icon_onSelect === "function" ? icon_onSelect(val, i) : void 0;
       };
     });
-    menuCont = divCont.append('div').attr('class', 'menu_cont').style('position', 'absolute').style('z-index', 1000).style('display', 'none');
+    menuCont = divCont.append('div').attr('class', 'menu-cont').style('position', 'absolute').style('z-index', 1000).style('display', 'none');
     dvl.html.list({
       parent: menuCont,
+      classStr: 'list',
       data: data,
       label: label,
       link: link,
       "class": listClass,
-      sortFn: sortFn,
       selection: selection,
       selections: selections,
       onSelect: myOnSelect,
       onEnter: onEnter,
       onLeave: onLeave,
-      classStr: 'list',
       icons: icons
     });
     $(window).bind('click', function(e) {
+      if (disabled.value()) {
+        return;
+      }
       if ($(menuCont.node()).find(e.target).length) {
         return;
       }
-      if (selectedDiv.node() === e.target || $(selectedDiv.node()).find(e.target).length) {
-        if (menuOpen) {
+      if (divCont.node() === e.target || $(divCont.node()).find(e.target).length) {
+        if (menuOpen.value()) {
           close();
         } else {
           open();
@@ -2658,13 +2654,15 @@ function lift(fn) {
     return {
       node: divCont.node(),
       menuCont: menuCont.node(),
-      selection: selection
+      open: menuOpen,
+      selection: selection,
+      selections: selections
     };
   };
 
   dvl.html.select = function(_arg) {
     var classStr, data, focus, label, onChange, parent, selChange, selectEl, selection, visible;
-    parent = _arg.parent, data = _arg.data, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, classStr = _arg.classStr, focus = _arg.focus, visible = _arg.visible;
+    parent = _arg.parent, data = _arg.data, classStr = _arg.classStr, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, focus = _arg.focus, visible = _arg.visible;
     if (!parent) {
       throw 'must have parent';
     }
@@ -2696,7 +2694,7 @@ function lift(fn) {
       parent: parent,
       self: 'select',
       attr: {
-        "class": classStr || null
+        "class": classStr
       },
       style: {
         display: dvl.op.iff(visible, null, 'none')

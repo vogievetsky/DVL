@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Table</title>
+    <script src="../../d3/d3.v2.js"></script>
+    <script src="../../dvl.js"></script>
+  </head>
+  <body>
+    <div class="out"></div>
+    <div class="opts"></div>
+    <script>
+      var data = dvl("Hello,How,Are,You,Would,You,Give,Me,Your,Name".split(','))
+
+      dvl.html.table({
+        parent: d3.select('body'),
+        data: data,
+        columns: [{
+          id: 'word',
+          title: 'Word',
+          value: dvl.identity,
+          sortable: true
+        }, {
+          id: 'first',
+          title: 'First',
+          value: function(d) { return d[0] },
+          sortable: true
+        }, {
+          id: 'last',
+          title: 'Last',
+          value: function(d) { return d[d.length-1] },
+          sortable: true
+        }]
+      })
+    </script>
+  </body>
+</html>

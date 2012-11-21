@@ -81,12 +81,12 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({parent, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons, extras, classStr, sortFn}) ->
+dvl.html.list = ({parent, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons,
+                  extras, classStr}) ->
   throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection  = dvl.wrapVar(selection, 'selection')
   selections = dvl.wrapVar(selections or [], 'selections')
-  sortFn = dvl.wrap(sortFn)
 
   data = dvl.wrap(data)
   label = dvl.wrap(label or dvl.identity)
@@ -119,27 +119,23 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
             return null
     )
 
-  ul = dvl.valueOf(parent).append('ul').attr('class', classStr)
+  ul = dvl.valueOf(parent).append('ul')
+    .attr('class', classStr)
 
-  onClick = (val, i) ->
+  onClick = dvl.group (val, i) ->
     return if onSelect?(val, i) is false
     linkVal = link.value()?(val)
-    selection.set(val)
+    selection.value(val)
 
-    sl = (selections.value() or []).slice()
-    i = sl.indexOf(val)
+    _selections = (selections.value() or []).slice()
+    i = _selections.indexOf(val)
     if i is -1
-      sl.push(val)
-      _sortFn = sortFn.value()
-      if typeof _sortFn is 'function'
-        sl.sort(_sortFn)
-      else
-        sl.sort()
+      _selections.push(val)
     else
-      sl.splice(i,1)
-    selections.set(sl)
+      _selections.splice(i,1)
 
-    dvl.notify(selection, selections)
+    selections.value(_selections)
+
     window.location.href = linkVal if linkVal
     return
 
@@ -217,59 +213,65 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
   }
 
 
-dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, classStr, menuAnchor, menuOffset, title, icons, sortFn, keepOnClick}) ->
-  throw 'must have selector' unless selector
+dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class:listClass, selection, selections,
+                      onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled}) ->
+  throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection = dvl.wrapVar(selection, 'selection')
   selections = dvl.wrapVar(selections, 'selections')
   menuAnchor = dvl.wrap(menuAnchor or 'left')
-  menuOffset = dvl.wrap(menuOffset or { x:0, y:0 })
 
   data = dvl.wrap(data)
   label = dvl.wrap(label or dvl.identity)
   selectionLabel = dvl.wrap(selectionLabel or label)
   link = dvl.wrap(link)
+  disabled = dvl.wrap(disabled ? false)
 
   title = dvl.wrap(title) if title
   icons or= []
 
-  menuOpen = false
-  getClass = ->
-    (classStr ? '') + ' ' + (if menuOpen then 'open' else 'closed')
+  menuOpen = dvl(false)
 
-  divCont = d3.select(selector)
-    .append('div')
-    .attr('class', getClass())
-    .style('position', 'relative')
+  divCont = dvl.bindSingle({
+    parent
+    self: 'div'
+    attr: {
+      class: dvl.applyAlways {
+        args: [classStr, menuOpen, disabled]
+        fn: (_classStr, _menuOpen, _disabled) -> [
+          _classStr or '',
+          if _menuOpen then 'open' else 'closed'
+          if _disabled then 'disabled' else ''
+        ].join(' ')
+      }
+    }
+    style: {
+      position: 'relative'
+    }
+  }).value()
 
-  selectedDiv = divCont.append('div')
-    .attr('class', 'selected')
-
-  valueSpan = selectedDiv.append('span')
+  valueSpan = divCont.append('span')
 
   open = ->
-    sp = $(selectedDiv.node())
-    pos = sp.position()
-    height = sp.outerHeight(true)
-    anchor = menuAnchor.value()
-    offset = menuOffset.value()
     menuCont
       .style('display', null)
-      .style('top', (pos.top + height + offset.y) + 'px')
+      .style('top', '100%')
 
-    if anchor is 'left'
-      menuCont.style('left', (pos.left + offset.x) + 'px')
+    if menuAnchor.value() is 'left'
+      menuCont
+        .style('left', 0)
+        .style('right', null)
     else
-      menuCont.style('right', (pos.left - offset.x) + 'px')
+      menuCont
+        .style('left', null)
+        .style('right', 0)
 
-    menuOpen = true
-    divCont.attr('class', getClass())
+    menuOpen.value(true)
     return
 
   close = ->
     menuCont.style('display', 'none')
-    menuOpen = false
-    divCont.attr('class', getClass())
+    menuOpen.value(false)
     return
 
   myOnSelect = (text, i) ->
@@ -284,32 +286,32 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
     return
 
   menuCont = divCont.append('div')
-    .attr('class', 'menu_cont')
+    .attr('class', 'menu-cont')
     .style('position', 'absolute')
     .style('z-index', 1000)
     .style('display', 'none')
 
   dvl.html.list {
     parent: menuCont
+    classStr: 'list'
     data
     label
     link
     class: listClass
-    sortFn
     selection
     selections
     onSelect: myOnSelect
     onEnter
     onLeave
-    classStr: 'list'
     icons
   }
 
   $(window).bind('click', (e) ->
+    return if disabled.value()
     return if $(menuCont.node()).find(e.target).length
 
-    if selectedDiv.node() is e.target or $(selectedDiv.node()).find(e.target).length
-      if menuOpen
+    if divCont.node() is e.target or $(divCont.node()).find(e.target).length
+      if menuOpen.value()
         close()
       else
         open()
@@ -341,7 +343,9 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
   return {
     node: divCont.node()
     menuCont: menuCont.node()
+    open: menuOpen
     selection
+    selections
   }
 
 
@@ -349,7 +353,7 @@ dvl.html.dropdownList = ({selector, data, label, selectionLabel, link, class:lis
 ##
 ##  Select (dropdown box) made with HTML
 ##
-dvl.html.select = ({parent, data, label, selection, onChange, classStr, focus, visible}) ->
+dvl.html.select = ({parent, data, classStr, label, selection, onChange, focus, visible}) ->
   throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection = dvl.wrapVar(selection, 'selection')
@@ -376,7 +380,7 @@ dvl.html.select = ({parent, data, label, selection, onChange, classStr, focus, v
     parent
     self: 'select'
     attr: {
-      class: classStr or null
+      class: classStr
     }
     style: {
       display: dvl.op.iff(visible, null, 'none')

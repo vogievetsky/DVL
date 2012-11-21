@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Table</title>
+    <script src="../../d3/d3.v2.js"></script>
+    <script src="../../dvl.js"></script>
+
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.9.1/themes/base/jquery-ui.css" />
+    <script src="http://code.jquery.com/jquery-1.8.2.js"></script>
+    <script src="http://code.jquery.com/ui/1.9.1/jquery-ui.js"></script>
+
+    <style type="text/css">
+      .cont {
+        border: 1px solid red;
+        height: 200px;
+        overflow: scroll;
+      }
+
+      table {
+        border-collapse: collapse;
+        margin-bottom: 20px;
+      }
+
+      td, th {
+        border-bottom: 1px solid green;
+        border-top: none;
+      }
+
+      tr.-ui-sortable-helper {
+        border-top: 1px solid green;
+      }
+
+      tr.sortable-placeholder {
+        height: 20px;
+      }
+
+      /*
+      tr.sortable-placeholder:before {
+        content: " ";
+        display: table-cell;
+      }
+      */
+    </style>
+  </head>
+  <body>
+    <div class="cont"></div>
+    <script>
+      var data = dvl("Hello,How,Are,You,Would,You,Give,Me,Your,Name".split(','))
+
+      var table = dvl.html.table({
+        parent: d3.select('.cont'),
+        data: data,
+        columns: [{
+          id: 'word',
+          title: 'Word',
+          value: dvl.identity
+        }, {
+          id: 'first',
+          title: 'First',
+          value: function(d) { return d[0] }
+        }, {
+          id: 'last',
+          title: 'Last',
+          value: function(d) { return d[d.length-1] }
+        }]
+      })
+
+      dvl.debug("Data:", data)
+
+      //table.node.get().select('tbody').append('tr').attr('class', "sortable-placeholder")
+
+      $(table.node.value().node()).find('tbody').sortable({
+        distance: 5,
+        axis: "y",
+        placeholder: "sortable-placeholder",
+        update: function() {
+          _data = []
+          table.node.value().select('tbody').selectAll('tr').each(function(d) {
+            _data.push(d)
+          })
+          data.value(_data)
+        }
+      })
+    </script>
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

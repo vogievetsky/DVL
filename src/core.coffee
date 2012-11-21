@@ -4,7 +4,7 @@
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
 
 dvl = (value) -> new DVLVar(value)
-dvl.version = '1.1.0'
+dvl.version = '1.2.1'
 this.dvl = dvl
 if typeof module isnt 'undefined' and module.exports
   module.exports = dvl
@@ -22,7 +22,9 @@ dvl.util = {
     if type in ['object', 'array']
       str = []
       keys = []
-      keys.push k for k of obj
+      for k of obj
+        continue unless obj.hasOwnProperty(k)
+        keys.push k
       keys.sort()
       str.push k, dvl.util.strObj(obj[k]) for k in keys
       return str.join('|')
@@ -221,7 +223,7 @@ class DVLVar
     if arguments.length
       val = val ? null
       return this if val isnt null and @verifyFn and not @verifyFn.call(this, val)
-      return this if @compareFn and @compareFn.call(this, val, @v)
+      return this if @compareFn and @compareFn.call(this, val, @value())
       this.set(val)
       dvl.notify(this)
       return this
