@@ -537,6 +537,13 @@ dvl.valueOf = (v) ->
   else
     return v ? null
 
+do ->
+  nsId = 0
+  dvl.namespace = (str = 'ns') ->
+    nsId++
+    return str + nsId
+  return
+
 # filter out undefineds and nulls and constants also make unique
 uniqById = (vs, allowConst) ->
   res = []
@@ -852,6 +859,7 @@ dvl.apply = dvl.applyValid = ->
   switch arguments.length
     when 1
       {args, fn, invalid, allowNull, update} = arguments[0]
+      args = [] if args is undefined and not arguments[0].hasOwnProperty('args')
     when 2
       [args, fn] = arguments
     when 3
@@ -861,12 +869,8 @@ dvl.apply = dvl.applyValid = ->
 
   fn = dvl.wrap(fn or dvl.identity)
 
-  argsType = dvl.typeOf(args)
-  if argsType is 'undefined'
-    args = []
-  else
-    args = [args] unless argsType is 'array'
-    args = args.map(dvl.wrap)
+  args = [args] unless Array.isArray(args)
+  args = args.map(dvl.wrap)
 
   invalid = dvl.wrap(invalid ? null)
 
@@ -906,6 +910,7 @@ dvl.applyAlways = ->
   switch arguments.length
     when 1
       {args, fn, update} = arguments[0]
+      args = [] if args is undefined and not arguments[0].hasOwnProperty('args')
     when 2
       [args, fn] = arguments
     when 3
@@ -915,12 +920,8 @@ dvl.applyAlways = ->
 
   fn = dvl.wrap(fn or dvl.identity)
 
-  argsType = dvl.typeOf(args)
-  if argsType is 'undefined'
-    args = []
-  else
-    args = [args] unless argsType is 'array'
-    args = args.map(dvl.wrap)
+  args = [args] unless Array.isArray(args)
+  args = args.map(dvl.wrap)
 
   out = dvl().name('apply_valid_out')
 
@@ -1138,9 +1139,14 @@ do ->
 
   op_to_lift = {
     'or': ->
-      for arg in arguments
-        return arg if arg
-      return false
+      ret = false
+      ret or= arg for arg in arguments
+      return ret
+
+    'and': ->
+      ret = true
+      ret and= arg for arg in arguments
+      return ret
 
     'add': ->
       sum = 0

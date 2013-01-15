@@ -49,131 +49,30 @@ suite.addBatch({
       assert.strictEqual(t.b.value(), 20);
     },
   },
+});
 
+suite.addBatch({
+  "extreme apply": {
+    topic: function() {
+      var t = {
+        runs: 0
+      }
 
-  // "basic register / const": {
-  //   topic: function() {
-  //     var t = {
-  //       runs: 0,
-  //       a: dvl.const(3).name('a')
-  //     }
+      missing = [][1]
 
-  //     dvl.register({
-  //       listen: [t.a],
-  //       fn: function() { t.runs++; }
-  //     });
+      t.a = dvl.apply(missing, function(a) {
+        t.runs++;
+        return String(a);
+      });
 
-  //     return t;
-  //   },
+      return t;
+    },
 
-  //   "always unchaged": function(t) {
-  //     assert.strictEqual(t.runs, 1);
-
-  //     t.a.value(4);
-  //     dvl.notify(t.a);
-  //     assert.strictEqual(t.runs, 1);
-
-  //     t.a.value(4).notify();
-  //     assert.strictEqual(t.runs, 1);
-
-  //     t.a.notify();
-  //     assert.strictEqual(t.runs, 1);
-  //   },
-  // },
-
-
-  // "basic register / no init run": {
-  //   topic: function() {
-  //     var t = {
-  //       runs: 0,
-  //       a: dvl(3).name('a')
-  //     }
-
-  //     dvl.register({
-  //       listen: [t.a],
-  //       noRun: true,
-  //       fn: function() {
-  //         t.runs++;
-  //       }
-  //     });
-
-  //     return t;
-  //   },
-
-  //   "correct initial run": function(t) {
-  //     assert.strictEqual(t.runs, 0);
-  //   },
-
-  //   "correct next run": function(t) {
-  //     t.a.value(4).notify();
-  //     assert.strictEqual(t.runs, 1);
-  //   }
-  // },
-
-
-  // "change and listen register": {
-  //   topic: function() {
-  //     var t = {
-  //       runs: 0,
-  //       a: dvl(3).name('a'),
-  //       b: dvl(null).name('b')
-  //     }
-
-  //     dvl.register({
-  //       listen: [t.a],
-  //       change: [t.b],
-  //       fn: function() {
-  //         t.b.value(t.a.value() * 5).notify();
-  //         t.runs++;
-  //       }
-  //     });
-
-  //     return t;
-  //   },
-
-  //   "correct initial run": function(t) {
-  //     assert.strictEqual(t.runs, 1);
-  //     assert.strictEqual(t.b.value(), 15);
-  //   },
-
-  //   "correct next run": function(t) {
-  //     t.a.value(4).notify();
-  //     assert.strictEqual(t.runs, 2);
-  //     assert.strictEqual(t.b.value(), 20);
-  //   }
-  // },
-
-
-  // "circular register": {
-  //   topic: function() {
-  //     var t = {
-  //       runs: 0,
-  //       a: dvl(3).name('a'),
-  //       b: dvl(null).name('b')
-  //     }
-
-  //     dvl.register({
-  //       listen: [t.a],
-  //       change: [t.b],
-  //       fn: function() {
-  //         t.b.value(t.a.value() * 5).notify();
-  //         t.runs++;
-  //       }
-  //     });
-
-  //     return t;
-  //   },
-
-  //   "cant make circular": function(t) {
-  //     assert.throws(function() {
-  //       dvl.register({
-  //         listen: [t.b],
-  //         change: [t.a],
-  //         fn: function() { "whatever" }
-  //       });
-  //     });
-  //   },
-  // },
+    "correct initial run": function(t) {
+      assert.strictEqual(t.runs, 0);
+      assert.strictEqual(t.a.value(), null);
+    }
+  },
 });
 
 suite.export(module);

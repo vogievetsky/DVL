@@ -1013,6 +1013,18 @@ function lift(fn) {
     }
   };
 
+  (function() {
+    var nsId;
+    nsId = 0;
+    dvl.namespace = function(str) {
+      if (str == null) {
+        str = 'ns';
+      }
+      nsId++;
+      return str + nsId;
+    };
+  })();
+
   uniqById = function(vs, allowConst) {
     var res, seen, v, _i, _len;
     res = [];
@@ -1370,10 +1382,13 @@ function lift(fn) {
   };
 
   dvl.apply = dvl.applyValid = function() {
-    var allowNull, args, argsType, fn, invalid, out, update, _ref, _ref1;
+    var allowNull, args, fn, invalid, out, update, _ref, _ref1;
     switch (arguments.length) {
       case 1:
         _ref = arguments[0], args = _ref.args, fn = _ref.fn, invalid = _ref.invalid, allowNull = _ref.allowNull, update = _ref.update;
+        if (args === void 0 && !arguments[0].hasOwnProperty('args')) {
+          args = [];
+        }
         break;
       case 2:
         args = arguments[0], fn = arguments[1];
@@ -1385,15 +1400,10 @@ function lift(fn) {
         throw "incorect number of arguments";
     }
     fn = dvl.wrap(fn || dvl.identity);
-    argsType = dvl.typeOf(args);
-    if (argsType === 'undefined') {
-      args = [];
-    } else {
-      if (argsType !== 'array') {
-        args = [args];
-      }
-      args = args.map(dvl.wrap);
+    if (!Array.isArray(args)) {
+      args = [args];
     }
+    args = args.map(dvl.wrap);
     invalid = dvl.wrap(invalid != null ? invalid : null);
     out = dvl(invalid.value()).name('apply_valid_out');
     dvl.register({
@@ -1435,10 +1445,13 @@ function lift(fn) {
   };
 
   dvl.applyAlways = function() {
-    var args, argsType, fn, out, update, _ref, _ref1;
+    var args, fn, out, update, _ref, _ref1;
     switch (arguments.length) {
       case 1:
         _ref = arguments[0], args = _ref.args, fn = _ref.fn, update = _ref.update;
+        if (args === void 0 && !arguments[0].hasOwnProperty('args')) {
+          args = [];
+        }
         break;
       case 2:
         args = arguments[0], fn = arguments[1];
@@ -1450,15 +1463,10 @@ function lift(fn) {
         throw "incorect number of arguments";
     }
     fn = dvl.wrap(fn || dvl.identity);
-    argsType = dvl.typeOf(args);
-    if (argsType === 'undefined') {
-      args = [];
-    } else {
-      if (argsType !== 'array') {
-        args = [args];
-      }
-      args = args.map(dvl.wrap);
+    if (!Array.isArray(args)) {
+      args = [args];
     }
+    args = args.map(dvl.wrap);
     out = dvl().name('apply_valid_out');
     dvl.register({
       name: 'apply_fn',
@@ -1716,14 +1724,22 @@ function lift(fn) {
     };
     op_to_lift = {
       'or': function() {
-        var arg, _i, _len;
+        var arg, ret, _i, _len;
+        ret = false;
         for (_i = 0, _len = arguments.length; _i < _len; _i++) {
           arg = arguments[_i];
-          if (arg) {
-            return arg;
-          }
+          ret || (ret = arg);
         }
-        return false;
+        return ret;
+      },
+      'and': function() {
+        var arg, ret, _i, _len;
+        ret = true;
+        for (_i = 0, _len = arguments.length; _i < _len; _i++) {
+          arg = arguments[_i];
+          ret && (ret = arg);
+        }
+        return ret;
       },
       'add': function() {
         var arg, sum, _i, _len;
@@ -2522,7 +2538,7 @@ function lift(fn) {
       fn: function() {
         var _class;
         _class = listClass.value();
-        return ul.selectAll('li').attr('class', _class);
+        ul.selectAll('li').attr('class', _class);
       }
     });
     return {
@@ -2533,8 +2549,8 @@ function lift(fn) {
   };
 
   dvl.html.dropdown = function(_arg) {
-    var classStr, close, data, disabled, divCont, icons, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, onEnter, onLeave, onSelect, open, parent, selection, selectionLabel, selections, title, updateSelection, valueSpan;
-    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled;
+    var classStr, data, disabled, divCont, editable, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, valueOut;
+    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, editable = _arg.editable;
     if (!parent) {
       throw 'must have parent';
     }
@@ -2569,23 +2585,36 @@ function lift(fn) {
         position: 'relative'
       }
     }).value();
-    valueSpan = divCont.append('span');
-    open = function() {
-      menuCont.style('display', null).style('top', '100%');
-      if (menuAnchor.value() === 'left') {
-        menuCont.style('left', 0).style('right', null);
-      } else {
-        menuCont.style('left', null).style('right', 0);
-      }
-      menuOpen.value(true);
-    };
-    close = function() {
-      menuCont.style('display', 'none');
-      menuOpen.value(false);
-    };
+    if (editable) {
+      valueOut = dvl.bindSingle({
+        parent: divCont,
+        self: 'input.title-cont',
+        attr: {
+          type: 'text',
+          disabled: dvl.op.iff(disabled, '', null)
+        },
+        on: {
+          keydown: function() {
+            var _ref;
+            if ((_ref = d3.event.keyCode) !== 38 && _ref !== 40) {
+              return;
+            }
+            menuOpen.value(true);
+          }
+        }
+      }).value();
+    } else {
+      valueOut = dvl.bindSingle({
+        parent: divCont,
+        self: 'span.title-cont'
+      }).value();
+    }
+    if (id) {
+      valueOut.attr('id', id);
+    }
     myOnSelect = function(text, i) {
       if (!keepOnClick) {
-        close();
+        menuOpen.value(false);
       }
       return typeof onSelect === "function" ? onSelect(text, i) : void 0;
     };
@@ -2594,12 +2623,30 @@ function lift(fn) {
       icon_onSelect = icon.onSelect;
       icon.onSelect = function(val, i) {
         if (!keepOnClick) {
-          close();
+          menuOpen.value(false);
         }
         return typeof icon_onSelect === "function" ? icon_onSelect(val, i) : void 0;
       };
     });
-    menuCont = divCont.append('div').attr('class', 'menu-cont').style('position', 'absolute').style('z-index', 1000).style('display', 'none');
+    menuCont = divCont.append('div').attr('class', 'menu-cont').style('position', 'absolute').style('z-index', 1000);
+    dvl.register({
+      listen: [menuOpen, menuAnchor],
+      fn: function() {
+        var _menuAnchor, _menuOpen;
+        _menuOpen = menuOpen.value();
+        if (_menuOpen) {
+          menuCont.style('display', null).style('top', '100%');
+          _menuAnchor = menuAnchor.value();
+          if (_menuAnchor === 'left') {
+            menuCont.style('left', 0).style('right', null);
+          } else {
+            menuCont.style('left', null).style('right', 0);
+          }
+        } else {
+          menuCont.style('display', 'none');
+        }
+      }
+    });
     dvl.html.list({
       parent: menuCont,
       classStr: 'list',
@@ -2614,42 +2661,42 @@ function lift(fn) {
       onLeave: onLeave,
       icons: icons
     });
-    $(window).bind('click', function(e) {
+    namespace = dvl.namespace('dropdown');
+    d3.select(window).on("click." + namespace, (function() {
+      var target;
+      target = d3.event.target;
       if (disabled.value()) {
         return;
       }
-      if ($(menuCont.node()).find(e.target).length) {
+      if ($(menuCont.node()).find(target).length) {
         return;
       }
-      if (divCont.node() === e.target || $(divCont.node()).find(e.target).length) {
-        if (menuOpen.value()) {
-          close();
-        } else {
-          open();
-        }
+      if (divCont.node() === target || $(divCont.node()).find(target).length) {
+        menuOpen.value(!menuOpen.value());
       } else {
-        close();
+        menuOpen.value(false);
       }
-      return {
-        node: divCont.node(),
-        selection: selection,
-        selections: selections
-      };
-    }).bind('blur', close);
-    updateSelection = function() {
-      var sel, selLabel;
-      if (title) {
-        valueSpan.text(title.value());
-      } else {
-        sel = selection.value();
-        selLabel = selectionLabel.value();
-        valueSpan.text(selLabel(sel));
-      }
-    };
+    }), true).on("blur." + namespace, function() {
+      menuOpen.value(false);
+    });
     dvl.register({
       name: 'selection_updater',
       listen: [selection, selectionLabel, title],
-      fn: updateSelection
+      fn: function() {
+        var sel, selLabel, titleText;
+        if (title) {
+          titleText = title.value();
+        } else {
+          sel = selection.value();
+          selLabel = selectionLabel.value();
+          titleText = selLabel(sel);
+        }
+        if (editable) {
+          valueOut.property('value', titleText != null ? titleText : '');
+        } else {
+          valueOut.text(titleText);
+        }
+      }
     });
     return {
       node: divCont.node(),
@@ -2661,8 +2708,8 @@ function lift(fn) {
   };
 
   dvl.html.select = function(_arg) {
-    var classStr, data, focus, label, onChange, parent, selChange, selectEl, selection, visible;
-    parent = _arg.parent, data = _arg.data, classStr = _arg.classStr, label = _arg.label, selection = _arg.selection, onChange = _arg.onChange, focus = _arg.focus, visible = _arg.visible;
+    var classStr, data, focus, id, label, onChange, parent, selChange, selectEl, selection, visible;
+    parent = _arg.parent, data = _arg.data, classStr = _arg.classStr, label = _arg.label, selection = _arg.selection, id = _arg.id, onChange = _arg.onChange, focus = _arg.focus, visible = _arg.visible;
     if (!parent) {
       throw 'must have parent';
     }
@@ -2694,6 +2741,7 @@ function lift(fn) {
       parent: parent,
       self: 'select',
       attr: {
+        id: id,
         "class": classStr
       },
       style: {
@@ -2763,48 +2811,38 @@ function lift(fn) {
     };
   };
 
-  dvl.compare = function(acc, reverse, ignoreCase) {
-    acc = dvl.wrap(acc || dvl.ident);
+  dvl.compare = function(acc, reverse) {
+    acc = dvl.wrap(acc || dvl.identity);
     reverse = dvl.wrap(reverse || false);
-    ignoreCase = dvl.wrap(ignoreCase || false);
     return dvl.apply({
-      args: [acc, reverse, ignoreCase],
-      fn: function(acc, reverse, ignoreCase) {
-        var numCmp, strCmp, toStr;
-        toStr = ignoreCase ? function(x) {
-          return String(x).toLowerCase();
-        } : String;
-        numCmp = reverse ? function(a, b) {
-          return b - a;
-        } : function(a, b) {
-          return a - b;
-        };
-        strCmp = reverse ? function(a, b) {
-          return toStr(b).localeCompare(toStr(a));
-        } : function(a, b) {
-          return toStr(a).localeCompare(toStr(b));
-        };
+      args: [acc, reverse],
+      fn: function(acc, reverse) {
+        var cmp;
+        cmp = reverse ? d3.descending : d3.ascending;
         return function(a, b) {
-          var t, va, vb;
-          va = acc(a);
-          vb = acc(b);
-          t = typeof va;
-          if (t === 'number') {
-            return numCmp(va, vb);
-          } else {
-            return strCmp(va, vb);
-          }
+          return cmp(acc(a), acc(b));
         };
       }
     });
   };
 
   (function() {
-    var default_compare_modes;
-    default_compare_modes = ['up', 'down'];
+    var addPxIfNeeded, defaultCompareModes, numberRegEx;
+    defaultCompareModes = ['up', 'down'];
+    numberRegEx = /\d+(?:\.\d+)?/;
+    addPxIfNeeded = function(str) {
+      if (str == null) {
+        return null;
+      }
+      if (numberRegEx.test(str)) {
+        return str + 'px';
+      } else {
+        return str;
+      }
+    };
     dvl.html.table = function(_arg) {
-      var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headerCol, onRow, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref;
-      parent = _arg.parent, data = _arg.data, sort = _arg.sort, classStr = _arg.classStr, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns, onRow = _arg.on;
+      var bodyCol, c, classStr, columns, comp, compare, compareList, compareMap, data, headParent, headTable, headerCol, onRow, parent, rowClass, rowLimit, sort, sortDir, sortOn, sortOnIndicator, table, _i, _len, _ref;
+      parent = _arg.parent, headParent = _arg.headParent, data = _arg.data, sort = _arg.sort, classStr = _arg.classStr, rowClass = _arg.rowClass, rowLimit = _arg.rowLimit, columns = _arg.columns, onRow = _arg.on;
       table = dvl.bindSingle({
         parent: parent,
         self: 'table',
@@ -2812,6 +2850,17 @@ function lift(fn) {
           "class": classStr
         }
       });
+      if (headParent) {
+        headTable = dvl.bindSingle({
+          parent: headParent,
+          self: 'table',
+          attr: {
+            "class": (classStr != null ? classStr : '') + ' head'
+          }
+        });
+      } else {
+        headTable = table;
+      }
       sort || (sort = {});
       sortOn = dvl.wrapVar(sort.on);
       sortDir = dvl.wrapVar(sort.dir);
@@ -2826,12 +2875,22 @@ function lift(fn) {
           if (c.compare != null) {
             comp = dvl.wrap(c.compare);
           } else {
-            comp = dvl.compare(c.value);
+            if (c.ignoreCase) {
+              comp = dvl.compare(dvl.chain(c.value, function(d) {
+                if (d) {
+                  return d.toLowerCase();
+                } else {
+                  return d;
+                }
+              }));
+            } else {
+              comp = dvl.compare(c.value);
+            }
           }
           compareMap[c.id] = comp;
           compareList.push(comp);
           if (!c.compareModes) {
-            c.compareModes = default_compare_modes;
+            c.compareModes = defaultCompareModes;
           }
         }
         headerCol.push({
@@ -2839,7 +2898,8 @@ function lift(fn) {
           title: c.title,
           "class": (c["class"] || '') + (c.sortable ? ' sortable' : ''),
           visible: c.visible,
-          tooltip: c.headerTooltip
+          tooltip: c.headerTooltip,
+          width: c.width
         });
         bodyCol.push({
           id: c.id,
@@ -2848,13 +2908,14 @@ function lift(fn) {
           value: c.value,
           hover: c.hover,
           render: c.render,
-          on: c.on
+          on: c.on,
+          width: c.width
         });
       }
       headerCol.forEach(function(c) {
-        c.indicator = dvl.apply([sortOn, sortDir], function(so, sd) {
-          if (so === c.id) {
-            return sd;
+        c.indicator = dvl.applyAlways([sortOn, sortDir], function(_sortOn, _sortDir) {
+          if (_sortOn === c.id) {
+            return _sortDir || 'none';
           } else {
             return 'none';
           }
@@ -2883,7 +2944,7 @@ function lift(fn) {
         }
       });
       dvl.html.table.header({
-        parent: table,
+        parent: headTable,
         columns: headerCol,
         onClick: function(id) {
           var c, column, compareModes, _j, _len1;
@@ -2924,7 +2985,7 @@ function lift(fn) {
       };
     };
     dvl.html.table.header = function(_arg) {
-      var c, columns, enterTh, headerRow, listen, nc, newColumns, onClick, parent, sel, thead, _i, _len, _ref;
+      var c, columns, enterLiner, enterTh, headerRow, listen, nc, newColumns, onClick, parent, sel, thead, _i, _len, _ref;
       parent = _arg.parent, columns = _arg.columns, onClick = _arg.onClick;
       if (!parent) {
         throw 'there needs to be a parent';
@@ -2942,21 +3003,23 @@ function lift(fn) {
           "class": dvl.wrap(c["class"]),
           visible: dvl.wrap((_ref = c.visible) != null ? _ref : true),
           tooltip: dvl.wrap(c.tooltip),
-          indicator: c.indicator ? dvl.wrap(c.indicator) : void 0
+          indicator: c.indicator ? dvl.wrap(c.indicator) : void 0,
+          width: dvl.wrap(c.width)
         });
-        listen.push(nc.title, nc["class"], nc.visible, nc.tooltip, nc.indicator);
+        listen.push(nc.title, nc["class"], nc.visible, nc.tooltip, nc.indicator, nc.width);
       }
       columns = newColumns;
       sel = headerRow.selectAll('th').data(columns);
       enterTh = sel.enter().append('th');
-      enterTh.append('span');
-      enterTh.append('div').attr('class', 'indicator').style('display', 'none');
+      enterLiner = enterTh.append('div').attr('class', 'liner');
+      enterLiner.append('span');
+      enterLiner.append('div').attr('class', 'indicator').style('display', 'none');
       sel.exit().remove();
       dvl.register({
         name: 'header_render',
         listen: listen,
         fn: function() {
-          var c, i, ind, visibleChanged, _indicator, _j, _len1;
+          var c, i, ind, visibleChanged, w, _indicator, _j, _len1;
           for (i = _j = 0, _len1 = columns.length; _j < _len1; i = ++_j) {
             c = columns[i];
             sel = headerRow.select("th:nth-child(" + (i + 1) + ")");
@@ -2969,8 +3032,9 @@ function lift(fn) {
               if (c.tooltip.hasChanged() || visibleChanged) {
                 sel.attr('title', c.tooltip.value());
               }
-              if (c.tooltip.hasChanged() || visibleChanged) {
-                sel.attr('title', c.tooltip.value());
+              if (c.width.hasChanged() || visibleChanged) {
+                w = addPxIfNeeded(c.width.value());
+                sel.style('min-width', w).style('width', w).style('max-width', w);
               }
               if (visibleChanged) {
                 sel.style('display', null);
@@ -3038,9 +3102,10 @@ function lift(fn) {
           "class": dvl.wrap(c["class"]),
           visible: dvl.wrap((_ref = c.visible) != null ? _ref : true),
           hover: dvl.wrap(c.hover),
-          value: dvl.wrap(c.value)
+          value: dvl.wrap(c.value),
+          width: dvl.wrap(c.width)
         });
-        listen.push(nc["class"], nc.visible, nc.hover);
+        listen.push(nc["class"], nc.visible, nc.hover, nc.width);
         nc.render = c.render || 'text';
         nc.on = {};
         _ref1 = c.on;
@@ -3058,7 +3123,7 @@ function lift(fn) {
         listen: listen,
         change: change,
         fn: function() {
-          var c, colSel, dataSorted, enterRowSel, i, k, rowSel, sel, v, visibleChanged, _compare, _j, _len1, _ref2, _rowClass, _rowLimit;
+          var c, colSel, dataSorted, enterRowSel, i, k, rowSel, sel, v, visibleChanged, w, _compare, _j, _len1, _ref2, _rowClass, _rowLimit;
           dataSorted = (data.value() || []).valueOf();
           _compare = compare.value();
           if (_compare) {
@@ -3092,6 +3157,10 @@ function lift(fn) {
               }
               if (c.hover.hasChanged() || visibleChanged) {
                 sel.attr('title', c.hover.value());
+              }
+              if (c.width.hasChanged() || visibleChanged) {
+                w = addPxIfNeeded(c.width.value());
+                sel.style('min-width', w).style('width', w).style('max-width', w);
               }
               if (visibleChanged) {
                 sel.style('display', null);
