@@ -259,13 +259,23 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         type: 'text'
         disabled: dvl.op.iff(disabled, '', null)
       }
-      on: {
-        keydown: ->
-          return unless d3.event.keyCode in [38, 40] # up arrow = 38 | down arrow = 40
-          menuOpen.value(true)
-          return
-      }
     }).value()
+    valueOut.on('keydown', (->
+      keyCode = d3.event.keyCode
+      # Do not block tab keys
+      if keyCode is 9 # tab = 9
+        menuOpen.value(false)
+        return
+
+      if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
+        menuOpen.value(true)
+
+      if keyCode is 27 # esc = 27
+        menuOpen.value(false)
+
+      d3.event.preventDefault()
+      return
+    ), true) # Capture
   else
     valueOut = dvl.bindSingle({
       parent: divCont

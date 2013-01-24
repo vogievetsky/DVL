@@ -2592,17 +2592,23 @@ function lift(fn) {
         attr: {
           type: 'text',
           disabled: dvl.op.iff(disabled, '', null)
-        },
-        on: {
-          keydown: function() {
-            var _ref;
-            if ((_ref = d3.event.keyCode) !== 38 && _ref !== 40) {
-              return;
-            }
-            menuOpen.value(true);
-          }
         }
       }).value();
+      valueOut.on('keydown', (function() {
+        var keyCode;
+        keyCode = d3.event.keyCode;
+        if (keyCode === 9) {
+          menuOpen.value(false);
+          return;
+        }
+        if (keyCode === 38 || keyCode === 40) {
+          menuOpen.value(true);
+        }
+        if (keyCode === 27) {
+          menuOpen.value(false);
+        }
+        d3.event.preventDefault();
+      }), true);
     } else {
       valueOut = dvl.bindSingle({
         parent: divCont,
