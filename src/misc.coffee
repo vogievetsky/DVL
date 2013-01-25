@@ -57,8 +57,8 @@ dvl.misc.mouse = (element, out) ->
 
   dvl.register {
     name: 'mouse_recorder'
-    listen: [parent]
-    change: [out]
+    listen: element
+    change: out
     fn: recorder
   }
 

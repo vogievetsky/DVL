@@ -2252,8 +2252,8 @@ function lift(fn) {
     element.value().on('mousemove', recorder).on('mouseout', recorder);
     dvl.register({
       name: 'mouse_recorder',
-      listen: [parent],
-      change: [out],
+      listen: element,
+      change: out,
       fn: recorder
     });
     return out;
