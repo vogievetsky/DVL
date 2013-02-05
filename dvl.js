@@ -2695,7 +2695,7 @@ function lift(fn) {
         } else {
           sel = selection.value();
           selLabel = selectionLabel.value();
-          titleText = selLabel(sel);
+          titleText = selLabel ? selLabel(sel) : '';
         }
         if (editable) {
           valueOut.property('value', titleText != null ? titleText : '');

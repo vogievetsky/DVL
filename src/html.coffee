@@ -366,7 +366,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       else
         sel = selection.value()
         selLabel = selectionLabel.value()
-        titleText = selLabel(sel)
+        titleText = if selLabel then selLabel(sel) else ''
 
       if editable
         valueOut.property('value', titleText ? '')
