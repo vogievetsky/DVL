@@ -19,7 +19,7 @@ x.value(7);
 console.log(x.value()); //=> 7
 ```
 
-A DVL variable can take any value that a regular JavaScrip variable can take with the exception of `undefined` since through the virtue of being created a DVL variable is always defined. Setting the value of a DVL variable to `undefined` will cause it to be `null`.
+A DVL variable can take any value that a regular JavaScript variable can take with the exception of `undefined` since through the virtue of being created a DVL variable is always defined. Setting the value of a DVL variable to `undefined` will cause it to be `null`.
 
 ```javascript
 console.log(dvl().value()); //=> null
@@ -32,7 +32,7 @@ A DVL variable is considered invalid if its value is set to `null`. It is perfec
 
 **dvl.apply**
 
-One of the most useful functions in DVL the apply function creates a new DVL variable the value of which tracks the result of the given function as applied to the supplied parameters.
+One of the most useful functions in DVL, the apply function creates a new DVL variable the value of which tracks the result of the given function as applied to the supplied parameters.
 
 ```javascript
 var a = dvl(5);
