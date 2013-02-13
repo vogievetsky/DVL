@@ -5,8 +5,8 @@ do ->
   def_data_fn = dvl.const((d) -> [d])
   class_concat = dvl.op((s, d) -> s + ' ' + (d or ''))
   dvl.bind = ({parent, self, data, join, attr, style, property, text, html, on:argsOn, transition, transitionExit}) ->
-    throw "'parent' not defiend" unless parent
-    throw "'self' not defiend" unless typeof self is 'string'
+    throw "'parent' not defined" unless parent
+    throw "'self' not defined" unless typeof self is 'string'
     parts = self.split(id_class_spliter)
     nodeType = parts.shift()
     staticId = null
@@ -148,7 +148,7 @@ do ->
 
   dvl.bindSingle = ({parent, self, datum, attr, style, property, text, html, on:argsOn, transition}) ->
     if typeof self is 'string'
-      throw "'parent' not defiend for string self" unless parent
+      throw "'parent' not defined for string self" unless parent
       parts = self.split(id_class_spliter)
       nodeType = parts.shift()
       staticId = null
