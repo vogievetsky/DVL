@@ -32,7 +32,7 @@ A DVL variable is considered invalid if its value is set to `null`. It is perfec
 
 **dvl.apply**
 
-One of the most useful functions in DVL, the apply function creates a new DVL variable the value of which tracks the result of the given function as applied to the supplied parameters.
+The apply function is one of the most useful functions in DVL. It creates a new DVL variable, the value of which tracks the result of the given function as applied to the supplied parameters.
 
 ```javascript
 var a = dvl(5);
@@ -67,7 +67,7 @@ console.log(c.value()) //=> 5
 
 **dvl.applyAlways**
 
-Auto invalidation is often the desired behavior and a convenience since the arguments within the 'worker function' will never be null, but sometimes it does make scenes for the result of the apply to be something valid even if some of the arguments are invalid.
+Auto invalidation is often the desired behavior and a convenience since the arguments within the 'worker function' will never be null, but sometimes it does make sense for the result of the apply to be something valid even if some of the arguments are invalid.
 
 ```javascript
 var who = dvl('Jason');
@@ -94,7 +94,7 @@ console.log(likes.value()) //=> null
 
 **dvl.register**
 
-Registers a low level function that registers a function to be called reactively when a DVL variable changes. The `apply` and `applyAlways` functions are just convenience wrappers around a register.
+Registers a low level function that registers a function to be called reactively when a DVL variable changes. The `apply` and `applyAlways` functions are just convenience wrappers around a call to `dvl.register`.
 
 ```javascript
 var a = dvl(5);
@@ -122,9 +122,9 @@ b.value(4);
 console.log(c.value()); //=> 5
 ```
 
-The above example is equvelant to the first `dvl.apply` example.
+The above example is equivalent to the first `dvl.apply` example.
 
-We must explicitly declare that the function being registered will be changing `c`. This is important for DVL to calculate the dependency graph and ensure that it is acyclic. Modifying a variable without specifying that it might be modified will throw an error.
+We must explicitly declare that the function being `register`ed will be changing `c`. This is important for DVL to calculate the dependency graph and ensure that it is acyclic. Modifying a variable without specifying that it might be modified will throw an error.
 
 ## Credits
 
