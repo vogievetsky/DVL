@@ -16,6 +16,7 @@ setInterval(function() {
 	//coordOutput.text(coord.value());
 }, 100);
 var getCoord = dvl.apply([coord], function(coord) { 
+	//console.log(coord.value());
 	return x;
 });
 var consoleOutput = dvl.bind({
@@ -27,7 +28,7 @@ var consoleOutput = dvl.bind({
 		width: 200,
 		height: 200
 	},
-	text: getCoord
+	text: Math.random
 });
 
 ///////////////////////
@@ -39,48 +40,11 @@ setInterval(function() {
 	now.value(new Date)
 }, 1000);
 
-    var time = dvl.apply([now], function(now) {
-      var time = now.valueOf();
-      x = d3.range(1).map(function(o) { return new Date(time - o * 60*60*1000); })
-      return x;
-    })
+var time = dvl.apply([now], function(now) {
+	var time = now.valueOf();
+    x = d3.range(1).map(function(o) { return new Date(time - o * 60*60*1000); });
+    return x;
+})
 
-    var clock = dvl.bind({
-      parent: d3.select('body'),
-      self: 'svg.clock',
-      data: time,
-      attr: {
-        width: 200,
-        height: 200
-      }
-    });
-
-    var sinOp = dvl.op(function(x, r, a) { return x + r * Math.sin(a); });
-    var cosOp = dvl.op(function(y, r, a) { return y - r * Math.cos(a); });
-
-    // { parent, classStr, data, x, y, minRadius, maxRadius, angle } = args
-    function angularLines(args) {
-      return dvl.bind({
-        parent: args.parent,
-        self: 'line.' + args.classStr,
-        data: args.data,
-        attr: {
-          x1: sinOp(args.x, args.minRadius, args.angle),
-          y1: cosOp(args.x, args.minRadius, args.angle),
-          x2: sinOp(args.x, args.maxRadius, args.angle),
-          y2: cosOp(args.x, args.maxRadius, args.angle)
-        }
-      });
-    }
-
-    var PI2 = Math.PI * 2;
-
-    angularLines({
-      parent: clock,
-      classStr: 'sec',
-      x: 100,
-      y: 100,
-      minRadius: 10,
-      maxRadius: 99,
-      angle: function(d) { return PI2 * d.getSeconds()/60; }
-    });
+var sinOp = dvl.op(function(x, r, a) { return x + r * Math.sin(a); });
+var cosOp = dvl.op(function(y, r, a) { return y - r * Math.cos(a); });

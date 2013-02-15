@@ -1,7 +1,10 @@
-# Vadim Ogievetsky
-
-# DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
+###* DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
+#
+# @method dvl
+# @param {Object} value. The value of the DVL variable.
+# @example var x = dvl(10);
+###
 
 dvl = (value) -> new DVLVar(value)
 dvl.version = '1.2.1'
