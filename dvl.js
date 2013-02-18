@@ -820,7 +820,7 @@ function lift(fn) {
   })();
 
   dvl.register = function(_arg) {
-    var c, change, changedSave, ctx, fn, i, l, listen, listenConst, name, noRun, v, worker, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m;
+    var active, c, change, changedSave, ctx, fn, i, l, listen, listenConst, name, noRun, v, worker, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m;
     ctx = _arg.ctx, fn = _arg.fn, listen = _arg.listen, change = _arg.change, name = _arg.name, noRun = _arg.noRun;
     if (curNotifyListener) {
       throw new Error('cannot call register from within a notify');
@@ -846,7 +846,15 @@ function lift(fn) {
     listen = uniqById(listen).map(getBase);
     change = uniqById(change).map(getBase);
     worker = new DVLWorker(name || 'fn', ctx, fn, listen, change);
-    if (!noRun) {
+    active = false;
+    if (dvl.typeOf(noRun) === 'function') {
+      active = !noRun.apply(null, listen.map(function(d) {
+        return d.value();
+      }));
+    } else {
+      active = !noRun;
+    }
+    if (active) {
       changedSave = [];
       for (i = _j = 0, _len1 = listen.length; _j < _len1; i = ++_j) {
         l = listen[i];
