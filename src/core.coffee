@@ -1,6 +1,10 @@
 ###* DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
-#
+
+
+###*
+# Create a DVL variable. A DVL variable will notify listeners when its value has been updated.
+# 
 # @method dvl
 # @param {Object} value. The value of the DVL variable.
 # @example var x = dvl(10);
@@ -296,7 +300,7 @@ class DVLVar
   applyValid: (fn) -> dvl.applyValid(this, fn)
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
   pluck: (prop) -> dvl.apply(this, (d) -> d[prop])
-  pluckEx: (prop) -> dvl.apply(this, (d) -> d[prop]())
+  pluckEx: (prop) -> lyly(this, (d) -> d[prop]())
   project: (fns) ->
     fns = dvl.wrap(fns)
     v = dvl()
@@ -856,7 +860,7 @@ dvl.debug = ->
 
 ######################################################
 ##
-##  Sets up a pipline stage that automaticaly applies the given function.
+##  Sets up a pipeline stage that automaticaly applies the given function.
 ##
 dvl.apply = dvl.applyValid = ->
   switch arguments.length
@@ -908,7 +912,14 @@ dvl.apply = dvl.applyValid = ->
   }
   return out
 
-
+###*
+## This function is the same as dvl.apply with the exception that it does not pay attention to invalid values.
+## 
+## @method dvl.applyAlways
+## @param {Object} args An array of inputs to the supplied function
+## @param {Function} fn The function to perform on the input supplied through the args parameter
+## @return {Object} fn(args)
+###
 dvl.applyAlways = ->
   switch arguments.length
     when 1
@@ -919,7 +930,7 @@ dvl.applyAlways = ->
     when 3
       [args, {update}, fn] = arguments
     else
-      throw "incorect number of arguments"
+      throw "incorrect number of arguments"
 
   fn = dvl.wrap(fn or dvl.identity)
 

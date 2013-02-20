@@ -19,6 +19,8 @@
         <li>A Simple Example Decomposed</li>
         <li>Creating DVL Variables</li>
         <li>Types of Apply Functions</li>
+        <li>'bind' and 'register'</li>
+        <li>Error-spotting?</li>
       </ol>
 
     <hr/>
@@ -43,13 +45,48 @@
 
     <h2>A Simple Example Decomposed</h2>
 
+    <p>Here we create a variable and set up an HTML element to update whenever the variable is altered.</p>
 
     <div id="ex01"></div>
+  <script src="example01.js"></script>
+
+  <p>Let's walk through the code.</p>
+
     <code>
+      <pre>
+var coord = dvl(0);
 
-    </code>
+setInterval(function() {
+  coord.value(coord.value() + 0.01);
+}, 500);
+
+dvl.bindSingle({
+  self: d3.select('div#ex01'),
+  text: coord
+})
+    </pre>
+  </code>
 
 
-		<script src="example01.js"></script>
+  <ol>
+    <li>First, we create a variable. Notice the variable is wrapped in the dvl() function.
+    Doing this enables the variable to send a message when its value has altered.</li>
+    <li>Next we alter the data stored in the coord variable.</li>
+    <li>Next we select the div HTML element with the "ex01" id and tell it to update it's text value whenever
+    the coord variable changes.</li>
+  </ol>
+
+  <p>The text will only update when the coord value is updated. Setting up a data flow and then concerning yourself only with handling the data is a key philosophy of DVL.
+
+  <h2>Using Multiple Values With DVL</h2>
+
+  <div id="ex02"></div>
+  <script src="example02.js"></script>
+
+
+  <h2>Tidbits</h2>
+  <p>dvl.debug('coord', coord)</p>
+
+
 	</body>
 </html>
