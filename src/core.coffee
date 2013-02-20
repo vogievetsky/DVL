@@ -858,10 +858,34 @@ dvl.debug = ->
   return obj
 
 
-######################################################
+###*
+##  Sets up a pipeline stage that automaticaly applies the given function. 
+## Parameters can be passed in indivually or as an object with the properties args,
+## fn, invalid, allowNull, and update.
+## 
+## @method dvl.apply
+## @param args Either a single DVL variable or an array of DVL variables. If not passed in as part of an object, this parameter will be the first parameter.
+## @param fn The function to perform on the input DVL variable prior to output. If not passed in as part of an object, this parameter will be the last parameter.
+## @example
+##var a = dvl(5);
+##var b = dvl(12);
 ##
-##  Sets up a pipeline stage that automaticaly applies the given function.
+##var c = dvl.apply([a, b], function(_a, _b) {
+##    return Math.sqrt(_a * _a + _b * _b);
+##});
 ##
+##console.log(c.value()) //=> 13;
+##
+##a.value(3);
+##console.log(c.value()); //=> 12.36931687685298
+##
+##b.value(4);
+##console.log(c.value()); //=> 5
+##
+##c = dvl.apply({args: [a,b], fn: function(_a, _b) {
+##    return Math.sqrt(_a * _a + _b * _b);
+##}});
+###
 dvl.apply = dvl.applyValid = ->
   switch arguments.length
     when 1

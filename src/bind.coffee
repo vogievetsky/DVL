@@ -12,7 +12,7 @@ do ->
 ##@param parent The HTML element that is the parent of the HTML element the data will be bound to.
 ##@param self The HTML element to bind. If it does not yet exist, it will be created.
 ##@param data The DVL variable to bind.
-##@param text A function that outputs the text to be used as the inner HTML of the bound HTML element.
+##@param text A function that outputs the text to be used as the inner HTML of the bound HTML element. This function can also perform other actions in addition to outputting text, such as trigger an animation.
 ##@example
 ###var coord = dvl(0);
 ###

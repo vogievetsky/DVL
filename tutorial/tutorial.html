@@ -109,7 +109,26 @@ var consoleOutput = dvl.bind({
 
 <p>Notice the addition of the 'dvl.apply' function. This function will be explained more in depth later, but for the moment just notice that it performs a transformation on the dvl variable we provide as input. In this case, we take the DVL variable 'coord' and return it as a single-element array. DVL expects arrays. (We actually did provide DVL with an array in example 01. We just used the convenience function dvl.bindSingle to do so.)</p>
 
-<p>Next, notice 'dvl.bindSingle' has been replaced with the more general 'dvl.bind', which you will likely use more often. dvl.bind 
+<p>Next, notice 'dvl.bindSingle' has been replaced with the more general 'dvl.bind', which you will likely use more often. In addition, we are now binding the DVL variable through the 'data' property. This allows us to specify a function on the data prior to displaying as text. In this example, we simple convert the value of the DVL variable to text with no modifications. However, we can replace the line
+
+  <code>
+    <pre>
+  text: String
+    </pre>
+  </code>
+
+with
+
+  <code>
+    <pre>
+  text: function(x) { return x.toFixed(2); }    
+    </pre>
+  </code>
+
+which formats the number to two decimal places. Since it is just a function, you can also--for example--use this transformation function to provide animations when data changes.
+
+<div id="ex03"></div>
+<script src="example03.js"></script>
 
 <!-- ************************************** -->
   <hr>
