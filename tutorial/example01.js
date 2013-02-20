@@ -7,4 +7,4 @@ setInterval(function() {
 dvl.bindSingle({
 	self: d3.select('div#ex01'),
 	text: coord
-})
+});

@@ -80,13 +80,48 @@ dvl.bindSingle({
 
   <h2>Using Multiple Values With DVL</h2>
 
+  <p>We'll usually want to visualize multiple variables, so let's make example 01 multivariate. First, a few alterations to the single-variate case:</p>
+
   <div id="ex02"></div>
   <script src="example02.js"></script>
 
+  <p>Let's look at the lines changed from example 01.</p>
 
+  <code>
+    <pre>
+var coord = dvl(0);
+
+setInterval(function() {
+  coord.value(coord.value() + 0.01);
+}, 500);
+
+var coords = dvl.apply(coord, function(d) {
+  return [d];})
+
+var consoleOutput = dvl.bind({
+  parent: d3.select('div#ex02'),
+  self: 'p.output',
+  data: coords,
+  text: String
+});      
+    </pre>
+  </code>
+
+<p>Notice the addition of the 'dvl.apply' function. This function will be explained more in depth later, but for the moment just notice that it performs a transformation on the dvl variable we provide as input. In this case, we take the DVL variable 'coord' and return it as a single-element array. DVL expects arrays. (We actually did provide DVL with an array in example 01. We just used the convenience function dvl.bindSingle to do so.)</p>
+
+<p>Next, notice 'dvl.bindSingle' has been replaced with the more general 'dvl.bind', which you will likely use more often. dvl.bind 
+
+<!-- ************************************** -->
+  <hr>
   <h2>Tidbits</h2>
-  <p>dvl.debug('coord', coord)</p>
+  <ul>
+    <li>dvl.debug('coord', coord)</li>
+    <li>How DVL differs from backbone.js</li>
+  </ul>
 
+<!-- ************************************** -->
+  <hr>
+  <h2>Debug Practice</h2>
 
 	</body>
 </html>

@@ -4,15 +4,6 @@ setInterval(function() {
 	coord.value(coord.value() + 0.01);
 }, 500);
 
-// var dummy = 1;
-// setInterval(function() {
-// 	dummy += 0.01;
-// }, 500);
-
-// var getCoord = function() {
-// 	return [coord.value];
-// }
-
 var coords = dvl.apply(coord, function(d) {
 	return [d];})
 

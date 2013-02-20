@@ -4,6 +4,33 @@ do ->
   id_class_spliter = /(?=[#.:])/
   def_data_fn = dvl.const((d) -> [d])
   class_concat = dvl.op((s, d) -> s + ' ' + (d or ''))
+
+###*
+## Bind DVL variables to an HTML element. A transformation function on the data can be applied. When bound DVL variable updates, the HTML element will likewise update. 
+##
+##@method dvl.bind
+##@param parent The HTML element that is the parent of the HTML element the data will be bound to.
+##@param self The HTML element to bind. If it does not yet exist, it will be created.
+##@param data The DVL variable to bind.
+##@param text A function that outputs the text to be used as the inner HTML of the bound HTML element.
+##@example
+###var coord = dvl(0);
+###
+###setInterval(function() {
+###  coord.value(coord.value() + 0.01);
+###}, 500);
+###
+###var coords = dvl.apply(coord, function(d) {
+###  return [d];})
+###
+###var consoleOutput = dvl.bind({
+###  parent: d3.select('div#bindExample'),
+###  self: 'p.output',
+###  data: coords,
+###  text: String
+###});
+###
+
   dvl.bind = ({parent, self, data, join, attr, style, property, text, html, on:argsOn, transition, transitionExit}) ->
     throw "'parent' not defined" unless parent
     throw "'self' not defined" unless typeof self is 'string'
