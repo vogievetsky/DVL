@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>A DVL Walkthrough</title>
+		<title>DVL: Data Visualization Legos Walkthrough</title>
 		<link rel="stylesheet" href="tutorial.css"></link>
 		<script src="d3.v3.min.js"></script>
 		<script src="../dvl.js"></script>    
 	</head>
 	<body>
-    <h1>A DVL Walkthrough</h1>
+    <h1 id="title">Data Visualization Legos: A Walkthrough</h1>
 
     <hr>
 
@@ -49,6 +49,7 @@
 
     <div id="ex01"></div>
   <script src="example01.js"></script>
+  <!-- TODO: figure out why this example doesn't run if other scripts are executed. -->
 
   <p>Let's walk through the code.</p>
 
@@ -125,10 +126,64 @@ with
     </pre>
   </code>
 
-which formats the number to two decimal places. Since it is just a function, you can also--for example--use this transformation function to provide animations when data changes.
+which formats the number to two decimal places. Since it is just a function, you can also--for example--use this transformation function to provide animations when data changes.</p>
+
+<p>Now let's add another variable to the example. To do so, we create another DVL variable, set it to update, and combine it into a list with the previously existing DVL variable:</p>
+
+<code>
+  <pre>
+var coord1 = dvl(0);
+var coord2 = dvl(1);
+
+setInterval(function() {
+  coord1.value(coord.value() + 0.01);
+  coord2.value(coord2.value() + 0.02);
+}, 500);
+
+var coords = dvl.apply([coord1, coord2], function(_coord1, _coord2) {
+  return [_coord1, _coord2];
+});
+
+var consoleOutput = dvl.bind({
+  parent: d3.select('div#ex03'),
+  self: 'p.output',
+  data: coords,
+  text: function(x) { return x.toFixed(2); }
+});
+  </pre>
+</code>
 
 <div id="ex03"></div>
 <script src="example03.js"></script>
+
+<p>Notice how DVL has now auto-created two HTML elements. If not present, DVL will create needed HTML elements. This is similar to how <a href="http://www.d3js.org">D3</a> operates.</p>
+
+<p>More subtle, notice how we've used '_coord1' and '_coord2' as the internal variable names in the call to dvl.apply. Every DVL variable is an object that stores its value as a property. dvl.apply passes the actual value, and we use the underscore convention to make this practice more explicit.</p>
+
+<P>It's also worth mentioning that the above line
+
+<code>
+  <pre>
+var coords = dvl.apply([coord1, coord2], function(_coord1, _coord2) {
+  return [_coord1, _coord2];
+});
+  </pre>
+</code>
+
+can be more succinctly written as
+<code>
+  <pre>
+var coords = dvl.op.list(coord1, coord2);
+  </pre>
+</code>
+
+We'll look at the types of convenience functions DVL has later in the walkthrough.
+</p>
+
+
+<p>Now that we have a simple DVL pipeline set up, let's translate a more graphical representation of the coordinates:</p>
+
+
 
 <!-- ************************************** -->
   <hr>

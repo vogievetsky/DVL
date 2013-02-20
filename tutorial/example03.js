@@ -1,12 +1,15 @@
-var coord = dvl(0);
+var coord1 = dvl(0);
 var coord2 = dvl(1);
 
 setInterval(function() {
-	coord.value(coord.value() + 0.01);
+	coord1.value(coord.value() + 0.01);
 	coord2.value(coord2.value() + 0.02);
 }, 500);
 
-var coords = dvl.op.list(coord, coord2);
+//var coords = dvl.op.list(coord, coord2);
+var coords = dvl.apply([coord1, coord2], function(_coord1, _coord2) {
+	return [_coord1, _coord2];
+});
 
 var consoleOutput = dvl.bind({
 	parent: d3.select('div#ex03'),
