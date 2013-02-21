@@ -41,15 +41,22 @@
     <hr>
 
     <h2>Things You Should Know Before DVL</h2>
-    <ul><li><a href="http://d3js.org">D3</a></li>
+    <ul>
+      <li>Enough JavaScript to traverse the HTML DOM, modify elements, etc.</li>
+      <li>Basic CSS</li>
+      <li>A fair amount of <a href="http://d3js.org">D3</a></li>
     </ul>
 
     <hr>
     <h2>Technical Overview</h2>
 
+    <p>To set up a DVL application, you create a set of pipes. These pipes start at data, pass through functions, and tell visual components to update. This is essentially a model/view/controller system. For a reference point, Backbone.js can be considered similar to DVL. However, DVL is targeted for the case of data visualizations on real-time data.</p>
+
+    <p>One features of DVL is that a visual component will not update until it has recieved messages from all data that was updated that the visual component depends on.  For example, if new data was added to a dataset being visualized with a chart, the x and y axes of the chart would we scaled at the same time. DVL accomplishes this by ordering messages using a topological sort.</p>
+
     <hr>
 
-    <h2>A Simple Example Decomposed</h2>
+    <h2>A Simple Example Explained: Tell DVL to Update Text When a Variable Changes</h2>
 
     <p>Here we create a variable and set up an HTML element to update whenever the variable is altered.</p>
 
@@ -266,8 +273,22 @@ var coords = dvl([0, 0]).compare(function(a, b) { return a === b});
 </code>
 
 In the case of 'coords', we are comparing a pointer to a pointer. Even though the data in memory has changed, the pointer value has not, the comparison function returns 'true', and DVL does not issue an update message.
+</p>
+
+<p>For clarity, another solution would be to create a new array when the data is updated:
+
+<code>
+  <pre>
+setInterval(function() {
+  _coordArray = coordArray.value();
+  _coordArray[0] = _coordArray[0] + 0.1;
+  coordArray.value(_coordArray.slice());
+}, 500);
+  </pre>
+</code>
 
 </p>
+
 
 <!-- ************************************** -->
   <hr>
