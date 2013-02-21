@@ -22,8 +22,8 @@ dvl.bind({
 	parent: d3.select("div#divRace"),
 	self: "div.racer",
 	data: coords,
-	style: {left: function (x) {
-		return x + "px";}
+	style: {width: function (x) {
+		return x + 50 + "px";}
 	},
 	text: function(x) { return x.toFixed(2); }
 })
