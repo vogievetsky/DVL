@@ -7,7 +7,7 @@ setInterval(function() {
 var coords = dvl.apply(coord, function(d) {
 	return [d];})
 
-var consoleOutput = dvl.bind({
+dvl.bind({
 	parent: d3.select('div#ex02'),
 	self: 'p.output',
 	data: coords,

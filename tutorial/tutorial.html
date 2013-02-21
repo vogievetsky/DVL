@@ -77,7 +77,9 @@ dvl.bindSingle({
     the coord variable changes.</li>
   </ol>
 
-  <p>The text will only update when the coord value is updated. Setting up a data flow and then concerning yourself only with handling the data is a key philosophy of DVL.
+  <p>The text will only update when the coord value is updated. Setting up a data flow and then concerning yourself only with handling the data is a key philosophy of DVL.</p>
+
+  <p>Notice how we've used a D3 method to select the HTML element to bind. DVL is designed to work well with <a href="http://www.d3js.org">D3</a>.</p>
 
   <h2>Using Multiple Values With DVL</h2>
 
@@ -99,7 +101,7 @@ setInterval(function() {
 var coords = dvl.apply(coord, function(d) {
   return [d];})
 
-var consoleOutput = dvl.bind({
+dvl.bind({
   parent: d3.select('div#ex02'),
   self: 'p.output',
   data: coords,
@@ -144,7 +146,7 @@ var coords = dvl.apply([coord1, coord2], function(_coord1, _coord2) {
   return [_coord1, _coord2];
 });
 
-var consoleOutput = dvl.bind({
+dvl.bind({
   parent: d3.select('div#ex03'),
   self: 'p.output',
   data: coords,
@@ -160,7 +162,7 @@ var consoleOutput = dvl.bind({
 
 <p>More subtle, notice how we've used '_coord1' and '_coord2' as the internal variable names in the call to dvl.apply. Every DVL variable is an object that stores its value as a property. dvl.apply passes the actual value, and we use the underscore convention to make this practice more explicit.</p>
 
-<P>It's also worth mentioning that the above line
+<P>It's also worth mentioning that the line
 
 <code>
   <pre>
@@ -181,10 +183,64 @@ We'll look at the types of convenience functions DVL has later in the walkthroug
 </p>
 
 
-<p>Now that we have a simple DVL pipeline set up, let's translate a more graphical representation of the coordinates:</p>
+<p>Now that we have a simple DVL pipeline set up, let's create a more graphical representation of the coordinates. To do so, we'll start to manipulate HTML and CSS attributes. First we'll add styling for a CSS 'racer' class:
 
+<code>
+  <pre>
+.racer {
+  position: relative;
+  width: 50px;
+  text-align: center;
+  padding: 0.1em;
+  background-color: blue;
+  color: white;
+}
+  </pre>
+</code>
 
+Then we'll extend our above JavaScript example to include a randomized increase to each coordinate. The primary change we'll add is a function to the "style" property of the object we pass into the call to dvl.apply. Since the 'coords' data we're specified is multivariate, the function we've added will be called once for each variable in coords.
 
+<code>
+  <pre>
+var coordBall1 = dvl(0);
+var coordBall2 = dvl(0);
+
+var speed1 = Math.random() * 10 + 1;
+var speed2 = Math.random() * 10 + 1;
+
+var maxMovement = 150;
+setInterval(function() {
+  var newCoord1 = coordBall1.value() + speed1;
+  var newCoord2 = coordBall2.value() + speed2;
+  var checkBounds = function(x) { if (x > maxMovement) x = 0; return x;};
+  newCoord1 = checkBounds(newCoord1);
+  newCoord2 = checkBounds(newCoord2);
+
+  coordBall1.value(newCoord1);
+  coordBall2.value(newCoord2);
+}, 250);
+
+var coords = dvl.op.list(coordBall1, coordBall2);
+
+dvl.bind({
+  parent: d3.select("div#ballRace"),
+  self: "div.racer",
+  data: coords,
+  style: {left: function (x) {
+    return x + "px";}
+  },
+  text: function(x) { return x.toFixed(2); }
+})
+
+  </pre>
+</code>
+
+These changes give us:
+
+<div id="divRace"></div>
+<script src="divRace.js"></script>
+
+</p>
 <!-- ************************************** -->
   <hr>
   <h2>Tidbits</h2>
