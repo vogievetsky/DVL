@@ -13,3 +13,13 @@ pre {
 	background-color: blue;
 	color: white;
 }
+
+.bar {
+	background-color: blue;
+	text-align: center;
+    position: absolute;
+    bottom: 100px;
+    left: 50px;
+	color: white;
+	margin: 10px;
+}

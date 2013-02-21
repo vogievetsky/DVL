@@ -15,6 +15,7 @@
       <ol>
         <li>Motivations</li>
         <li>Examples</li>
+        <li>Things You Should Know Before Jumping In</li>
         <li>Technical Overview</li>
         <li>A Simple Example Decomposed</li>
         <li>Creating DVL Variables</li>
@@ -33,12 +34,17 @@
     <hr>
 
     <h2>Examples</h2>
-    <p class="todo">Twitter Talk</p>
-    <p class="todo">Telepresent Water</p>
-    <p class="todo">Dropdown List</p>
+    <p class="todo">Real-Time Bar Chart</p>
+    <p class="todo">Scalable Axes</p>
+    <p class="todo">Dropdown List wth Autocomplete</p>
 
     <hr>
 
+    <h2>Things You Should Know Before DVL</h2>
+    <ul><li><a href="http://d3js.org">D3</a></li>
+    </ul>
+
+    <hr>
     <h2>Technical Overview</h2>
 
     <hr>
@@ -241,7 +247,27 @@ These changes give us:
 <script src="divRace.js"></script>
 </p>
 
-<p>We now have to tools to create a real-time bar chart: <a href="realTimeBarChart.html">Real Time Bar Chart</a></p>
+<p>We now have the tools to create a <a href="realTimeBarChart.html">real-time bar chart</a>.</p>
+
+<p> Notice the initial line of the script:
+
+  <code>
+    <pre>
+var coords = dvl([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).compare(false);
+    </pre>
+  </code>
+
+DVL will compare values in a DVL variable prior to letting any dependencies know to update. If a value has not been changed, DVL will not send an update message. In the case of arrays, we must overwrite the default comparison operator. Why?  Let's take a look at the default comparison, which for the variable 'coords' would be the following:
+
+<code>
+  <pre>
+var coords = dvl([0, 0]).compare(function(a, b) { return a === b});
+  </pre>
+</code>
+
+In the case of 'coords', we are comparing a pointer to a pointer. Even though the data in memory has changed, the pointer value has not, the comparison function returns 'true', and DVL does not issue an update message.
+
+</p>
 
 <!-- ************************************** -->
   <hr>
