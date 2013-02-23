@@ -192,6 +192,19 @@ class DVLConst
   pluckEx: (prop) -> dvl.apply(this, (d) -> d[prop]())
   project: (fns) -> dvl.const(if @v? and fns?.down then fns.down.call(null, @v) else null)
 
+###*
+#The DVLVar class is a fundamental class in DVL. All variables to use in a DVL pipeline are DVL variables.
+##Note that usually one creates a DVLVar by calling the dvl() function as opposed to using the DVLVar constructor.
+#
+#@class DVLVar
+#@constructor
+#@param val The value to turn into a DVL variable
+#@example
+#var coords = new DVLVar([0, 5, 10]);
+#//equivalent to
+#var coords = dvl([0, 5, 10]);
+##
+
 class DVLVar
   constructor: (val) ->
     @v = val ? null
@@ -335,6 +348,18 @@ getBase = (v) ->
 dvl.def   = (value) -> new DVLVar(value)
 dvl.const = (value) -> new DVLConst(value)
 
+
+###*
+##Determine if a variable is a DVL variable or a DVL constant
+##
+##@method dvl.knows
+##@param v The variable to test
+##@example
+##var x = 10;
+##dvl.knows(x); //false
+##var y = dvl(10);
+##dvl.knows(y); //true
+###
 dvl.knows = (v) -> v instanceof DVLVar or v instanceof DVLConst
 
 
@@ -986,7 +1011,15 @@ dvl.applyAlways = ->
   }
   return out
 
-
+###*
+##Continuously generate a random sequence of numbers
+##
+##@method dvl.random
+##@param min The lower bound on the numbers to generate
+##@param max The upper bound on the numbers to generate
+##@param int A boolean indicating whether only integers should be generated
+##@param walk If a number greater than 0 is supplied, a random walk scaled by the provided parameter will be generated
+###
 dvl.random = (options) ->
   min = options.min or 0
   max = options.max or min + 10
