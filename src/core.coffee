@@ -334,6 +334,23 @@ class DVLVar
   getPrev: ->
     @resolveLazy()
     if @prev and @changed then @prev else @v
+
+###*
+#Explicity notify a DVL variable its value has been changed. This is used when modifying members and methods of a DVL variable of a reference type.
+#
+# @method notify
+# @example
+#var data = dvl([2, 6, 8, 3, 2]);
+#
+#setInterval(function() {
+#  var _data = data.get();
+#  _data.shift()
+#  _data.push(Math.round(Math.random() * 9 + 1))
+#  _data;
+#  data.set(_data).notify();
+#}, 1000);
+###
+
   notify: ->
     dvl.notify(this)
   discard: ->
@@ -603,11 +620,36 @@ dvl.group = (fn) -> (fnArgs...) ->
     fn.apply(this, fnArgs)
   return
 
+###*
+#Wrap a variable into DVL variable. If the variable is not a DVL variable, the variable becomes a DVLConstant. If the input variable is already a DVL variable, dvl.wrap returns the input parameter.
+#If the input parameter is undefined, the input value become null.
+#
+# See also: dvl.wrapVar();
+#@param v The input variable to wrap
+#@param name The name to give the variable
+#@example
+# TODO: this example isn't very pragmatic. Find a more useful one.
+# var x = dvl(1, "one");
+# var y = dvl.wrap(x);
+# console.log(x === y); //true
+#
+# var z = dvl.wrap(100);
+# z.set(200);
+# if (z.get() === 100) console.log("z is a DVL constant and cannot be set.");
+###
 dvl.wrapConstIfNeeded =
 dvl.wrap = (v, name) ->
   v = null if v is undefined
   if dvl.knows(v) then v else dvl.const(v).name(name)
 
+
+###*
+#Wrap a variable into DVL variable. Unlike dvl.wrap(), if  the variable is not a DVL variable, the variable becomes a DVL variable. It does not become a DVLConstant.
+#
+# See also: dvl.wrap();
+#@param v The input variable to wrap
+#@param name The name to give the variable
+###
 dvl.wrapVarIfNeeded =
 dvl.wrapVar = (v, name) ->
   v = null if v is undefined
@@ -777,7 +819,6 @@ within_notify = ->
 
   return
 
-
 init_notify = ->
   throw 'bad stuff happened init' if curNotifyListener
 
@@ -886,6 +927,32 @@ dvl.zero = dvl.const(0).name('zero')
 dvl.null = dvl.const(null).name('null')
 
 dvl.ident = (x) -> x
+###*
+#The identity function
+# @method dvl.identity
+# @example
+#dvl.html.table({
+#  parent: d3.select('body'),
+#  data: data,
+#  columns: [{
+#    id: 'word',
+#    title: 'Word',
+#    value: dvl.identity,
+#    sortable: true
+#  }, {
+#    id: 'first',
+#    title: 'First',
+#    value: function(d) { return d[0] },
+#    sortable: true
+#  }, {
+#    id: 'last',
+#    title: 'Last',
+#    value: function(d) { return d[d.length-1] },
+#    sortable: true
+#  }],
+#  classStr: "dvlTable"
+#});
+###
 dvl.identity = dvl.const(dvl.ident).name('identity')
 
 
@@ -1218,6 +1285,15 @@ do ->
 
 # -------------------------------------------------------
 
+###*
+# Create a composite function h(f(x)) from two functions f and h. Useful when binding visual components to scaled values.
+#
+# @method dvl.chain
+# @param f The function to be applied first, before the function h is applied
+# @param h The function to be appied second, after the function f has been appied
+# @example
+# TODO: make one
+###
 dvl.chain = (f, h) ->
   f = dvl.wrap(f)
   h = dvl.wrap(h)
@@ -1269,6 +1345,36 @@ do ->
       ret and= arg for arg in arguments
       return ret
 
+###*
+##Add DVL and/or primitive variables
+##
+##@example
+##var data = dvl([2, 6, 8, 3, 2]);
+##
+##setInterval(function() {
+##  var _data = data.get();
+##  _data.shift()
+##  _data.push(Math.round(Math.random() * 9 + 1))
+##  _data;
+##  data.set(_data).notify();
+##}, 1000);
+##
+##var xFn = dvl(function(d, i) { return i * 50 });
+##
+##var svg = d3.select('body').append('svg');
+##
+##dvl.bind({
+##  parent: svg,
+##  self: 'rect.myclass',
+##  data: data,
+##  attr: {
+##    x: dvl.op.add(xFn, 100),
+##    y: 0,
+##    height: function(d) { return d * 10 },
+##    width: 20
+##  }
+##});
+###
     'add': ->
       sum = 0
       for arg in arguments

@@ -539,6 +539,18 @@ do ->
     return null unless str?
     return if numberRegEx.test(str) then str + 'px' else str
 
+
+###*
+##Create an HTML table bound to DVL data. The columns can optionally be sortable.
+##
+## @method dvl.html.table
+## TODO: how to document params when passed inside an object?
+## @param inputObject
+## @param classStr The CSS class the table should have.
+## @param parent The HTML element to make the parent of the created table
+## @param data The DVL data to bind the table to.
+
+###
   dvl.html.table = ({parent, headParent, data, sort, classStr, rowClass, rowLimit, columns, on:onRow}) ->
     table = dvl.bindSingle {
       parent
