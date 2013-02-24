@@ -204,6 +204,7 @@ class DVLConst
 #//equivalent to
 #var coords = dvl([0, 5, 10]);
 ##
+###
 
 class DVLVar
   constructor: (val) ->
@@ -239,6 +240,20 @@ class DVLVar
     @changed = false
     return this
 
+###*
+#Gets or sets the value of a DVL variable. Note that if you are updating an element in an array or object (a reference type), then you will need to use .notify(), overwrite the comparison function, or pass in a new array or object at a different memory location.
+#
+# @method value
+# @param val The value to set the DVL variable to
+# @optional
+# See also: DVLVar.get(), DVLVar.set(), DVLVar.notify()
+# @example
+# x = dvl(9);
+# console.log(x.get());
+# x.set(10);
+# console.log(x.get());
+###
+
   value: (val) ->
     if arguments.length
       val = val ? null
@@ -255,6 +270,32 @@ class DVLVar
       else
         @resolveLazy()
       return @v
+
+###*
+#Sets the value of a DVL variable. Note that if you are updating an element in an array or object (a reference type), then you will need to use .notify(), overwrite the comparison function, or pass in a new array or object at a different memory location.
+#
+# @method set
+# @param val The value to set the DVL variable to
+# @optional
+# See also: DVLVar.get(), DVLVar.set(), DVLVar.notify()
+# @example
+# x = dvl(9);
+# console.log(x.get());
+# x.set(10);
+# console.log(x.get());
+# @example
+# var data = dvl([2, 6, 8, 3, 2]);
+#
+# setInterval(function() {
+#  var _data = data.get();
+#  _data.shift()
+#  _data.push(Math.round(Math.random() * 9 + 1))
+#  _data;
+#  data.set(_data).notify();
+#}, 1000);
+#
+# See also: get(), value()
+###
 
   set: (val) ->
     val = val ? null
@@ -278,6 +319,17 @@ class DVLVar
       this.set(val)
       dvl.notify(this)
     return this
+###
+#Get the value of a DVL variable. This function is identical to DVLVar.value()
+#
+# @method get
+# @example
+# var x = dvl("hello");
+# console.log(x.get());
+# x = dvl({k: 'v'})
+# console.log(x.get() === x.value())
+###
+
   get: -> @value()
   getPrev: ->
     @resolveLazy()
@@ -338,12 +390,10 @@ class DVLVar
     }
     return v
 
-
 getBase = (v) ->
   while v.proj
     v = v.proj.parent
   return v
-
 
 dvl.def   = (value) -> new DVLVar(value)
 dvl.const = (value) -> new DVLConst(value)

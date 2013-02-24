@@ -291,7 +291,48 @@ setInterval(function() {
 </p>
 
 <hr>
+<h2>Exercise</h2>
+<p>To get used to DVL's documentation, try to remove the explicit overwrite of the comparison function in the real-time bar chart. Instead, use dvl.notify();</p>
+
+<p>Solution:
+
+  <code>
+    <pre>
+var data = dvl([2, 6, 8, 3, 2]);
+
+setInterval(function() {
+  var _data = data.get();
+  _data.shift()
+  _data.push(Math.round(Math.random() * 9 + 1))
+  _data;
+  data.set(_data).notify();
+}, 1000);    </pre>
+  </code>
+
+</p>
+
+<p>TODO: why is get() swappable with value(), but set(x) is not swappable with value(x)?:
+
+<code>
+  <pre>
+    var data = dvl([2, 6, 8, 3, 2]);
+
+setInterval(function() {
+  var _data = data.get();
+  _data.shift()
+  _data.push(Math.round(Math.random() * 9 + 1))
+  _data;
+  data.value(_data).notify();
+}, 1000);
+  </pre>
+</code>
+
+</p>
+
+<hr>
 <h2>Axes That Auto-Scale with Real-Time Data</h2>
+
+<p>If the real-time bar chart from section TODO runs long enough, it will grow outside of the page's visible area. One approach to fix this is to introduce auto-scaling axes. In <a href="autoscalingAxes.html">this section</a> we'll walk through how to accomplish this.</p>
 
 <hr>
 <h2>Simulating Data</h2>
@@ -299,7 +340,15 @@ setInterval(function() {
   <pre>
     dvl.register(); dvl.record();
   </pre>
+
+<p>The real-time bar chart used a very basic technique for simulating data. In this section, we'll look at the capabilities DVL has for simulating real-time data. TODO: deconstruct the random-walk example.
+
 </code>
+
+<hr>
+<h2>Creating GUI Components with DVL</h2>
+
+<a href="creatingGUIComponents.html">Link</a>
 
 <!-- ************************************** -->
   <hr>
