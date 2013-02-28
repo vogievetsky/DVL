@@ -77,10 +77,24 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
   return
 
 
-##-------------------------------------------------------
-##
-##  Create HTML list
-##
+###*
+# Create an HTML list that will update when the bound DVL variable is altered
+#
+# @method dvl.html.list
+# @param parent The node of the DOM that will become the list's parent
+# @param data The data to bind to.
+# @param label A function to apply to data prior to displaying the item
+# @param onEnter A function with two inputs (value and index) to call when the cursor enters the range of a list item
+# @param onLove A function with two inputs (value and index) to call when the curson leaves the range of a list item
+# @example
+# var COUNTRIES = ['United States','China','France', 'Italy', 'Norway','Spain'];
+# var parent01 = d3.select("body").append("div").attr("id", "listExample");;
+# var ddl = dvl.html.list({
+#   parent: parent01,
+#   data: COUNTRIES
+# });
+###
+
 dvl.html.list = ({parent, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons,
                   extras, classStr}) ->
   throw 'must have parent' unless parent
@@ -559,7 +573,6 @@ do ->
 ## @param classStr The CSS class the table should have.
 ## @param parent The HTML element to make the parent of the created table
 ## @param data The DVL data to bind the table to.
-
 ###
   dvl.html.table = ({parent, headParent, data, sort, classStr, rowClass, rowLimit, columns, on:onRow}) ->
     table = dvl.bindSingle {
@@ -1013,3 +1026,16 @@ do ->
           }
         }
   }
+
+dvl.html.dropdown2 = ({parent, data, selection, highlight, classStr}) ->
+
+    selection  = dvl.wrapVar(selection, 'selection')
+    data = dvl.wrap(data)
+
+    parent.value().append("input")
+    ul = parent.value().append("ul")
+    ul.selectAll('li')
+      .data(_data)
+      .enter()
+        .append('li')
+

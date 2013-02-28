@@ -630,7 +630,13 @@ dvl.block = ->
   curBlock = block.parent
   return block
 
-
+###*
+#Given a function, returns another function that groups the notifications of the returned function's arguments
+#
+# @method dvl.group
+# @param fn The input function
+# @return a function
+###
 dvl.group = (fn) -> (fnArgs...) ->
   if dvl.notify is init_notify
     captured_notifies = []

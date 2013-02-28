@@ -30,23 +30,39 @@ var subsetterGenerator = function() {
 		return selectedCountries;
 	}
 };
-
 subsetter = subsetterGenerator();
-//var x = subsetter();
-//console.log(x);
 
 setInterval(function() { countriesSubset.value(subsetter()) }, 500);
 //why does set not work?
 //setInterval(function() { countriesSubset.set(subsetter()) }, 500);
 
-var parent02 = d3.select("#ex02");
+var parent02 = d3.select("#ex02").style("height", "100px");
 var ddl = dvl.html.list({
 	parent: parent02,
-	data: countriesSubset
+	data: countriesSubset,
+	label: function(d) { return d + " was subsetted"; }
+});
+
+////////////////EX 03
+var parent02 = d3.select("#ex03");
+var ddl = dvl.html.list({
+	parent: parent02,
+	data: COUNTRIES,
+	label: function(d) { return d + " was run through 'label' function"; },
+	selection: "China",
+	classStr: "colorable"
 });
 
 
-
+////////////////EX 04
+var parent02 = d3.select("#ex04");
+var ddl = dvl.html.list({
+	parent: parent02,
+	data: COUNTRIES,
+	label: function(d) { return d + " was run through 'label' function"; },
+	selection: "China",
+	onEnter: function(d, i) { console.log(i) }
+});
 
 
 
