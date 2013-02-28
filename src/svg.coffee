@@ -2,6 +2,33 @@
 
 clipId = 0
 dvl.svg or= {}
+
+###*
+##
+##@example
+##var svg = dvl.bind({
+##  parent: d3.select('body'),
+##  self: 'svg',
+##  attr: {
+##    width: width,
+##    height: height
+##  }
+##});
+
+##var clipPathId = dvl.svg.clipPath({
+##  parent: svg,
+##  width:  innerWidth,
+##  height: innerHeight
+##});
+
+##var vis = dvl.bind({
+##  parent: svg,
+##  self: 'g.vis',
+##  attr: {
+##    'clip-path': clipPathId
+##  }
+##});
+###
 dvl.svg.clipPath = ({parent, x, y, width, height}) ->
   x = dvl.wrap(x or 0)
   y = dvl.wrap(y or 0)

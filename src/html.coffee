@@ -213,6 +213,16 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
     node: ul.node()
   }
 
+###*
+# Create an HTML dropdown list
+#
+# @method dvl.html.dropdown
+# @param parent A D3 selection containing the HTML element to make the parent
+# @param classStr The name of the class for the dropdown list
+# @param id The id to give the dropdown list
+# @param data The items to be selectable in the dropdown list
+# @param selection The element from data to be initially selected
+###
 
 dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
                       onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, editable}) ->

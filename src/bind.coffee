@@ -173,6 +173,10 @@ do ->
     return out
 
 
+  ###*
+  ##A convenience function with a simplified input to dvl.bind for the case when you want to bind a single variable.
+  ##
+  ###
   dvl.bindSingle = ({parent, self, datum, attr, style, property, text, html, on:argsOn, transition}) ->
     if typeof self is 'string'
       throw "'parent' not defined for string self" unless parent

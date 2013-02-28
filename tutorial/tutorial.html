@@ -358,6 +358,30 @@ setInterval(function() {
     <li>How DVL differs from backbone.js</li>
   </ul>
 
+  <p>You don't have to select a pre-existing HTML element to bind it. It will be creating during the bind (similar to D3):
+
+    <code>
+      <pre>
+
+var coord = dvl(0);
+
+setInterval(function() {
+  coord.value(coord.value() + 0.01);
+}, 500);
+
+dvl.bindSingle({
+  parent: d3.select('#anExample'),
+  self: "div.test",
+  text: coord
+});
+
+      </pre>
+    </code>
+
+
+
+  </p>
+
 <!-- ************************************** -->
   <hr>
   <h2>Debug Practice</h2>

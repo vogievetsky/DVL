@@ -1,39 +1,37 @@
+
+<!DOCTYPE html>
 <html>
-	<head>
-		<script src="d3.v3.min.js"></script>
-		<script src="../dvl.js"></script> 
-		<link rel="stylesheet" href="tutorial.css"></link>
-	</head>
-	<body>
-		<div id="realTimeBarChart"></div>
-		<script src="realTimeBarChart.js"></script>
+  <head>
+    <title>Scalable Axes</title>
+    <link rel="stylesheet" href="tutorial.css"></link>
+    <script src="../../d3/d3.v3.min.js"></script>
+    <script src="../../dvl.js"></script>
+    <style>
 
-		<code>
-		<pre>
-var coords = dvl([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).compare(false);
-var barSpacing = 10;
-var barWidth = 50;
+body {
+  font: 12px sans-serif;
+}
 
-setInterval(function() {
-	_coords = coords.value();
-	for (var i = 0; i < coords.value().length; i++) {
-		if (Math.random() > 0.5)
-		_coords[i] = _coords[i] + 1;
-	}
-	coords.value(_coords);
-}, 200);
+.background {
+  fill: #ccc;
+}
 
-dvl.bind({
-	parent: d3.select("#realTimeBarChart"),
-	self: "div.bar",
-	data: coords,
-	text: String,
-	style: {height: function (x) { return x + 50 + "px"; },
-			left: function (x, i) { return (barWidth + barSpacing) * i + "px"; },
-			width: barWidth
-	}
-})
-		</pre>
-		</code>
-	</body>
+line {
+  shape-rendering: crispEdges;
+  stroke: gray;
+}
+
+path {
+  stroke: red;
+  fill: none;
+}
+
+    </style>
+
+  </head>
+  <body>
+    <div id="realTimeBarChart">
+    </div>
+  </body>
+  <script src="scalableAxes.js"></script>
 </html>

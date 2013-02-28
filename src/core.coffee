@@ -193,6 +193,7 @@ class DVLConst
   project: (fns) -> dvl.const(if @v? and fns?.down then fns.down.call(null, @v) else null)
 
 ###*
+# PRIVATE
 #The DVLVar class is a fundamental class in DVL. All variables to use in a DVL pipeline are DVL variables.
 ##Note that usually one creates a DVLVar by calling the dvl() function as opposed to using the DVLVar constructor.
 #
@@ -412,7 +413,31 @@ getBase = (v) ->
     v = v.proj.parent
   return v
 
+
+###*
+# Create a new dvl variable. dvl.def(x) is equivalent to dvl(x)
+#
+# See also: dvl(), dvl.const();
+#@method dvl.def
+#@param value The value to turn into a DVL variable
+#@example
+#var x = dvl.def(5)
+#var y = dvl.def(5)
+#x.value() === y.value()
+#
+###
 dvl.def   = (value) -> new DVLVar(value)
+###*
+# Create a new dvl constant.
+#
+# See also: dvl(), dvl.def();
+#@method dvl.const
+#@param value The value to turn into a DVL constant
+#@example
+#var x = dvl.const(5)
+#x.set(20); //TODO: why not throw an error or maybe a warning?
+#console.log(x.get()); // 5. Value cannot be altered. 
+###
 dvl.const = (value) -> new DVLConst(value)
 
 
@@ -955,7 +980,28 @@ dvl.ident = (x) -> x
 ###
 dvl.identity = dvl.const(dvl.ident).name('identity')
 
-
+###*
+##Create a function that accesses a column of a DVL variable. A common use is to subset a particular component of multivariate data out for individual display.
+##@method dvl.acc
+##@
+##@example
+##var random = dvl.random({
+##  walk: 0.1,
+##  min: 10000,
+##  max: 80000,
+##  interval: 500
+##});
+##
+##var data = dvl.recorder({
+##  data: random,
+##  value: 'value',
+##  timestamp: 'time',
+##  max: 20
+##})
+##
+##var getX = dvl.acc('time');
+##var getY = dvl.acc('value');
+###
 dvl.acc = (column) ->
   column = dvl.wrap(column)
   acc = dvl().name("acc")
@@ -974,12 +1020,16 @@ dvl.acc = (column) ->
 
 # Workers # -----------------------------------------
 
-######################################################
-##
+###*
 ##  A DVL object debugger
 ##
 ##  Displays the object value with a message whenever the object changes.
-##
+## @method dvl.debug
+## @example
+## var x = dvl.def(5);
+## dvl.debug(x); //prints when the value of x changes
+## dvl.debug("x has changed", x); //prints with a note when the value of x has changed
+###
 dvl.debug = ->
   print = ->
     return unless console?.log
@@ -1129,13 +1179,22 @@ dvl.applyAlways = ->
   return out
 
 ###*
-##Continuously generate a random sequence of numbers
+##Continuously generate a random sequence of numbers. NOTE: all params passed in an object.
 ##
 ##@method dvl.random
 ##@param min The lower bound on the numbers to generate
 ##@param max The upper bound on the numbers to generate
 ##@param int A boolean indicating whether only integers should be generated
-##@param walk If a number greater than 0 is supplied, a random walk scaled by the provided parameter will be generated
+##@param walk If a number greater than 0 is supplied, a random walk scaled by the provided parameter will be generated.
+##@param interval The interval in milliseconds to generate a new value
+##@example
+##var random = dvl.random({
+##    walk: 0.1,
+##    min: 10000,
+##    int: true,
+##    max: 80000,
+##    interval: 500
+##  });
 ###
 dvl.random = (options) ->
   min = options.min or 0
@@ -1143,17 +1202,17 @@ dvl.random = (options) ->
   int = options.integer
   walk = options.walk
 
-  random = dvl((max - min)/2, options.name or 'random')
+  random = dvl((max - min) / 2, options.name or 'random')
 
   gen = ->
     if walk and walk > 0
       # do a random walk
       scale = walk * Math.abs(max - min)
-      r = random.value() + scale*(2*Math.random()-1)
+      r = random.value() + scale * (2 * Math.random() - 1)
       r = min if r < min
       r = max if max < r
     else
-      r = Math.random()*(max-min) + min
+      r = Math.random() * (max - min) + min
 
     r = Math.floor(r) if int
     random.set(r)
@@ -1187,6 +1246,34 @@ dvl.arrayTick = (data, options) ->
   return out
 
 
+###*
+##Record the last n items of a streaming dataset. Note: all params are passing via an object.
+##
+##@method dvl.recorder
+##@param array If suppied, the array to record into
+##@param data The input data to record from. Note that the data must be a DVL variable or constant. More explicitly, dvl.knows(data) must be true.
+##@param max The maximum number of values to record. Values are placed in a FIFO queue. The default size is infinity. 
+##@param fn A function to apply prior to recording. If not supplied, the identity function is used.
+##@param value A string to add to the object of recorded data. The actual value of the data will be accessible via data[value]
+##@param index A string to add to the object of recorded data. The index of the data item will be accessible via data[index]
+##@param timestamp A string to add to the object of recorded data. The timestamp of the data item will be accessible via data[timestamp]
+##@return {Object} The array of recorded values
+##@example
+##var random = dvl.random({
+##  walk: 0.1,
+##  min: 10000,
+##  max: 80000,
+##  interval: 500
+##});
+##
+##var data = dvl.recorder({
+##  data: random,
+##  value: 'value',
+##  timestamp: 'time',
+##  index: 'index',
+##  max: 20
+##})
+###
 dvl.recorder = (options) ->
   array = dvl.wrapVar(options.array or [], options.name or 'recorder_array').compare(false)
 
@@ -1194,7 +1281,7 @@ dvl.recorder = (options) ->
   fn = dvl.wrap(options.fn or dvl.identity)
   throw 'it does not make sense not to have data' unless dvl.knows(data)
 
-  max = dvl.wrap(options.max or +Infinity)
+  max = dvl.wrap(options.max or +Infinity) //TODO: why wrap?
   i = 0
 
   record = ->
@@ -1291,8 +1378,13 @@ do ->
 # @method dvl.chain
 # @param f The function to be applied first, before the function h is applied
 # @param h The function to be appied second, after the function f has been appied
+# @returns A DVL variable whose value is a composite function
+# TODO: find an example from an actual use case
 # @example
-# TODO: make one
+# var f = function(d) { return d + 2; }
+# var g = function(d) { return d * 2; }
+# var chained = dvl.chain(f, g);
+# console.log(chained.get()(5));
 ###
 dvl.chain = (f, h) ->
   f = dvl.wrap(f)
@@ -1383,7 +1475,12 @@ do ->
         else
           return null
       return sum
-
+###*
+##Subtract DVL and/or primitive variables
+##
+## @method dvl.op.sub
+## See Also: dvl.op.add
+###
     'sub': ->
       sum = 0
       mult = 1
