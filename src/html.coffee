@@ -136,8 +136,12 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
     window.location.href = linkVal if linkVal
     return
 
+  if not onEnter
+    onEnter = (val) -> highlight.value(val)
 
-  myOnEnter =   
+  if not onLeave?
+    onLeave = (val) -> 
+      if (highlight.value() is val) then highlight.value("")
 
   dvl.register {
     name: 'update_html_list'
@@ -215,7 +219,7 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
 
 
 dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
-                      onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, editable, highlight}) ->
+                      onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, highlight}) ->
   throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection = dvl.wrapVar(selection, 'selection')
@@ -251,36 +255,44 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     }
   }).value()
 
-  if editable
-    valueOut = dvl.bindSingle({
-      parent: divCont
-      self: 'input.title-cont'
-      attr: {
-        type: 'text'
-        disabled: dvl.op.iff(disabled, '', null)
-      }
-    }).value()
-    valueOut.on('keydown', (->
-      keyCode = d3.event.keyCode
-      # Do not block tab keys
-      if keyCode is 9 # tab = 9
-        menuOpen.value(false)
-        return
+  userInputText = dvl.wrapVar('');
+  dvl.debug('userInputText:', userInputText);
 
-      if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
-        menuOpen.value(true)
-
-      if keyCode is 27 # esc = 27
-        menuOpen.value(false)
-
-      d3.event.preventDefault()
+  valueOut = dvl.bindSingle({
+    parent: divCont
+    data: userInputText
+    self: 'input.title-cont'
+    attr: {
+      type: 'text'
+      disabled: dvl.op.iff(disabled, '', null)
+    }
+  }).value()
+  valueOut.on('keydown', (->
+    keyCode = d3.event.keyCode
+    console.log(keyCode)
+    # Do not block tab keys
+    if keyCode is 9 # tab = 9
+      menuOpen.value(false)
       return
-    ), true) # Capture
-  else
-    valueOut = dvl.bindSingle({
-      parent: divCont
-      self: 'span.title-cont'
-    }).value()
+
+    if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
+      menuOpen.value(true)
+
+    if keyCode is 27 # esc = 27
+      menuOpen.value(false)
+
+    if keyCode >= 65 and keyCode <= 90 # is a letter
+      userChar = String.fromCharCode(keyCode)
+      userInputText.value(userChar)
+      for d in data.value()
+        console.log("checking #{d}")
+        if d.charAt(0) is userInputText.value()
+          selection.value(d)
+          break
+
+    d3.event.preventDefault()
+    return
+  ), true) # Capture
 
   valueOut.attr('id', id) if id
 
@@ -368,10 +380,8 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         selLabel = selectionLabel.value()
         titleText = if selLabel then selLabel(sel) else ''
 
-      if editable
-        valueOut.property('value', titleText ? '')
-      else
-        valueOut.text(titleText)
+      valueOut.property('value', titleText ? '')
+
       return
   }
 

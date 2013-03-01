@@ -2400,7 +2400,7 @@ function lift(fn) {
   };
 
   dvl.html.list = function(_arg) {
-    var classStr, data, extras, highlight, i, icons, label, link, listClass, myOnEnter, onClick, onEnter, onLeave, onSelect, parent, selection, selections, ul, _i, _len;
+    var classStr, data, extras, highlight, i, icons, label, link, listClass, onClick, onEnter, onLeave, onSelect, parent, selection, selections, ul, _i, _len;
     parent = _arg.parent, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, highlight = _arg.highlight;
     if (!parent) {
       throw 'must have parent';
@@ -2463,7 +2463,19 @@ function lift(fn) {
         window.location.href = linkVal;
       }
     });
-    myOnEnter = dvl.register({
+    if (!onEnter) {
+      onEnter = function(val) {
+        return highlight.value(val);
+      };
+    }
+    if (!(onLeave != null)) {
+      onLeave = function(val) {
+        if (highlight.value() === val) {
+          return highlight.value("");
+        }
+      };
+    }
+    dvl.register({
       name: 'update_html_list',
       listen: [data, label, link],
       fn: function() {
@@ -2527,8 +2539,8 @@ function lift(fn) {
   };
 
   dvl.html.dropdown = function(_arg) {
-    var classStr, data, disabled, divCont, editable, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, valueOut;
-    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, editable = _arg.editable, highlight = _arg.highlight;
+    var classStr, data, disabled, divCont, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, userInputText, valueOut;
+    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight;
     if (!parent) {
       throw 'must have parent';
     }
@@ -2563,36 +2575,46 @@ function lift(fn) {
         position: 'relative'
       }
     }).value();
-    if (editable) {
-      valueOut = dvl.bindSingle({
-        parent: divCont,
-        self: 'input.title-cont',
-        attr: {
-          type: 'text',
-          disabled: dvl.op.iff(disabled, '', null)
+    userInputText = dvl.wrapVar('');
+    dvl.debug('userInputText:', userInputText);
+    valueOut = dvl.bindSingle({
+      parent: divCont,
+      data: userInputText,
+      self: 'input.title-cont',
+      attr: {
+        type: 'text',
+        disabled: dvl.op.iff(disabled, '', null)
+      }
+    }).value();
+    valueOut.on('keydown', (function() {
+      var d, keyCode, userChar, _i, _len, _ref;
+      keyCode = d3.event.keyCode;
+      console.log(keyCode);
+      if (keyCode === 9) {
+        menuOpen.value(false);
+        return;
+      }
+      if (keyCode === 38 || keyCode === 40) {
+        menuOpen.value(true);
+      }
+      if (keyCode === 27) {
+        menuOpen.value(false);
+      }
+      if (keyCode >= 65 && keyCode <= 90) {
+        userChar = String.fromCharCode(keyCode);
+        userInputText.value(userChar);
+        _ref = data.value();
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          d = _ref[_i];
+          console.log("checking " + d);
+          if (d.charAt(0) === userInputText.value()) {
+            selection.value(d);
+            break;
+          }
         }
-      }).value();
-      valueOut.on('keydown', (function() {
-        var keyCode;
-        keyCode = d3.event.keyCode;
-        if (keyCode === 9) {
-          menuOpen.value(false);
-          return;
-        }
-        if (keyCode === 38 || keyCode === 40) {
-          menuOpen.value(true);
-        }
-        if (keyCode === 27) {
-          menuOpen.value(false);
-        }
-        d3.event.preventDefault();
-      }), true);
-    } else {
-      valueOut = dvl.bindSingle({
-        parent: divCont,
-        self: 'span.title-cont'
-      }).value();
-    }
+      }
+      d3.event.preventDefault();
+    }), true);
     if (id) {
       valueOut.attr('id', id);
     }
@@ -2675,11 +2697,7 @@ function lift(fn) {
           selLabel = selectionLabel.value();
           titleText = selLabel ? selLabel(sel) : '';
         }
-        if (editable) {
-          valueOut.property('value', titleText != null ? titleText : '');
-        } else {
-          valueOut.text(titleText);
-        }
+        valueOut.property('value', titleText != null ? titleText : '');
       }
     });
     return {

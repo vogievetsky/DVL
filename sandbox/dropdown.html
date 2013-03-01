@@ -2,11 +2,30 @@
 <html>
 	<head>
 		<title>DVL: Data Visualization Legos Walkthrough</title>
-		<link rel="stylesheet" href="tutorial.css"></link>
+		<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
 		<script src="../d3/d3.v2.js"></script>
-		<script src="../dvl.js"></script>    
+		<script src="../dvl.js"></script>
+		<style>
+			.is_selection {
+				background-color: black;
+				color: white;
+			}
+
+			.title-cont {
+				border: 1px solid black;
+			}
+
+			div.open li {
+				background-color: grey;
+			}
+			div.open .is_highlight {
+				background-color: green;
+			}
+		</style>
 	</head>
 	<body>
 	</body>
-	<script src="customDropdown.js"></script>
+	<p>Select a country:
+		<script src="dropdown.js"></script>
+	</p>
 </html>
