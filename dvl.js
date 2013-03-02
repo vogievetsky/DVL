@@ -2580,11 +2580,12 @@ function lift(fn) {
     valueOut = dvl.bindSingle({
       parent: divCont,
       data: userInputText,
-      self: 'input.title-cont',
+      self: 'div.title-cont',
       attr: {
-        type: 'text',
-        disabled: dvl.op.iff(disabled, '', null)
-      }
+        disabled: dvl.op.iff(disabled, '', null),
+        tabIndex: 0
+      },
+      text: selection
     }).value();
     valueOut.on('keydown', (function() {
       var datum, index, keyCode, selectionIndex, userChar, _i, _j, _len, _ref, _ref1;
