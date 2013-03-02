@@ -255,7 +255,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     }
   }).value()
 
-  userInputText = dvl.wrapVar('');
+  userInputText = dvl.wrapVar('---');
   dvl.debug('userInputText:', userInputText);
 
   valueOut = dvl.bindSingle({
@@ -269,25 +269,42 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   }).value()
   valueOut.on('keydown', (->
     keyCode = d3.event.keyCode
-    console.log(keyCode)
     # Do not block tab keys
     if keyCode is 9 # tab = 9
       menuOpen.value(false)
       return
 
     if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
-      menuOpen.value(true)
+      if not menuOpen.value()
+        menuOpen.value(true)
+      else
+        console.log("arrow pressed when menu open")
+        if selection.value() is null
+          console.log("selection.value() was null, set to first element in data array")
+          selection.value(data.value()[0])
+        else
+        ##increment selection
+          selectionIndex = 0
+          for index in [0..data.value().length]
+            if selection.value() is data.value()[index]
+              selectionIndex = index
+              console.log("selectionIndex was set to #{selectionIndex}")
+              break
+          if keyCode is 38 then selectionIndex-- else selectionIndex++
+          selectionIndex += data.value().length #handles the case with the up arrow on the first element
+          selectionIndex %= data.value().length
+          console.log("Set selectionIndex to #{selectionIndex}")
+          selection.value(data.value()[selectionIndex])
 
-    if keyCode is 27 # esc = 27
+    if keyCode in [13, 27] # enter = 13, esc = 27
       menuOpen.value(false)
 
     if keyCode >= 65 and keyCode <= 90 # is a letter
       userChar = String.fromCharCode(keyCode)
       userInputText.value(userChar)
-      for d in data.value()
-        console.log("checking #{d}")
-        if d.charAt(0) is userInputText.value()
-          selection.value(d)
+      for datum in data.value()
+        if datum.charAt(0) is userInputText.value()
+          selection.value(datum)
           break
 
     d3.event.preventDefault()

@@ -2575,7 +2575,7 @@ function lift(fn) {
         position: 'relative'
       }
     }).value();
-    userInputText = dvl.wrapVar('');
+    userInputText = dvl.wrapVar('---');
     dvl.debug('userInputText:', userInputText);
     valueOut = dvl.bindSingle({
       parent: divCont,
@@ -2587,28 +2587,52 @@ function lift(fn) {
       }
     }).value();
     valueOut.on('keydown', (function() {
-      var d, keyCode, userChar, _i, _len, _ref;
+      var datum, index, keyCode, selectionIndex, userChar, _i, _j, _len, _ref, _ref1;
       keyCode = d3.event.keyCode;
-      console.log(keyCode);
       if (keyCode === 9) {
         menuOpen.value(false);
         return;
       }
       if (keyCode === 38 || keyCode === 40) {
-        menuOpen.value(true);
+        if (!menuOpen.value()) {
+          menuOpen.value(true);
+        } else {
+          console.log("arrow pressed when menu open");
+          if (selection.value() === null) {
+            console.log("selection.value() was null, set to first element in data array");
+            selection.value(data.value()[0]);
+          } else {
+            selectionIndex = 0;
+            for (index = _i = 0, _ref = data.value().length; 0 <= _ref ? _i <= _ref : _i >= _ref; index = 0 <= _ref ? ++_i : --_i) {
+              if (selection.value() === data.value()[index]) {
+                selectionIndex = index;
+                console.log("selectionIndex was set to " + selectionIndex);
+                break;
+              }
+            }
+            if (keyCode === 38) {
+              selectionIndex--;
+            } else {
+              selectionIndex++;
+            }
+            selectionIndex += data.value().length;
+            selectionIndex %= data.value().length;
+            console.log("Set selectionIndex to " + selectionIndex);
+            selection.value(data.value()[selectionIndex]);
+          }
+        }
       }
-      if (keyCode === 27) {
+      if (keyCode === 13 || keyCode === 27) {
         menuOpen.value(false);
       }
       if (keyCode >= 65 && keyCode <= 90) {
         userChar = String.fromCharCode(keyCode);
         userInputText.value(userChar);
-        _ref = data.value();
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          d = _ref[_i];
-          console.log("checking " + d);
-          if (d.charAt(0) === userInputText.value()) {
-            selection.value(d);
+        _ref1 = data.value();
+        for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+          datum = _ref1[_j];
+          if (datum.charAt(0) === userInputText.value()) {
+            selection.value(datum);
             break;
           }
         }

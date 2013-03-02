@@ -20,8 +20,5 @@ var text = dvl.wrapVar('');
 var listParent = d3.select("body").append("div").attr("class", "dropdownParent");
 
 dvl.html.list = dvl.html.dropdown({parent: listParent, 
-				  data: COUNTRIES,
-				  selection: "Canada",
-				  highlight: "Mexico",
-				  editable: true
+				  data: COUNTRIES
 				});
