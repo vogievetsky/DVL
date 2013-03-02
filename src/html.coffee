@@ -261,12 +261,15 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   valueOut = dvl.bindSingle({
     parent: divCont
     data: userInputText
-    self: 'input.title-cont'
+    self: 'div.title-cont'
     attr: {
-      type: 'text'
       disabled: dvl.op.iff(disabled, '', null)
+      tabIndex: 0
     }
+    text: selection
   }).value()
+
+
   valueOut.on('keydown', (->
     keyCode = d3.event.keyCode
     # Do not block tab keys
