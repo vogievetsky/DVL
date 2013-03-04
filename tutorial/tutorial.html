@@ -30,14 +30,9 @@
     <h2>Motivations</h2>
     <p>What is DVL and why would I want to use it?</p>
 
-    <p>DVL (Data Visualization Legos) reduces the effort of creating data visualizations of real-time data in the browser. You specify the data and a directed acyclic graph. When the data is updated, only those functions dependent on the changed data are updated. Essentially, you model the data flow and then spend your time working with the data.</p>
+    <p>DVL (Data Visualization Legos) reduces the effort of creating data visualizations of real-time data in the browser. You specify the data and a pipeline that leads from the data to visualization components. When the data is updated, only the components dependent on the data values that were changed are updated. Essentially, you model the data flow and then spend your time working with the data.</p>
 
-    <hr>
-
-    <h2>Examples</h2>
-    <p class="todo">Real-Time Bar Chart</p>
-    <p class="todo">Axes That Auto-Scale with Real-Time Data</p>
-    <p class="todo">Dropdown List wth Autocomplete</p>
+    <p>DVL also provide a set of visualization and interaction components along with conveniences for tying them to update on data changes.</p>
 
     <hr>
 
@@ -45,15 +40,25 @@
     <ul>
       <li>Enough JavaScript to traverse the HTML DOM, modify elements, etc.</li>
       <li>Basic CSS</li>
-      <li>A fair amount of <a href="http://d3js.org">D3</a></li>
+      <li>A fair amount of <a href="http://d3js.org">D3</a>. DVL is a layer on top of D3. If you can look at <a href="randomBarChartWithD3.html">this interactive plot</a> and think of how to implement it using D3, you should be OK.</li>
     </ul>
+
+    <hr>
+    <h2>Examples</h2>
+    <p class="todo">Real-Time Bar Chart</p>
+    <p class="todo">Axes That Auto-Scale with Real-Time Data</p>
+    <p class="todo">Dropdown List wth Autocomplete</p>
+
 
     <hr>
     <h2>Technical Overview</h2>
 
-    <p>To set up a DVL application, you create a set of pipes. These pipes start at data, pass through functions, and tell visual components to update. This is essentially a model/view/controller system. For a reference point, Backbone.js can be considered similar to DVL. However, DVL is targeted for the case of data visualizations on real-time data.</p>
+    <p>To set up a DVL application, you create a set of pipes. These pipes start at data, pass through functions, and tell visual components to update. This is essentially a model/view/controller (MVC) system. For a reference point, Backbone.js can be considered similar to DVL. However, DVL is targeted for the case of data visualizations on real-time data. It offers two advantages over a standard MVC framework:</p>
 
-    <p>One features of DVL is that a visual component will not update until it has recieved messages from all data that was updated that the visual component depends on.  For example, if new data was added to a dataset being visualized with a chart, the x and y axes of the chart would we scaled at the same time. DVL accomplishes this by ordering messages using a topological sort.</p>
+    <ul>
+      <li>Once placed in the pipeline, DVL's components will not update until they have received messages from all upstream data sources the component depends on.  For example, if new data was added to a dataset being visualized with a chart, the x and y axes of the chart would scale at the same time. (TODO: place in deep-geek section: DVL accomplishes this by ordering messages using a topological sort.)</li>
+      <li>Visualization and interaction components designed to drop into a DVL pipeline.
+    </ul>
 
     <hr>
 
@@ -124,7 +129,7 @@ dvl.bind({
     </pre>
   </code>
 
-<p>Notice the addition of the 'dvl.apply' function. This function will be explained more in depth later, but for the moment just notice that it performs a transformation on the dvl variable we provide as input. In this case, we take the DVL variable 'coord' and return it as a single-element array. DVL expects arrays. (We actually did provide DVL with an array in example 01. We just used the convenience function dvl.bindSingle to do so.)</p>
+<p>Notice the addition of the 'dvl.apply' function. This function will be explained more in depth later, but for the moment just notice that it performs a transformation on the DVL variable we provide as input. In this case, we take the DVL variable 'coord' and return it as a single-element array. DVL expects arrays. (We actually did provide DVL with an array in example 01. We just used the convenience function dvl.bindSingle to do so.)</p>
 
 <p>Next, notice 'dvl.bindSingle' has been replaced with the more general 'dvl.bind', which you will likely use more often. In addition, we are now binding the DVL variable through the 'data' property. This allows us to specify a function on the data prior to displaying as text. In this example, we simple convert the value of the DVL variable to text with no modifications. However, we can replace the line
 
@@ -311,24 +316,6 @@ setInterval(function() {
 
 </p>
 
-<p>TODO: why is get() swappable with value(), but set(x) is not swappable with value(x)?:
-
-<code>
-  <pre>
-    var data = dvl([2, 6, 8, 3, 2]);
-
-setInterval(function() {
-  var _data = data.get();
-  _data.shift()
-  _data.push(Math.round(Math.random() * 9 + 1))
-  _data;
-  data.value(_data).notify();
-}, 1000);
-  </pre>
-</code>
-
-</p>
-
 <hr>
 <h2>Axes That Auto-Scale with Real-Time Data</h2>
 
@@ -338,7 +325,7 @@ setInterval(function() {
 <h2>Simulating Data</h2>
 <code>
   <pre>
-    dvl.register(); dvl.record();
+    dvl.random(); dvl.record();
   </pre>
 
 <p>The real-time bar chart used a very basic technique for simulating data. In this section, we'll look at the capabilities DVL has for simulating real-time data. TODO: deconstruct the random-walk example.
@@ -346,9 +333,64 @@ setInterval(function() {
 </code>
 
 <hr>
+<h2>Manipulating the DOM with DVL</h2>
+DVL can be used to manipulate the DOM aside from creating a data-visualization pipeline:
+
+<code>
+  <pre>
+    var pParent = d3.select("body").append("div.parent");
+
+    var clearButton = dvl.bindSingle({
+      parent: buttonParent,
+      self: "p",
+      text: "A p element created with DVL"
+    });
+  </pre>
+</code>
+
+"clearButton" will now be a DVL variable. You can get its D3 selection as follows:
+
+<code>
+  <pre>
+    var d3Selection = clearButton.value();    
+  </pre>
+</code>
+
+
+<hr>
 <h2>Creating GUI Components with DVL</h2>
 
 <a href="creatingGUIComponents.html">Link</a>
+
+<hr>
+<h2>DVL Register</h2>
+
+<p>So far we've been binding data to visualizations using dvl.bind, dvl.bindSingle, etc.  Now let's look deeper at how they set up the DVL pipeline and look at some examples.</p>
+
+<p>dvl.bind, dvl.bindSingle, and other helper functions make a call to dvl.register.  Let's take a look at a basic usage of it:
+
+<code>
+  <pre>
+    dvl.register({
+      listen: data,
+      change: output,
+      fn: //do some funciton
+  });
+  </pre>
+</code>
+</p>
+
+
+TODO: swap out dvl.bindSingle in initial example with dvl.register()
+
+<hr>
+<h2>dvl.applyAlways and "null"</h2>
+
+TODO: drop in the bug I had where I used dvl.apply instead of dvl.applyAlways
+
+<hr>
+<h2>Accessors</h2>
+TODO: write this section once Vad shows me how to add accessors.
 
 <!-- ************************************** -->
   <hr>
