@@ -2576,7 +2576,6 @@ function lift(fn) {
       }
     }).value();
     userInputText = dvl.wrapVar('---');
-    dvl.debug('userInputText:', userInputText);
     valueOut = dvl.bindSingle({
       parent: divCont,
       data: userInputText,
@@ -2598,16 +2597,13 @@ function lift(fn) {
         if (!menuOpen.value()) {
           menuOpen.value(true);
         } else {
-          console.log("arrow pressed when menu open");
           if (selection.value() === null) {
-            console.log("selection.value() was null, set to first element in data array");
             selection.value(data.value()[0]);
           } else {
             selectionIndex = 0;
             for (index = _i = 0, _ref = data.value().length; 0 <= _ref ? _i <= _ref : _i >= _ref; index = 0 <= _ref ? ++_i : --_i) {
               if (selection.value() === data.value()[index]) {
                 selectionIndex = index;
-                console.log("selectionIndex was set to " + selectionIndex);
                 break;
               }
             }
@@ -2618,7 +2614,6 @@ function lift(fn) {
             }
             selectionIndex += data.value().length;
             selectionIndex %= data.value().length;
-            console.log("Set selectionIndex to " + selectionIndex);
             selection.value(data.value()[selectionIndex]);
           }
         }
@@ -2632,7 +2627,7 @@ function lift(fn) {
         _ref1 = data.value();
         for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
           datum = _ref1[_j];
-          if (datum.charAt(0) === userInputText.value()) {
+          if (datum && datum.charAt(0) === userInputText.value()) {
             selection.value(datum);
             break;
           }

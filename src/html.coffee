@@ -256,7 +256,6 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   }).value()
 
   userInputText = dvl.wrapVar('---');
-  dvl.debug('userInputText:', userInputText);
 
   valueOut = dvl.bindSingle({
     parent: divCont
@@ -281,9 +280,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       if not menuOpen.value()
         menuOpen.value(true)
       else
-        console.log("arrow pressed when menu open")
         if selection.value() is null
-          console.log("selection.value() was null, set to first element in data array")
           selection.value(data.value()[0])
         else
         ##increment selection
@@ -291,12 +288,10 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
           for index in [0..data.value().length]
             if selection.value() is data.value()[index]
               selectionIndex = index
-              console.log("selectionIndex was set to #{selectionIndex}")
               break
           if keyCode is 38 then selectionIndex-- else selectionIndex++
           selectionIndex += data.value().length #handles the case with the up arrow on the first element
           selectionIndex %= data.value().length
-          console.log("Set selectionIndex to #{selectionIndex}")
           selection.value(data.value()[selectionIndex])
 
     if keyCode in [13, 27] # enter = 13, esc = 27
@@ -306,7 +301,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       userChar = String.fromCharCode(keyCode)
       userInputText.value(userChar)
       for datum in data.value()
-        if datum.charAt(0) is userInputText.value()
+        if datum and datum.charAt(0) is userInputText.value()
           selection.value(datum)
           break
 
