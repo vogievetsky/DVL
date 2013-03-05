@@ -25,14 +25,7 @@
       <div class="chart4"></div>
       <div class="other">
         <button onclick="addChart()">Add another chart</button>
-        <pre class=".demo">
-{
-  "time": 17,
-  "temp": 30.391,
-  "phase": "Heating",
-  "bubbling": 0,
-  "energy": 411.862
-}
+        <pre class="demo">
         </pre>
       </div>
     </div>
@@ -66,6 +59,40 @@
     self: d3.select('.info'),
     text: summaryText
   });
+
+  var objectText = dvl.applyAlways([data, selData], function(_data, _selData){
+    if (! _data)
+      return null;
+
+    _d = _data[17];
+
+    found = false;
+    if (_selData && _selData.length) {
+      for (var i = 0; i < _selData.length; i++) {
+        item = _selData[i];
+        if (item.time == _d.time) {
+          found = true;
+          break;
+        }
+        if (item.time > _d.time) break;
+      }
+    }
+
+    s = found ? "" : "Selected!";
+    pretty_d = {
+      time    : _d.time,
+      phase   : _d.phase,
+      temp    : _d.temp.toFixed(3),
+      bubbling: _d.bubbling.toFixed(3),
+      energy  : _d.energy.toFixed(3)
+    }
+    return s + "\n" + JSON.stringify(pretty_d, null, "  ");
+  })
+
+  dvl.bindSingle({
+    self: d3.select('pre.demo'),
+    text: objectText
+  })
 
   window.timeWidth = dvl(600)
 
