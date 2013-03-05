@@ -2539,7 +2539,7 @@ function lift(fn) {
   };
 
   dvl.html.dropdown = function(_arg) {
-    var classStr, data, disabled, divCont, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, userInputText, valueOut;
+    var classStr, data, disabled, divCont, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, noDataEverSelected, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, userInputText, valueOut;
     parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight;
     if (!parent) {
       throw 'must have parent';
@@ -2586,6 +2586,10 @@ function lift(fn) {
       },
       text: selection
     }).value();
+    noDataEverSelected = false;
+    if (selection.value() === null) {
+      noDataEverSelected = true;
+    }
     valueOut.on('keydown', (function() {
       var datum, index, keyCode, selectionIndex, userChar, _i, _j, _len, _ref, _ref1;
       keyCode = d3.event.keyCode;
@@ -2597,8 +2601,9 @@ function lift(fn) {
         if (!menuOpen.value()) {
           menuOpen.value(true);
         } else {
-          if (selection.value() === null) {
+          if (noDataEverSelected && selection.value() === null) {
             selection.value(data.value()[0]);
+            noDataEverSelected = false;
           } else {
             selectionIndex = 0;
             for (index = _i = 0, _ref = data.value().length; 0 <= _ref ? _i <= _ref : _i >= _ref; index = 0 <= _ref ? ++_i : --_i) {
@@ -2627,7 +2632,8 @@ function lift(fn) {
         _ref1 = data.value();
         for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
           datum = _ref1[_j];
-          if (datum && datum.charAt(0) === userInputText.value()) {
+          window.datum = datum;
+          if (datum && label.value()(datum).charAt(0) === userInputText.value()) {
             selection.value(datum);
             break;
           }

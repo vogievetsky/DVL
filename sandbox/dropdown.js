@@ -17,5 +17,6 @@ var text = dvl.wrapVar('');
 var listParent = d3.select("body").append("div").attr("class", "dropdownParent");
 
 dvl.html.list = dvl.html.dropdown({parent: listParent, 
-				  data: COUNTRIES
+				  data: COUNTRIES,
+				  label: function(d) { return d === null ? "X" : d; }
 				});
