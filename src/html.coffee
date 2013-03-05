@@ -268,6 +268,9 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     text: selection
   }).value()
 
+  #used to handle the case when the developer has "null" in the dataset
+  noDataEverSelected = false
+  if selection.value() is null then noDataEverSelected = true
 
   valueOut.on('keydown', (->
     keyCode = d3.event.keyCode
@@ -280,8 +283,9 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       if not menuOpen.value()
         menuOpen.value(true)
       else
-        if selection.value() is null
+        if noDataEverSelected and selection.value() is null
           selection.value(data.value()[0])
+          noDataEverSelected = false
         else
         ##increment selection
           selectionIndex = 0
@@ -301,7 +305,8 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       userChar = String.fromCharCode(keyCode)
       userInputText.value(userChar)
       for datum in data.value()
-        if datum and datum.charAt(0) is userInputText.value()
+        window.datum = datum
+        if datum and label.value()(datum).charAt(0) is userInputText.value()
           selection.value(datum)
           break
 
