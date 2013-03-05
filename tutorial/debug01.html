@@ -1,0 +1,22 @@
+	<head>
+		<title>DVL: Data Visualization Legos Walkthrough</title>
+		<link rel="stylesheet" href="tutorial.css"></link>
+		<script src="d3.v3.min.js"></script>
+		<script src="../dvl.js"></script>    
+	</head>
+	<body>
+
+<code>
+  <pre>
+var COUNTRIES = [null, "US", "Canada"];
+var COUNTRIES = dvl.wrap(COUNTRIES);
+
+var labelFn = function (d) { return d? d : "--"; };
+var labelFn = dvl.wrap(labelFn);
+
+for (var i = 0; i < COUNTRIES.value().length; i++) { console.log(labelFn(COUNTRIES.value()[i])); } 
+</pre>
+</code>
+
+	</body>
+</html>

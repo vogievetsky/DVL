@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>dvl.register</title>
+		<link rel="stylesheet" href="tutorial.css"></link>
+		<script src="d3.v3.min.js"></script>
+		<script src="../dvl.js"></script>    
+	</head>
+	<body>
+		<script>
+			var x = dvl(0);
+			setInterval(function() {
+  				x.value(Math.round(Math.random() * 100));
+			}, 500);
+
+			var pParent = d3.select("body").append("div#01");
+
+			dvl.bindSingle({
+				parent: pParent,
+				self: "div",
+				text: x
+			});
+		</script>
+	</body>
+</html>
