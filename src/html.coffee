@@ -136,12 +136,15 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
     window.location.href = linkVal if linkVal
     return
 
-  if not onEnter
-    onEnter = (val) -> highlight.value(val)
+  myOnEnter = (val) ->
+    return if onEnter?(val) is false
+    highlight.value(val)
+    return
 
-  if not onLeave?
-    onLeave = (val) -> 
-      if (highlight.value() is val) then highlight.value("")
+  myOnLeave = (val) ->
+    return if myOnLeave?(val) is false
+    if (highlight.value() is val) then highlight.value("")
+    return
 
   dvl.register {
     name: 'update_html_list'
@@ -190,8 +193,8 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
       cont = sel
         .attr('class', _class)
         .on('click', onClick)
-        .on('mouseover', onEnter)
-        .on('mouseout', onLeave)
+        .on('mouseover', myOnEnter)
+        .on('mouseout', myOnLeave)
         .select('a')
           .attr('href', _link)
 
