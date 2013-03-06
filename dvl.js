@@ -2596,20 +2596,20 @@ function lift(fn) {
     }
     valueOut.on('keydown', (function() {
       var d, datum, keyCode, selectionIndex, userChar, _i, _j, _len, _len1, _ref, _ref1, _selection;
-      keyCode = d3.event.keyCode;
-      if (keyCode === 9) {
-        menuOpen.value(false);
-        return;
-      }
-      if (keyCode === 38 || keyCode === 40) {
-        if (!menuOpen.value()) {
-          menuOpen.value(true);
-        } else {
-          if (noDataEverSelected && selection.value() === null) {
-            selection.value(data.value()[0]);
-            noDataEverSelected = false;
+      if (data.value()) {
+        keyCode = d3.event.keyCode;
+        if (keyCode === 9) {
+          menuOpen.value(false);
+          return;
+        }
+        if (keyCode === 38 || keyCode === 40) {
+          if (!menuOpen.value()) {
+            menuOpen.value(true);
           } else {
-            if (data.value()) {
+            if (noDataEverSelected && selection.value() === null) {
+              selection.value(data.value()[0]);
+              noDataEverSelected = false;
+            } else {
               selectionIndex = 0;
               _selection = selection.value();
               _ref = data.value();
@@ -2632,18 +2632,18 @@ function lift(fn) {
             }
           }
         }
-      }
-      if (keyCode === 13 || keyCode === 27) {
-        menuOpen.value(false);
-      }
-      userChar = String.fromCharCode(keyCode);
-      if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
-        _ref1 = data.value();
-        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-          datum = _ref1[_j];
-          if (datum && label.value()(datum).charAt(0) === userChar) {
-            selection.value(datum);
-            break;
+        if (keyCode === 13 || keyCode === 27) {
+          menuOpen.value(false);
+        }
+        userChar = String.fromCharCode(keyCode);
+        if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
+          _ref1 = data.value();
+          for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+            datum = _ref1[_j];
+            if (datum && label.value()(datum).charAt(0) === userChar) {
+              selection.value(datum);
+              break;
+            }
           }
         }
       }

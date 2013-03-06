@@ -258,8 +258,6 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     }
   }).value()
 
-  #userInputText = '';
-
   valueOut = dvl.bindSingle({
     parent: divCont
     datum: selection
@@ -277,22 +275,22 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   if selection.value() is null then noDataEverSelected = true
 
   valueOut.on('keydown', (->
-    keyCode = d3.event.keyCode
-    # Do not block tab keys
-    if keyCode is 9 # tab = 9
-      menuOpen.value(false)
-      return
+    if data.value()
+      keyCode = d3.event.keyCode
+      # Do not block tab keys
+      if keyCode is 9 # tab = 9
+        menuOpen.value(false)
+        return
 
-    if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
-      if not menuOpen.value()
-        menuOpen.value(true)
-      else
-        if noDataEverSelected and selection.value() is null
-          selection.value(data.value()[0])    
-          noDataEverSelected = false
+      if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
+        if not menuOpen.value()
+          menuOpen.value(true)
         else
-        ##increment selection
-          if data.value()
+          if noDataEverSelected and selection.value() is null
+            selection.value(data.value()[0])
+            noDataEverSelected = false
+          else
+          ##increment selection
             selectionIndex = 0
             _selection = selection.value()
             for d in data.value()
@@ -302,16 +300,15 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
             selectionIndex %= data.value().length
             selection.value(data.value()[selectionIndex])
 
-    if keyCode in [13, 27] # enter = 13, esc = 27
-      menuOpen.value(false)
+      if keyCode in [13, 27] # enter = 13, esc = 27
+        menuOpen.value(false)
 
-    userChar = String.fromCharCode(keyCode)
-    if userChar and not (keyCode in [9, 38, 40, 13, 27])
-      #userInputText = userChar
-      for datum in data.value()
-        if datum and label.value()(datum).charAt(0) is userChar
-          selection.value(datum)
-          break
+      userChar = String.fromCharCode(keyCode)
+      if userChar and not (keyCode in [9, 38, 40, 13, 27])
+        for datum in data.value()
+          if datum and label.value()(datum).charAt(0) is userChar
+            selection.value(datum)
+            break
 
     d3.event.preventDefault()
     return
