@@ -2577,7 +2577,7 @@ function lift(fn) {
         position: 'relative'
       }
     }).value();
-    userInputText = dvl.wrapVar('---');
+    userInputText = '';
     valueOut = dvl.bindSingle({
       parent: divCont,
       datum: selection,
@@ -2645,11 +2645,11 @@ function lift(fn) {
       }
       userChar = String.fromCharCode(keyCode);
       if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
-        userInputText.value(userChar);
+        userInputText = userChar;
         _ref1 = data.value();
         for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
           datum = _ref1[_j];
-          if (datum && label.value()(datum).charAt(0) === userInputText.value()) {
+          if (datum && label.value()(datum).charAt(0) === userInputText) {
             selection.value(datum);
             break;
           }

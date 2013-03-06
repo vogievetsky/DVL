@@ -258,7 +258,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     }
   }).value()
 
-  userInputText = dvl.wrapVar('---');
+  userInputText = '';
 
   valueOut = dvl.bindSingle({
     parent: divCont
@@ -307,9 +307,9 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 
     userChar = String.fromCharCode(keyCode)
     if userChar and not (keyCode in [9, 38, 40, 13, 27])
-      userInputText.value(userChar)
+      userInputText = userChar
       for datum in data.value()
-        if datum and label.value()(datum).charAt(0) is userInputText.value()
+        if datum and label.value()(datum).charAt(0) is userInputText
           selection.value(datum)
           break
 
