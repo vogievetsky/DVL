@@ -2541,7 +2541,7 @@ function lift(fn) {
   };
 
   dvl.html.dropdown = function(_arg) {
-    var classStr, data, disabled, divCont, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, noDataEverSelected, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, userInputText, valueOut;
+    var classStr, data, disabled, divCont, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, noDataEverSelected, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, valueOut;
     parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight;
     if (!parent) {
       throw 'must have parent';
@@ -2577,7 +2577,6 @@ function lift(fn) {
         position: 'relative'
       }
     }).value();
-    userInputText = '';
     valueOut = dvl.bindSingle({
       parent: divCont,
       datum: selection,
@@ -2645,11 +2644,10 @@ function lift(fn) {
       }
       userChar = String.fromCharCode(keyCode);
       if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
-        userInputText = userChar;
         _ref1 = data.value();
         for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
           datum = _ref1[_j];
-          if (datum && label.value()(datum).charAt(0) === userInputText) {
+          if (datum && label.value()(datum).charAt(0) === userChar) {
             selection.value(datum);
             break;
           }
