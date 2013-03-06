@@ -2616,25 +2616,27 @@ function lift(fn) {
             selection.value(data.value()[0]);
             noDataEverSelected = false;
           } else {
-            selectionIndex = 0;
-            _selection = selection.value();
-            _ref = data.value();
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              d = _ref[_i];
-              if (_selection === d) {
-                break;
+            if (data.value()) {
+              selectionIndex = 0;
+              _selection = selection.value();
+              _ref = data.value();
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                d = _ref[_i];
+                if (_selection === d) {
+                  break;
+                } else {
+                  selectionIndex++;
+                }
+              }
+              if (keyCode === 38) {
+                selectionIndex--;
               } else {
                 selectionIndex++;
               }
+              selectionIndex += data.value().length;
+              selectionIndex %= data.value().length;
+              selection.value(data.value()[selectionIndex]);
             }
-            if (keyCode === 38) {
-              selectionIndex--;
-            } else {
-              selectionIndex++;
-            }
-            selectionIndex += data.value().length;
-            selectionIndex %= data.value().length;
-            selection.value(data.value()[selectionIndex]);
           }
         }
       }

@@ -292,14 +292,15 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
           noDataEverSelected = false
         else
         ##increment selection
-          selectionIndex = 0
-          _selection = selection.value()
-          for d in data.value()
-            if _selection is d then break else selectionIndex++
-          if keyCode is 38 then selectionIndex-- else selectionIndex++
-          selectionIndex += data.value().length #handles the case with the up arrow on the first element
-          selectionIndex %= data.value().length
-          selection.value(data.value()[selectionIndex])
+          if data.value()
+            selectionIndex = 0
+            _selection = selection.value()
+            for d in data.value()
+              if _selection is d then break else selectionIndex++
+            if keyCode is 38 then selectionIndex-- else selectionIndex++
+            selectionIndex += data.value().length #handles the case with the up arrow on the first element
+            selectionIndex %= data.value().length
+            selection.value(data.value()[selectionIndex])
 
     if keyCode in [13, 27] # enter = 13, esc = 27
       menuOpen.value(false)
