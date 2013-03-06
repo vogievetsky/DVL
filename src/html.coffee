@@ -267,7 +267,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     attr: {
       disabled: dvl.op.iff(disabled, '', null)
       tabIndex: 0
-      id: -> if id then return id else return null
+      id: id
     }
     text: -> return label.value()(selection.value())
   }).value()

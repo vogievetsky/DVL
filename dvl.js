@@ -2584,13 +2584,7 @@ function lift(fn) {
       attr: {
         disabled: dvl.op.iff(disabled, '', null),
         tabIndex: 0,
-        id: function() {
-          if (id) {
-            return id;
-          } else {
-            return null;
-          }
-        }
+        id: id
       },
       text: function() {
         return label.value()(selection.value());
