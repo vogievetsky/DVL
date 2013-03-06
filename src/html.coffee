@@ -269,6 +269,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     attr: {
       disabled: dvl.op.iff(disabled, '', null)
       tabIndex: 0
+      id: -> if id then return id else return null
     }
     text: -> return label.value()(selection.value())
   }).value()
@@ -319,8 +320,6 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     d3.event.preventDefault()
     return
   ), true) # Capture
-
-  valueOut.attr('id', id) if id
 
   myOnSelect = (text, i) ->
     menuOpen.value(false) unless keepOnClick

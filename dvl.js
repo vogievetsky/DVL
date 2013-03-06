@@ -2585,7 +2585,14 @@ function lift(fn) {
       self: 'div.title-cont',
       attr: {
         disabled: dvl.op.iff(disabled, '', null),
-        tabIndex: 0
+        tabIndex: 0,
+        id: function() {
+          if (id) {
+            return id;
+          } else {
+            return null;
+          }
+        }
       },
       text: function() {
         return label.value()(selection.value());
@@ -2647,9 +2654,6 @@ function lift(fn) {
       }
       d3.event.preventDefault();
     }), true);
-    if (id) {
-      valueOut.attr('id', id);
-    }
     myOnSelect = function(text, i) {
       if (!keepOnClick) {
         menuOpen.value(false);
