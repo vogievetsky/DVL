@@ -260,8 +260,6 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 
   userInputText = dvl.wrapVar('---');
 
-  window.kkk = selection
-
   valueOut = dvl.bindSingle({
     parent: divCont
     datum: selection
