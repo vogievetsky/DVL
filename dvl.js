@@ -2596,7 +2596,7 @@ function lift(fn) {
       noDataEverSelected = true;
     }
     valueOut.on('keydown', (function() {
-      var datum, index, keyCode, selectionIndex, userChar, _i, _j, _len, _ref, _ref1;
+      var datum, index, keyCode, selectionIndex, userChar, _i, _j, _len, _ref, _ref1, _selection;
       keyCode = d3.event.keyCode;
       if (keyCode === 9) {
         menuOpen.value(false);
@@ -2611,8 +2611,9 @@ function lift(fn) {
             noDataEverSelected = false;
           } else {
             selectionIndex = 0;
+            _selection = selection.value();
             for (index = _i = 0, _ref = data.value().length; 0 <= _ref ? _i <= _ref : _i >= _ref; index = 0 <= _ref ? ++_i : --_i) {
-              if (selection.value() === data.value()[index]) {
+              if (_selection === data.value()[index]) {
                 selectionIndex = index;
                 break;
               }

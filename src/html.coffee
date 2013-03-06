@@ -260,6 +260,8 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 
   userInputText = dvl.wrapVar('---');
 
+  window.kkk = selection
+
   valueOut = dvl.bindSingle({
     parent: divCont
     datum: selection
@@ -292,8 +294,9 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         else
         ##increment selection
           selectionIndex = 0
+          _selection = selection.value()
           for index in [0..data.value().length]
-            if selection.value() is data.value()[index]
+            if _selection is data.value()[index]
               selectionIndex = index
               break
           if keyCode is 38 then selectionIndex-- else selectionIndex++
