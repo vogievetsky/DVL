@@ -2578,15 +2578,18 @@ function lift(fn) {
       }
     }).value();
     userInputText = dvl.wrapVar('---');
+    window.kkk = selection;
     valueOut = dvl.bindSingle({
       parent: divCont,
-      data: userInputText,
+      datum: selection,
       self: 'div.title-cont',
       attr: {
         disabled: dvl.op.iff(disabled, '', null),
         tabIndex: 0
       },
-      text: selection
+      text: function() {
+        return label.value()(selection.value());
+      }
     }).value();
     noDataEverSelected = false;
     if (selection.value() === null) {

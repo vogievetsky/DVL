@@ -262,13 +262,13 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 
   valueOut = dvl.bindSingle({
     parent: divCont
-    data: userInputText
+    datum: selection
     self: 'div.title-cont'
     attr: {
       disabled: dvl.op.iff(disabled, '', null)
       tabIndex: 0
     }
-    text: selection
+    text: -> return label.value()(selection.value())
   }).value()
 
   #used to handle the case when the developer has "null" in the dataset
