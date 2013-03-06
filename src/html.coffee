@@ -142,7 +142,7 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
     return
 
   myOnLeave = (val) ->
-    return if myOnLeave?(val) is false
+    return if onLeave?(val) is false
     if (highlight.value() is val) then highlight.value("")
     return
 

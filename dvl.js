@@ -2400,7 +2400,7 @@ function lift(fn) {
   };
 
   dvl.html.list = function(_arg) {
-    var classStr, data, extras, highlight, i, icons, label, link, listClass, onClick, onEnter, onLeave, onSelect, parent, selection, selections, ul, _i, _len;
+    var classStr, data, extras, highlight, i, icons, label, link, listClass, myOnEnter, myOnLeave, onClick, onEnter, onLeave, onSelect, parent, selection, selections, ul, _i, _len;
     parent = _arg.parent, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, highlight = _arg.highlight;
     if (!parent) {
       throw 'must have parent';
@@ -2463,18 +2463,20 @@ function lift(fn) {
         window.location.href = linkVal;
       }
     });
-    if (!onEnter) {
-      onEnter = function(val) {
-        return highlight.value(val);
-      };
-    }
-    if (!(onLeave != null)) {
-      onLeave = function(val) {
-        if (highlight.value() === val) {
-          return highlight.value("");
-        }
-      };
-    }
+    myOnEnter = function(val) {
+      if ((typeof onEnter === "function" ? onEnter(val) : void 0) === false) {
+        return;
+      }
+      highlight.value(val);
+    };
+    myOnLeave = function(val) {
+      if ((typeof onLeave === "function" ? onLeave(val) : void 0) === false) {
+        return;
+      }
+      if (highlight.value() === val) {
+        highlight.value("");
+      }
+    };
     dvl.register({
       name: 'update_html_list',
       listen: [data, label, link],
@@ -2517,7 +2519,7 @@ function lift(fn) {
         addIcons(a, 'left');
         a.append('span');
         addIcons(a, 'right');
-        cont = sel.attr('class', _class).on('click', onClick).on('mouseover', onEnter).on('mouseout', onLeave).select('a').attr('href', _link);
+        cont = sel.attr('class', _class).on('click', onClick).on('mouseover', myOnEnter).on('mouseout', myOnLeave).select('a').attr('href', _link);
         cont.select('span').text(_label);
         sel.exit().remove();
       }
