@@ -2602,7 +2602,7 @@ function lift(fn) {
       noDataEverSelected = true;
     }
     valueOut.on('keydown', (function() {
-      var datum, index, keyCode, selectionIndex, userChar, _i, _j, _len, _ref, _ref1, _selection;
+      var d, datum, keyCode, selectionIndex, userChar, _i, _j, _len, _len1, _ref, _ref1, _selection;
       keyCode = d3.event.keyCode;
       if (keyCode === 9) {
         menuOpen.value(false);
@@ -2618,10 +2618,13 @@ function lift(fn) {
           } else {
             selectionIndex = 0;
             _selection = selection.value();
-            for (index = _i = 0, _ref = data.value().length; 0 <= _ref ? _i <= _ref : _i >= _ref; index = 0 <= _ref ? ++_i : --_i) {
-              if (_selection === data.value()[index]) {
-                selectionIndex = index;
+            _ref = data.value();
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              d = _ref[_i];
+              if (_selection === d) {
                 break;
+              } else {
+                selectionIndex++;
               }
             }
             if (keyCode === 38) {
@@ -2642,7 +2645,7 @@ function lift(fn) {
       if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
         userInputText.value(userChar);
         _ref1 = data.value();
-        for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
           datum = _ref1[_j];
           if (datum && label.value()(datum).charAt(0) === userInputText.value()) {
             selection.value(datum);

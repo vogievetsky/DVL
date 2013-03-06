@@ -17,8 +17,7 @@ setInterval(
 		var val = changingData.value() === null ? COUNTRIES : null;
 		changingData.value(val); 
 	},
-	1000);
-dvl.debug("changingData", changingData);
+	2000);
 
 var parentEx02 = d3.select("div#ex02");
 

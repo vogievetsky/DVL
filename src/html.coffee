@@ -294,10 +294,8 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         ##increment selection
           selectionIndex = 0
           _selection = selection.value()
-          for index in [0..data.value().length]
-            if _selection is data.value()[index]
-              selectionIndex = index
-              break
+          for d in data.value()
+            if _selection is d then break else selectionIndex++
           if keyCode is 38 then selectionIndex-- else selectionIndex++
           selectionIndex += data.value().length #handles the case with the up arrow on the first element
           selectionIndex %= data.value().length
