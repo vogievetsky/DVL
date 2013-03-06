@@ -288,7 +288,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         menuOpen.value(true)
       else
         if noDataEverSelected and selection.value() is null
-          selection.value(data.value()[0])
+          selection.value(data.value()[0])    
           noDataEverSelected = false
         else
         ##increment selection
@@ -306,11 +306,10 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     if keyCode in [13, 27] # enter = 13, esc = 27
       menuOpen.value(false)
 
-    if keyCode >= 65 and keyCode <= 90 # is a letter
-      userChar = String.fromCharCode(keyCode)
+    userChar = String.fromCharCode(keyCode)
+    if userChar and not (keyCode in [9, 38, 40, 13, 27])
       userInputText.value(userChar)
       for datum in data.value()
-        window.datum = datum
         if datum and label.value()(datum).charAt(0) is userInputText.value()
           selection.value(datum)
           break

@@ -2638,13 +2638,12 @@ function lift(fn) {
       if (keyCode === 13 || keyCode === 27) {
         menuOpen.value(false);
       }
-      if (keyCode >= 65 && keyCode <= 90) {
-        userChar = String.fromCharCode(keyCode);
+      userChar = String.fromCharCode(keyCode);
+      if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
         userInputText.value(userChar);
         _ref1 = data.value();
         for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
           datum = _ref1[_j];
-          window.datum = datum;
           if (datum && label.value()(datum).charAt(0) === userInputText.value()) {
             selection.value(datum);
             break;
