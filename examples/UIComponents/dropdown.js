@@ -1,7 +1,6 @@
 var COUNTRIES = [null, "United States", "United Kingdom", "Canada", "Mexico", "England", 
 				"Russia", "The United Kingdom of Great Britain and Northern Ireland"];
 
-
 //example 01
 var parentEx01 = d3.select("div#ex01");
 dvl.html.dropdown({parent: parentEx01, 
@@ -41,7 +40,7 @@ var filteredCodes = dvl.apply(
 
 dvl.debug( filteredCodes )
 
-var parentExCountryCodes = d3.select("div#exCountryCodes");
+var parentExCountryCodes = d3.select("div#ex-country-codes");
 
 dvl.html.dropdown({	parent: parentExCountryCodes, 
 				  	data: filteredCodes,
