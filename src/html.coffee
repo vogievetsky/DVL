@@ -270,45 +270,43 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     text: -> return label.value()(selection.value())
   }).value()
 
-  #used to handle the case when the developer has "null" in the dataset
-  noDataEverSelected = false
-  if selection.value() is null then noDataEverSelected = true
-
   valueOut.on('keydown', (->
-    if data.value()
-      keyCode = d3.event.keyCode
-      # Do not block tab keys
-      if keyCode is 9 # tab = 9
-        menuOpen.value(false)
-        return
+    _data = data.value()
+    return unless _data
+    _label = label.value()
+    return unless _data
 
-      if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
-        if not menuOpen.value()
-          menuOpen.value(true)
-        else
-          if noDataEverSelected and selection.value() is null
-            selection.value(data.value()[0])
-            noDataEverSelected = false
-          else
-          ##increment selection
-            selectionIndex = 0
-            _selection = selection.value()
-            for d in data.value()
-              if _selection is d then break else selectionIndex++
-            if keyCode is 38 then selectionIndex-- else selectionIndex++
-            selectionIndex += data.value().length #handles the case with the up arrow on the first element
-            selectionIndex %= data.value().length
-            selection.value(data.value()[selectionIndex])
+    selection.value(_data[0]) unless selection.value()
 
-      if keyCode in [13, 27] # enter = 13, esc = 27
-        menuOpen.value(false)
+    keyCode = d3.event.keyCode
+    # Do not block tab keys
+    if keyCode is 9 # tab = 9
+      menuOpen.value(false)
+      return
 
-      userChar = String.fromCharCode(keyCode)
-      if userChar and not (keyCode in [9, 38, 40, 13, 27])
-        for datum in data.value()
-          if datum and label.value()(datum).charAt(0) is userChar
-            selection.value(datum)
-            break
+    if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
+      if not menuOpen.value()
+        menuOpen.value(true)
+
+      ##increment selection
+      selectionIndex = 0
+      _selection = selection.value()
+      for d in _data
+        if _selection is d then break else selectionIndex++
+      if keyCode is 38 then selectionIndex-- else selectionIndex++
+      selectionIndex += _data.length #handles the case with the up arrow on the first element
+      selectionIndex %= _data.length
+      selection.value(_data[selectionIndex])
+
+    if keyCode in [13, 27] # enter = 13, esc = 27
+      menuOpen.value(false)
+
+    userChar = String.fromCharCode(keyCode)
+    if userChar and not (keyCode in [9, 38, 40, 13, 27])
+      for datum in _data
+        if datum and _label(datum).charAt(0) is userChar
+          selection.value(datum)
+          break
 
     d3.event.preventDefault()
     return

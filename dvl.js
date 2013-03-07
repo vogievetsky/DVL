@@ -2541,7 +2541,7 @@ function lift(fn) {
   };
 
   dvl.html.dropdown = function(_arg) {
-    var classStr, data, disabled, divCont, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, noDataEverSelected, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, valueOut;
+    var classStr, data, disabled, divCont, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, valueOut;
     parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight;
     if (!parent) {
       throw 'must have parent';
@@ -2590,60 +2590,57 @@ function lift(fn) {
         return label.value()(selection.value());
       }
     }).value();
-    noDataEverSelected = false;
-    if (selection.value() === null) {
-      noDataEverSelected = true;
-    }
     valueOut.on('keydown', (function() {
-      var d, datum, keyCode, selectionIndex, userChar, _i, _j, _len, _len1, _ref, _ref1, _selection;
-      if (data.value()) {
-        keyCode = d3.event.keyCode;
-        if (keyCode === 9) {
-          menuOpen.value(false);
-          return;
+      var d, datum, keyCode, selectionIndex, userChar, _data, _i, _j, _label, _len, _len1, _selection;
+      _data = data.value();
+      if (!_data) {
+        return;
+      }
+      _label = label.value();
+      if (!_data) {
+        return;
+      }
+      if (!selection.value()) {
+        selection.value(_data[0]);
+      }
+      keyCode = d3.event.keyCode;
+      if (keyCode === 9) {
+        menuOpen.value(false);
+        return;
+      }
+      if (keyCode === 38 || keyCode === 40) {
+        if (!menuOpen.value()) {
+          menuOpen.value(true);
         }
-        if (keyCode === 38 || keyCode === 40) {
-          if (!menuOpen.value()) {
-            menuOpen.value(true);
+        selectionIndex = 0;
+        _selection = selection.value();
+        for (_i = 0, _len = _data.length; _i < _len; _i++) {
+          d = _data[_i];
+          if (_selection === d) {
+            break;
           } else {
-            if (noDataEverSelected && selection.value() === null) {
-              selection.value(data.value()[0]);
-              noDataEverSelected = false;
-            } else {
-              selectionIndex = 0;
-              _selection = selection.value();
-              _ref = data.value();
-              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                d = _ref[_i];
-                if (_selection === d) {
-                  break;
-                } else {
-                  selectionIndex++;
-                }
-              }
-              if (keyCode === 38) {
-                selectionIndex--;
-              } else {
-                selectionIndex++;
-              }
-              selectionIndex += data.value().length;
-              selectionIndex %= data.value().length;
-              selection.value(data.value()[selectionIndex]);
-            }
+            selectionIndex++;
           }
         }
-        if (keyCode === 13 || keyCode === 27) {
-          menuOpen.value(false);
+        if (keyCode === 38) {
+          selectionIndex--;
+        } else {
+          selectionIndex++;
         }
-        userChar = String.fromCharCode(keyCode);
-        if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
-          _ref1 = data.value();
-          for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-            datum = _ref1[_j];
-            if (datum && label.value()(datum).charAt(0) === userChar) {
-              selection.value(datum);
-              break;
-            }
+        selectionIndex += _data.length;
+        selectionIndex %= _data.length;
+        selection.value(_data[selectionIndex]);
+      }
+      if (keyCode === 13 || keyCode === 27) {
+        menuOpen.value(false);
+      }
+      userChar = String.fromCharCode(keyCode);
+      if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
+        for (_j = 0, _len1 = _data.length; _j < _len1; _j++) {
+          datum = _data[_j];
+          if (datum && _label(datum).charAt(0) === userChar) {
+            selection.value(datum);
+            break;
           }
         }
       }
