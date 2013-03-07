@@ -21,18 +21,29 @@ setInterval(
 
 var parentEx02 = d3.select("div#ex02");
 
-dvl.bind({
-	parent: parentEx02,
-	self: "div#rawDataOutput",
+dvl.html.dropdown({
+  parent: parentEx02, 
 	data: changingData,
-	text: function (d) { return d; },
-	style: {
-		border: "solid 1px",
-		width: "100px"
-	}
+  label: function(d) { return d === null ? "--" : d; }
 });
 
-dvl.html.dropdown({	parent: parentEx02, 
-					data: changingData,
+//example 03
+var countryCodes = [11, 112, 123, 235, 358];
+var codeMappings = { 11: "United States", 112: "Canada", 358: "Mexico" };
+
+var filteredCodes = dvl.apply(
+	[countryCodes],
+	function(_countryCodes) {
+    console.log(_countryCodes); 
+		return _countryCodes.filter(function (x) { return codeMappings[x] })
+  }
+);
+
+dvl.debug( filteredCodes )
+
+var parentExCountryCodes = d3.select("div#exCountryCodes");
+
+dvl.html.dropdown({	parent: parentExCountryCodes, 
+				  	data: filteredCodes,
 				  	label: function(d) { return d === null ? "--" : d; }
 					});
