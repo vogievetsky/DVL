@@ -235,6 +235,16 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   link = dvl.wrap(link)
   disabled = dvl.wrap(disabled ? false)
 
+  ##selection cannot be null (unless data is null),
+  ##since we're not allowing a state that cannot be revisited in this component
+  _data = data.value()
+  _label = label.value()
+  if _data and _label and not selection.value()
+    for datumIndex in [0.._data.length]
+      firstLabeledData = _label(_data[datumIndex])
+      if (firstLabeledData) then break
+    selection.value(firstLabeledData)
+
   title = dvl.wrap(title) if title
   icons or= []
 
@@ -275,8 +285,6 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     return unless _data
     _label = label.value()
     return unless _data
-
-    selection.value(_data[0]) unless selection.value()
 
     keyCode = d3.event.keyCode
     # Do not block tab keys
