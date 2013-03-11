@@ -28,17 +28,14 @@ dvl.html.dropdown({
 
 //example 03
 var countryCodes = [11, 112, 123, 235, 358];
-var codeMappings = { 11: "United States", 112: "Canada", 358: "Mexico" };
+var codeMappings = { 123: "United States", 235: "Canada", 358: "Mexico" };
 
 var filteredCodes = dvl.apply(
 	[countryCodes],
 	function(_countryCodes) {
-    console.log(_countryCodes); 
 		return _countryCodes.filter(function (x) { return codeMappings[x] })
   }
 );
-
-dvl.debug( filteredCodes )
 
 var parentExCountryCodes = d3.select("div#ex-country-codes");
 
