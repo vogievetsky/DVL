@@ -1839,10 +1839,10 @@ function lift(fn) {
       var argsOn, attr, attrList, data, html, join, k, listen, nodeType, onList, out, parent, part, parts, property, propertyList, self, staticClass, staticId, style, styleList, text, transition, transitionExit, v, _i, _len;
       parent = _arg.parent, self = _arg.self, data = _arg.data, join = _arg.join, attr = _arg.attr, style = _arg.style, property = _arg.property, text = _arg.text, html = _arg.html, argsOn = _arg.on, transition = _arg.transition, transitionExit = _arg.transitionExit;
       if (!parent) {
-        throw "'parent' not defiend";
+        throw "'parent' not defined";
       }
       if (typeof self !== 'string') {
-        throw "'self' not defiend";
+        throw "'self' not defined";
       }
       parts = self.split(id_class_spliter);
       nodeType = parts.shift();
@@ -2042,11 +2042,14 @@ function lift(fn) {
       return out;
     };
     return dvl.bindSingle = function(_arg) {
-      var argsOn, attr, attrList, datum, html, k, listen, nodeType, onList, parent, part, parts, property, propertyList, self, staticClass, staticId, style, styleList, text, transition, v, _i, _len;
-      parent = _arg.parent, self = _arg.self, datum = _arg.datum, attr = _arg.attr, style = _arg.style, property = _arg.property, text = _arg.text, html = _arg.html, argsOn = _arg.on, transition = _arg.transition;
+      var argsOn, attr, attrList, data, datum, html, k, listen, nodeType, onList, parent, part, parts, property, propertyList, self, staticClass, staticId, style, styleList, text, transition, v, _i, _len;
+      parent = _arg.parent, self = _arg.self, data = _arg.data, datum = _arg.datum, attr = _arg.attr, style = _arg.style, property = _arg.property, text = _arg.text, html = _arg.html, argsOn = _arg.on, transition = _arg.transition;
+      if (data) {
+        throw new Error("bindSingle does not accept a parameter 'data'. Did you mean 'datum'?");
+      }
       if (typeof self === 'string') {
         if (!parent) {
-          throw "'parent' not defiend for string self";
+          throw "'parent' not defined for string self";
         }
         parts = self.split(id_class_spliter);
         nodeType = parts.shift();
@@ -3332,16 +3335,15 @@ function lift(fn) {
   })();
 
   (function() {
-    var ajaxManagers, makeManager, nextGroupId, normalRequester, outstanding;
+    var ajaxManagers, makeManager, nextGroupId, outstanding;
     outstanding = dvl(0).name('json_outstanding');
     ajaxManagers = [];
-    normalRequester = null;
     makeManager = function() {
       var addHoock, getData, initRequestBundle, inputChange, makeRequest, maybeDone, nextQueryId, queries, worker;
       nextQueryId = 0;
       initRequestBundle = [];
       queries = [];
-      maybeDone = function(request) {
+      maybeDone = dvl.group(function(request) {
         var notify, q, _i, _j, _len, _len1, _ref;
         for (_i = 0, _len = request.length; _i < _len; _i++) {
           q = request[_i];
@@ -3352,14 +3354,12 @@ function lift(fn) {
         notify = [];
         for (_j = 0, _len1 = request.length; _j < _len1; _j++) {
           q = request[_j];
-          q.res.set((_ref = q.resVal) != null ? _ref : null);
-          notify.push(q.res);
+          q.res.value((_ref = q.resVal) != null ? _ref : null);
           q.status = '';
           q.requestBundle = null;
           delete q.resVal;
         }
-        dvl.notify.apply(null, notify);
-      };
+      });
       getData = function(err, resVal) {
         var q;
         q = this.q;
@@ -3369,48 +3369,30 @@ function lift(fn) {
             q.onError(err);
           }
         } else {
-          q.resVal = this.url ? resVal : null;
+          q.resVal = this.query ? resVal : null;
         }
         q.status = 'ready';
         q.curAjax = null;
         maybeDone(q.requestBundle);
       };
       makeRequest = function(q) {
-        var ctx, _data, _dataFn, _dataType, _method, _url;
-        _url = q.url.value();
-        _data = q.data.value();
-        _dataFn = q.dataFn.value();
-        _method = q.method.value();
-        _dataType = q.type.value();
+        var ctx, _query;
+        _query = q.query.value();
         ctx = {
           q: q,
-          url: _url,
-          data: _data,
-          dataFn: _dataFn,
-          method: _method
+          query: _query
         };
-        if ((_url != null) && (_method === 'GET' || ((_data != null) && (_dataFn != null))) && _dataType) {
+        if (_query != null) {
           if (q.invalidOnLoad.value()) {
             q.res.value(null);
           }
           outstanding.value(outstanding.value() + 1);
-          q.curAjax = q.requester.request({
-            url: _url,
-            data: _data,
-            dataFn: _dataFn,
-            method: _method,
-            dataType: _dataType,
-            contentType: q.contentType.value(),
-            processData: q.processData.value(),
-            fn: q.fn,
-            outstanding: outstanding,
-            complete: function(err, data) {
-              outstanding.value(outstanding.value() - 1);
-              if (err === 'abort') {
-                return;
-              }
-              getData.call(ctx, err, data);
+          q.curAjax = q.requester(_query, function(err, data) {
+            outstanding.value(outstanding.value() - 1);
+            if (err === 'abort') {
+              return;
             }
+            getData.call(ctx, err, data);
           });
         } else {
           getData.call(ctx, null, null);
@@ -3422,11 +3404,11 @@ function lift(fn) {
         newRequestBundle = [];
         for (_i = 0, _len = queries.length; _i < _len; _i++) {
           q = queries[_i];
-          if (!(q.url.hasChanged() || q.data.hasChanged() || q.dataFn.hasChanged())) {
+          if (!q.query.hasChanged()) {
             continue;
           }
           if (q.status === 'virgin') {
-            if (q.url.value()) {
+            if (q.query.value()) {
               initRequestBundle.push(q);
               q.status = 'requesting';
               q.requestBundle = initRequestBundle;
@@ -3456,80 +3438,63 @@ function lift(fn) {
         }
       };
       worker = null;
-      addHoock = function(url, data, dataFn, ret) {
+      addHoock = function(query, ret) {
         if (worker) {
-          worker.addListen(url, data, dataFn);
+          worker.addListen(query);
           worker.addChange(ret);
         } else {
           worker = dvl.register({
             name: 'ajax_manager',
-            listen: [url, data],
+            listen: [query],
             change: [ret, outstanding],
             fn: inputChange
           });
         }
       };
-      return function(url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name) {
+      return function(query, invalidOnLoad, onError, requester, name) {
         var q, res;
         nextQueryId++;
         res = dvl().name(name);
         q = {
           id: nextQueryId,
-          url: url,
-          data: data,
-          dataFn: dataFn,
-          method: method,
-          contentType: contentType,
-          processData: processData,
+          query: query,
           res: res,
           status: 'virgin',
-          type: type,
           requester: requester,
           onError: onError,
           invalidOnLoad: invalidOnLoad,
           requestBundle: null,
           curAjax: null
         };
-        if (fn) {
-          q.fn = fn;
-        }
         queries.push(q);
-        addHoock(url, data, dataFn, res);
+        addHoock(query, res);
         return res;
       };
     };
-    dvl.ajax = function(_arg) {
-      var contentType, data, dataFn, fn, groupId, invalidOnLoad, method, name, onError, processData, requester, type, url;
-      url = _arg.url, data = _arg.data, dataFn = _arg.dataFn, method = _arg.method, type = _arg.type, contentType = _arg.contentType, processData = _arg.processData, fn = _arg.fn, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, requester = _arg.requester, name = _arg.name;
-      if (!url) {
-        throw 'it does not make sense to not have a url';
+    dvl.async = function(_arg) {
+      var groupId, invalidOnLoad, name, onError, query, requester;
+      query = _arg.query, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, requester = _arg.requester, name = _arg.name;
+      if (!query) {
+        throw 'it does not make sense to not have a query';
       }
-      if (fn && dvl.knows(fn)) {
-        throw 'the fn function must be non DVL variable';
+      if (!requester) {
+        throw 'it does not make sense to not have a requester';
       }
-      url = dvl.wrap(url);
-      data = dvl.wrap(data);
-      dataFn = dvl.wrap(dataFn || dvl.indentity);
-      method = dvl.wrap(method || 'GET');
-      type = dvl.wrap(type || 'json');
-      contentType = dvl.wrap(contentType || 'application/x-www-form-urlencoded');
-      processData = dvl.wrap(processData != null ? processData : true);
+      if (typeof requester !== 'function') {
+        throw 'requester must be a function';
+      }
+      query = dvl.wrap(query);
       invalidOnLoad = dvl.wrap(invalidOnLoad || false);
       name || (name = 'ajax_data');
       if (groupId == null) {
-        groupId = dvl.ajax.getGroupId();
+        groupId = dvl.async.getGroupId();
       }
       ajaxManagers[groupId] || (ajaxManagers[groupId] = makeManager());
-      if (!requester) {
-        normalRequester || (normalRequester = dvl.ajax.requester.normal());
-        requester = normalRequester;
-      }
-      return ajaxManagers[groupId](url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name);
+      return ajaxManagers[groupId](query, invalidOnLoad, onError, requester, name);
     };
-    dvl.json = dvl.ajax;
-    dvl.ajax.outstanding = outstanding;
+    dvl.async.outstanding = outstanding;
     nextGroupId = 0;
-    dvl.ajax.getGroupId = function() {
+    dvl.async.getGroupId = function() {
       var id;
       id = nextGroupId;
       nextGroupId++;
@@ -3537,62 +3502,54 @@ function lift(fn) {
     };
   })();
 
-  dvl.ajax.requester = {
-    normal: function() {
-      return {
-        request: function(_arg) {
-          var ajax, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, method, processData, url;
-          url = _arg.url, data = _arg.data, dataFn = _arg.dataFn, method = _arg.method, dataType = _arg.dataType, contentType = _arg.contentType, processData = _arg.processData, fn = _arg.fn, complete = _arg.complete;
-          dataVal = method !== 'GET' ? dataFn(data) : null;
-          getData = function(resVal) {
-            var ajax, ctx;
-            if (fn) {
-              ctx = {
-                url: url,
-                data: data
-              };
-              resVal = fn.call(ctx, resVal);
-            }
-            ajax = null;
-            complete(null, resVal);
-          };
-          getError = function(xhr, textStatus) {
-            var ajax;
-            ajax = null;
-            complete(xhr.responseText || textStatus, null);
-          };
-          ajax = jQuery.ajax({
-            url: url,
-            data: dataVal,
-            type: method,
-            dataType: dataType,
-            contentType: contentType,
-            processData: processData,
-            success: getData,
-            error: getError,
-            context: {
-              url: url
-            }
-          });
-          return {
-            abort: function() {
-              if (ajax) {
-                ajax.abort();
-                ajax = null;
-              }
-            }
-          };
+  dvl.async.requester = {
+    ajax: function(query, complete) {
+      var abort, ajax;
+      ajax = jQuery.ajax({
+        url: query.url,
+        data: query.dataFn ? query.dataFn(query.data) : query.data,
+        type: query.method || 'GET',
+        dataType: query.dataType || 'json',
+        contentType: query.contentType || 'application/json',
+        processData: query.processData || false,
+        success: function(resVal) {
+          if (query.fn) {
+            resVal = query.fn(resVal, query);
+          }
+          ajax = null;
+          complete(null, resVal);
+        },
+        error: function(xhr, textStatus) {
+          ajax = null;
+          complete(xhr.responseText || textStatus, null);
+        }
+      });
+      abort = function() {
+        if (ajax) {
+          ajax.abort();
+          ajax = null;
         }
       };
+      return {
+        abort: abort
+      };
     },
-    cache: function(_arg) {
-      var cache, count, keyFn, max, timeout, trim, _ref;
-      _ref = _arg != null ? _arg : {}, max = _ref.max, timeout = _ref.timeout, keyFn = _ref.keyFn;
+    cacheWrap: function(_arg) {
+      var cache, count, keyFn, max, requester, timeout, trim, _ref;
+      _ref = _arg != null ? _arg : {}, requester = _ref.requester, max = _ref.max, timeout = _ref.timeout, keyFn = _ref.keyFn;
+      if (!requester) {
+        throw 'it does not make sense to not have a requester';
+      }
+      if (typeof requester !== 'function') {
+        throw 'requester must be a function';
+      }
       max = dvl.wrap(max || 100);
       timeout = dvl.wrap(timeout || 30 * 60 * 1000);
       cache = {};
       count = 0;
-      keyFn || (keyFn = function(url, data, method, dataType, contentType, processData) {
+      keyFn || (keyFn = function(_arg1) {
+        var contentType, data, dataType, method, processData, url;
+        url = _arg1.url, data = _arg1.data, method = _arg1.method, dataType = _arg1.dataType, contentType = _arg1.contentType, processData = _arg1.processData;
         return [url, dvl.util.strObj(data), method, dataType, contentType, processData].join('@@');
       });
       trim = function() {
@@ -3627,16 +3584,17 @@ function lift(fn) {
         return _results;
       };
       dvl.register({
-        fn: trim,
         listen: [max, timeout],
-        name: 'cache_trim'
+        fn: trim
       });
       return {
-        request: function(_arg1) {
-          var added, c, complete, contentType, data, dataFn, dataType, dataVal, fn, getData, getError, key, method, processData, url;
-          url = _arg1.url, data = _arg1.data, dataFn = _arg1.dataFn, method = _arg1.method, dataType = _arg1.dataType, contentType = _arg1.contentType, processData = _arg1.processData, fn = _arg1.fn, complete = _arg1.complete;
-          dataVal = method !== 'GET' ? dataFn(data) : null;
-          key = keyFn(url, data, method, dataType, contentType, processData);
+        clear: function() {
+          cache = {};
+          count = 0;
+        },
+        requester: function(query, complete) {
+          var abort, added, c, key;
+          key = keyFn(query);
           c = cache[key];
           added = false;
           if (!c) {
@@ -3647,81 +3605,59 @@ function lift(fn) {
             added = true;
             count++;
             trim();
-            getData = function(resVal) {
-              var cb, ctx, _i, _len, _ref1;
-              if (fn) {
-                ctx = {
-                  url: url,
-                  data: data
-                };
-                resVal = fn.call(ctx, resVal);
-              }
-              c.ajax = null;
-              c.resVal = resVal;
-              _ref1 = c.waiting;
-              for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-                cb = _ref1[_i];
-                cb(null, resVal);
-              }
-              delete c.waiting;
-            };
-            getError = function(xhr, textStatus) {
-              var cb, _i, _len, _ref1;
-              if (textStatus === "abort") {
+            c.ajax = requester(query, function(err, resVal) {
+              var cb, _i, _j, _len, _len1, _ref1, _ref2;
+              if (err) {
+                if (err === "abort") {
+                  return;
+                }
+                c.ajax = null;
+                delete cache[key];
+                count--;
+                _ref1 = c.waiting;
+                for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+                  cb = _ref1[_i];
+                  cb(err, null);
+                }
+                delete c.waiting;
                 return;
               }
               c.ajax = null;
-              delete cache[key];
-              count--;
-              _ref1 = c.waiting;
-              for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-                cb = _ref1[_i];
-                cb(xhr.responseText || textStatus, null);
+              c.resVal = resVal;
+              _ref2 = c.waiting;
+              for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
+                cb = _ref2[_j];
+                cb(null, resVal);
               }
               delete c.waiting;
-            };
-            c.ajax = jQuery.ajax({
-              url: url,
-              data: dataVal,
-              type: method,
-              dataType: dataType,
-              contentType: contentType,
-              processData: processData,
-              success: getData,
-              error: getError
             });
           }
           if (c.resVal) {
             complete(null, c.resVal);
-            return {
-              abort: function() {}
-            };
+            abort = function() {};
           } else {
             if (!added) {
               c.waiting.push(complete);
             }
-            return {
-              abort: function() {
-                if (!c.waiting) {
-                  return;
-                }
-                c.waiting = c.waiting.filter(function(l) {
-                  return l !== complete;
-                });
-                complete('abort', null);
-                if (c.waiting.length === 0 && c.ajax) {
-                  c.ajax.abort();
-                  c.ajax = null;
-                  delete cache[key];
-                  count--;
-                }
+            abort = function() {
+              if (!c.waiting) {
+                return;
+              }
+              c.waiting = c.waiting.filter(function(l) {
+                return l !== complete;
+              });
+              complete('abort', null);
+              if (c.waiting.length === 0 && c.ajax) {
+                c.ajax.abort();
+                c.ajax = null;
+                delete cache[key];
+                count--;
               }
             };
           }
-        },
-        clear: function() {
-          cache = {};
-          count = 0;
+          return {
+            abort: abort
+          };
         }
       };
     }
