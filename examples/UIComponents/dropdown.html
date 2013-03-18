@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>DVL: Data Visualization Legos Walkthrough</title>
+		<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+		<script src="../../d3/d3.v2.js"></script>
+		<script src="../../dvl.js"></script>
+		<style>
+			.is_selection {
+				background-color: black;
+				color: white;
+			}
+
+			.title-cont {
+				border: 1px solid black;
+				width: 150px;
+				height: 1em;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			div.open li {
+				background-color: grey;
+			}
+			div.open .is_highlight {
+				background-color: green;
+			}
+		</style>
+	</head>
+	<body>
+		<h3>Basic Usage</h3>
+		<p>Select a country:
+			<div id="ex01"></div>
+		</p>
+
+		<hr>
+		<h3>Behavior with null data.</h3>
+		<p>For example, data from server has not yet loaded.</p>
+		<div id="ex02"></div>
+
+		<hr>
+		<h3>Behavior When Data Exists But a Label for Some Data Points Does Not</h3>
+		<p>Example: You want the user to select a country code, but want them to only see the country name.
+			However, some of the country codes do not have an associated name.</p>
+		<div id="ex-country-codes"></div>
+
+	</body>
+	<script src="dropdown.js"></script>
+</html>
