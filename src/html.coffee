@@ -104,13 +104,13 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
       [selection, selections, highlight]
       (_selection, _selections, _highlight) -> (d) ->
         classParts = []
-        if _selection 
+        if _selection
           classParts.push(if d is _selection then 'is_selection' else 'isnt_selection')
 
-        if _selections 
+        if _selections
           classParts.push(if d in _selections then 'is_selections' else 'isnt_selections')
 
-        if _highlight 
+        if _highlight
           classParts.push(if d is _highlight then 'is_highlight' else 'isnt_highlight')
 
         return if classParts.length then classParts.join(' ') else null
@@ -235,15 +235,17 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   link = dvl.wrap(link)
   disabled = dvl.wrap(disabled ? false)
 
-  ##selection cannot be null (unless data is null),
-  ##since we're not allowing a state that cannot be revisited in this component
-  _data = data.value()
-  _label = label.value()
-  if _data and _label and not selection.value()
-    for datumIndex in [0.._data.length]
-      firstLabeledData = _label(_data[datumIndex])
-      if (firstLabeledData) then break
-    selection.value(firstLabeledData)
+  # Make sure that the selection is always within the data
+  dvl.register {
+    listen: data
+    change: selection
+    fn: ->
+      _data = data.value()
+      _selection = selection.value()
+      if not _data or _selection not in _data
+        selection.value(null)
+      return
+  }
 
   title = dvl.wrap(title) if title
   icons or= []
@@ -277,14 +279,14 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       tabIndex: 0
       id: id
     }
-    text: -> return label.value()(selection.value())
+    text: label
   }).value()
 
   valueOut.on('keydown', (->
     _data = data.value()
     return unless _data
     _label = label.value()
-    return unless _data
+    return unless _label
 
     keyCode = d3.event.keyCode
     # Do not block tab keys
@@ -297,14 +299,20 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         menuOpen.value(true)
 
       ##increment selection
-      selectionIndex = 0
+
       _selection = selection.value()
-      for d in _data
-        if _selection is d then break else selectionIndex++
-      if keyCode is 38 then selectionIndex-- else selectionIndex++
-      selectionIndex += _data.length #handles the case with the up arrow on the first element
-      selectionIndex %= _data.length
-      selection.value(_data[selectionIndex])
+      selectionIndex = _data.indexOf(_selection)
+      if selectionIndex is -1
+        if _selection is null
+          if _data.length
+            selection.value(_data[0])
+        else
+          throw "selection was not found in data"
+      else
+        if keyCode is 38 then selectionIndex-- else selectionIndex++
+        selectionIndex += _data.length #handles the case with the up arrow on the first element
+        selectionIndex %= _data.length
+        selection.value(_data[selectionIndex])
 
     if keyCode in [13, 27] # enter = 13, esc = 27
       menuOpen.value(false)
