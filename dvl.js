@@ -2606,16 +2606,15 @@ function lift(fn) {
     }).value();
     valueOut = dvl.bindSingle({
       parent: divCont,
-      datum: selection,
       self: 'div.title-cont',
       attr: {
         disabled: dvl.op.iff(disabled, '', null),
         tabIndex: 0,
         id: id
       },
-      text: label
+      text: dvl.apply(selection, label)
     }).value();
-    valueOut.on('keydown', (function() {
+    valueOut.on('keypress', (function() {
       var datum, keyCode, selectionIndex, userChar, _data, _i, _label, _len, _selection;
       _data = data.value();
       if (!_data) {
@@ -2625,7 +2624,7 @@ function lift(fn) {
       if (!_label) {
         return;
       }
-      keyCode = d3.event.keyCode;
+      keyCode = d3.event.which || d3.event.keyCode;
       if (keyCode === 9) {
         menuOpen.value(false);
         return;
@@ -3421,7 +3420,7 @@ function lift(fn) {
         maybeDone(q.requestBundle);
       };
       makeRequest = function(q) {
-        var ctx, _query;
+        var ctx, oldAjax, _query;
         _query = q.query.value();
         ctx = {
           q: q,
@@ -3432,6 +3431,7 @@ function lift(fn) {
             q.res.value(null);
           }
           outstanding.value(outstanding.value() + 1);
+          oldAjax = q.curAjax;
           q.curAjax = q.requester(_query, function(err, data) {
             outstanding.value(outstanding.value() - 1);
             if (err === 'abort') {
@@ -3439,6 +3439,11 @@ function lift(fn) {
             }
             getData.call(ctx, err, data);
           });
+          if (oldAjax != null) {
+            if (typeof oldAjax.abort === "function") {
+              oldAjax.abort();
+            }
+          }
         } else {
           getData.call(ctx, null, null);
         }
@@ -3462,12 +3467,7 @@ function lift(fn) {
               q.status = '';
             }
           } else if (q.requestBundle) {
-            if (q.curAjax) {
-              q.curAjax.abort();
-              q.curAjax = null;
-            } else {
-              delete q.resVal;
-            }
+            delete q.resVal;
             q.status = 'requesting';
             makeRequestLater.push(q);
           } else {

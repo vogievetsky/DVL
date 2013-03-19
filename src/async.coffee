@@ -59,6 +59,7 @@ do ->
           q.res.value(null)
 
         outstanding.value(outstanding.value() + 1)
+        oldAjax = q.curAjax
         q.curAjax = q.requester(
           _query
           (err, data) ->
@@ -67,6 +68,8 @@ do ->
             getData.call(ctx, err, data)
             return
         )
+        # Abort the old call after making the new
+        oldAjax?.abort?()
 
       else
         getData.call(ctx, null, null)
@@ -88,14 +91,8 @@ do ->
           else
             q.status = ''
         else if q.requestBundle
-          # We are already waiting on this query so...
-          if q.curAjax
-            # If there a request out there for it, abort it.
-            q.curAjax.abort()
-            q.curAjax = null
-          else
-            # So the request already completed, sadly we need to scrap it.
-            delete q.resVal
+          # Request may have already completed, sadly we need to scrap it.
+          delete q.resVal
           q.status = 'requesting'
           makeRequestLater.push(q)
         else

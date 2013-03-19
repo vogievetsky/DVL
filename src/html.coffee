@@ -272,23 +272,22 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 
   valueOut = dvl.bindSingle({
     parent: divCont
-    datum: selection
     self: 'div.title-cont'
     attr: {
       disabled: dvl.op.iff(disabled, '', null)
       tabIndex: 0
       id: id
     }
-    text: label
+    text: dvl.apply(selection, label)
   }).value()
 
-  valueOut.on('keydown', (->
+  valueOut.on('keypress', (->
     _data = data.value()
     return unless _data
     _label = label.value()
     return unless _label
 
-    keyCode = d3.event.keyCode
+    keyCode = d3.event.which or d3.event.keyCode
     # Do not block tab keys
     if keyCode is 9 # tab = 9
       menuOpen.value(false)
