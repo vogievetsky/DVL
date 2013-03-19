@@ -2574,13 +2574,14 @@ function lift(fn) {
     disabled = dvl.wrap(disabled != null ? disabled : false);
     dvl.register({
       listen: data,
-      change: selection,
       fn: function() {
         var _data, _selection;
         _data = data.value();
         _selection = selection.value();
         if (!_data || __indexOf.call(_data, _selection) < 0) {
-          selection.value(null);
+          setTimeout((function() {
+            return selection.value(null);
+          }), 0);
         }
       }
     });

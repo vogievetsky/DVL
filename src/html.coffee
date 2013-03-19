@@ -238,12 +238,13 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   # Make sure that the selection is always within the data
   dvl.register {
     listen: data
-    change: selection
+    #change: selection
     fn: ->
       _data = data.value()
       _selection = selection.value()
       if not _data or _selection not in _data
-        selection.value(null)
+        # Hack for when this makes a circular dependency
+        setTimeout((-> selection.value(null)), 0)
       return
   }
 
