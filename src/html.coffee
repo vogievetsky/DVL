@@ -389,7 +389,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       return if disabled.value()
       return if $(menuCont.node()).find(target).length
 
-      if divCont.node() is target or $(divCont.node()).find(target).length
+      if parent.node() is target or $(parent.node()).find(target).length
         menuOpen.value(not menuOpen.value())
       else
         menuOpen.value(false)
