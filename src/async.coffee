@@ -1,6 +1,6 @@
 ##-------------------------------------------------------
 ##
-##  Asynchronous ajax fetcher.
+##  Asynchronous request fetcher.
 ##
 ##  Fetches ajax data form the server at the given url.
 ##  This function addes the given url to the global json getter,
@@ -13,7 +13,7 @@
 ##  fn:   a function to apply to the recived input.
 ##
 do ->
-  outstanding = dvl(0).name('json_outstanding')
+  outstanding = dvl(0).name('outstanding')
   ajaxManagers = []
 
   makeManager = ->
@@ -34,13 +34,12 @@ do ->
 
       return
 
-    getData = (err, resVal) ->
-      q = @q
+    getData = (q, query, err, resVal) ->
       if err
         q.resVal = null
         q.onError(err) if q.onError
       else
-        q.resVal = if @query then resVal else null
+        q.resVal = if query then resVal else null
 
       q.status = 'ready'
       q.curAjax = null
@@ -50,10 +49,6 @@ do ->
 
     makeRequest = (q) ->
       _query = q.query.value()
-      ctx = {
-        q
-        query: _query
-      }
       if _query?
         if q.invalidOnLoad.value()
           q.res.value(null)
@@ -65,14 +60,14 @@ do ->
           (err, data) ->
             outstanding.value(outstanding.value() - 1)
             return if err is 'abort'
-            getData.call(ctx, err, data)
+            getData(q, _query, err, data)
             return
         )
         # Abort the old call after making the new
         oldAjax?.abort?()
 
       else
-        getData.call(ctx, null, null)
+        getData(q, _query, null, null)
 
       return
 
@@ -90,16 +85,16 @@ do ->
             makeRequestLater.push(q)
           else
             q.status = ''
-        else if q.requestBundle
-          # Request may have already completed, sadly we need to scrap it.
-          delete q.resVal
-          q.status = 'requesting'
-          makeRequestLater.push(q)
         else
-          newRequestBundle.push(q)
           q.status = 'requesting'
-          q.requestBundle = newRequestBundle
-          makeRequestLater.push(q)
+          if q.requestBundle
+            # Request may have already completed, sadly we need to scrap it.
+            delete q.resVal
+            makeRequestLater.push(q)
+          else
+            newRequestBundle.push(q)
+            q.requestBundle = newRequestBundle
+            makeRequestLater.push(q)
 
       makeRequest(q) for q in makeRequestLater
       return

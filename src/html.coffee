@@ -279,7 +279,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       tabIndex: 0
       id: id
     }
-    text: dvl.apply(selection, label)
+    text: title or dvl.applyAlways(selection, label)
   }).value()
 
   valueOut.on('keypress', (->

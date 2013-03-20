@@ -2613,7 +2613,7 @@ function lift(fn) {
         tabIndex: 0,
         id: id
       },
-      text: dvl.apply(selection, label)
+      text: title || dvl.applyAlways(selection, label)
     }).value();
     valueOut.on('keypress', (function() {
       var datum, keyCode, selectionIndex, userChar, _data, _i, _label, _len, _selection;
@@ -3381,7 +3381,7 @@ function lift(fn) {
 
   (function() {
     var ajaxManagers, makeManager, nextGroupId, outstanding;
-    outstanding = dvl(0).name('json_outstanding');
+    outstanding = dvl(0).name('outstanding');
     ajaxManagers = [];
     makeManager = function() {
       var addHoock, getData, initRequestBundle, inputChange, makeRequest, maybeDone, nextQueryId, queries, worker;
@@ -3405,28 +3405,22 @@ function lift(fn) {
           delete q.resVal;
         }
       });
-      getData = function(err, resVal) {
-        var q;
-        q = this.q;
+      getData = function(q, query, err, resVal) {
         if (err) {
           q.resVal = null;
           if (q.onError) {
             q.onError(err);
           }
         } else {
-          q.resVal = this.query ? resVal : null;
+          q.resVal = query ? resVal : null;
         }
         q.status = 'ready';
         q.curAjax = null;
         maybeDone(q.requestBundle);
       };
       makeRequest = function(q) {
-        var ctx, oldAjax, _query;
+        var oldAjax, _query;
         _query = q.query.value();
-        ctx = {
-          q: q,
-          query: _query
-        };
         if (_query != null) {
           if (q.invalidOnLoad.value()) {
             q.res.value(null);
@@ -3438,7 +3432,7 @@ function lift(fn) {
             if (err === 'abort') {
               return;
             }
-            getData.call(ctx, err, data);
+            getData(q, _query, err, data);
           });
           if (oldAjax != null) {
             if (typeof oldAjax.abort === "function") {
@@ -3446,7 +3440,7 @@ function lift(fn) {
             }
           }
         } else {
-          getData.call(ctx, null, null);
+          getData(q, _query, null, null);
         }
       };
       inputChange = function() {
@@ -3467,15 +3461,16 @@ function lift(fn) {
             } else {
               q.status = '';
             }
-          } else if (q.requestBundle) {
-            delete q.resVal;
-            q.status = 'requesting';
-            makeRequestLater.push(q);
           } else {
-            newRequestBundle.push(q);
             q.status = 'requesting';
-            q.requestBundle = newRequestBundle;
-            makeRequestLater.push(q);
+            if (q.requestBundle) {
+              delete q.resVal;
+              makeRequestLater.push(q);
+            } else {
+              newRequestBundle.push(q);
+              q.requestBundle = newRequestBundle;
+              makeRequestLater.push(q);
+            }
           }
         }
         for (_j = 0, _len1 = makeRequestLater.length; _j < _len1; _j++) {
