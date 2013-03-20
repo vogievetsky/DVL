@@ -440,14 +440,7 @@ dvl.register = ({ctx, fn, listen, change, name, noRun}) ->
   # Make function/context holder object
   worker = new DVLWorker(name or 'fn', ctx, fn, listen, change)
 
-  active = false
-  if dvl.typeOf(noRun) is 'function'
-    # Filter based on the properties of listen objects
-    active = not noRun.apply(null, listen.map((d) -> d.value()))
-  else
-    active = not noRun
-
-  if active
+  if not noRun
     # Save changes and run the function with everything as changed.
     changedSave = []
     for l,i in listen
