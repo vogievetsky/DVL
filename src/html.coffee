@@ -82,11 +82,12 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 ##  Create HTML list
 ##
 dvl.html.list = ({parent, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons,
-                  extras, classStr}) ->
+                  extras, classStr, highlight}) ->
   throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection  = dvl.wrapVar(selection, 'selection')
   selections = dvl.wrapVar(selections or [], 'selections')
+  highlight = dvl.wrapVar(highlight, 'highlight')
 
   data = dvl.wrap(data)
   label = dvl.wrap(label or dvl.identity)
@@ -99,24 +100,20 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
   if listClass?
     listClass = dvl.wrap(listClass)
   else
-    listClass = dvl.apply(
-      [selection, selections]
-      allowNull: true
-      (_selection, _selections) ->
+    listClass = dvl.applyAlways(
+      [selection, selections, highlight]
+      (_selection, _selections, _highlight) -> (d) ->
+        classParts = []
         if _selection
-          if _selections
-            return (value) ->
-              (if value is _selection  then 'is_selection'  else 'isnt_selection') + ' ' +
-              (if value in _selections then 'is_selections' else 'isnt_selections')
-          else
-            return (value) ->
-              (if value is _selection  then 'is_selection'  else 'isnt_selection')
-        else
-          if _selections
-            return (value) ->
-              (if value in _selections then 'is_selections' else 'isnt_selections')
-          else
-            return null
+          classParts.push(if d is _selection then 'is_selection' else 'isnt_selection')
+
+        if _selections
+          classParts.push(if d in _selections then 'is_selections' else 'isnt_selections')
+
+        if _highlight
+          classParts.push(if d is _highlight then 'is_highlight' else 'isnt_highlight')
+
+        return if classParts.length then classParts.join(' ') else null
     )
 
   ul = dvl.valueOf(parent).append('ul')
@@ -137,6 +134,16 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
     selections.value(_selections)
 
     window.location.href = linkVal if linkVal
+    return
+
+  myOnEnter = (val) ->
+    return if onEnter?(val) is false
+    highlight.value(val)
+    return
+
+  myOnLeave = (val) ->
+    return if onLeave?(val) is false
+    if (highlight.value() is val) then highlight.value("")
     return
 
   dvl.register {
@@ -186,8 +193,8 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
       cont = sel
         .attr('class', _class)
         .on('click', onClick)
-        .on('mouseover', onEnter)
-        .on('mouseout', onLeave)
+        .on('mouseover', myOnEnter)
+        .on('mouseout', myOnLeave)
         .select('a')
           .attr('href', _link)
 
@@ -215,7 +222,7 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
 
 
 dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
-                      onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, editable}) ->
+                      onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, highlight}) ->
   throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection = dvl.wrapVar(selection, 'selection')
@@ -227,6 +234,19 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   selectionLabel = dvl.wrap(selectionLabel or label)
   link = dvl.wrap(link)
   disabled = dvl.wrap(disabled ? false)
+
+  # Make sure that the selection is always within the data
+  dvl.register {
+    listen: data
+    #change: selection
+    fn: ->
+      _data = data.value()
+      _selection = selection.value()
+      if not _data or _selection not in _data
+        # Hack for when this makes a circular dependency
+        setTimeout((-> selection.value(null)), 0)
+      return
+  }
 
   title = dvl.wrap(title) if title
   icons or= []
@@ -251,38 +271,62 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     }
   }).value()
 
-  if editable
-    valueOut = dvl.bindSingle({
-      parent: divCont
-      self: 'input.title-cont'
-      attr: {
-        type: 'text'
-        disabled: dvl.op.iff(disabled, '', null)
-      }
-    }).value()
-    valueOut.on('keydown', (->
-      keyCode = d3.event.keyCode
-      # Do not block tab keys
-      if keyCode is 9 # tab = 9
-        menuOpen.value(false)
-        return
+  valueOut = dvl.bindSingle({
+    parent: divCont
+    self: 'div.title-cont'
+    attr: {
+      disabled: dvl.op.iff(disabled, '', null)
+      tabIndex: 0
+      id: id
+    }
+    text: title or dvl.applyAlways(selection, label)
+  }).value()
 
-      if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
+  valueOut.on('keypress', (->
+    _data = data.value()
+    return unless _data
+    _label = label.value()
+    return unless _label
+
+    keyCode = d3.event.which or d3.event.keyCode
+    # Do not block tab keys
+    if keyCode is 9 # tab = 9
+      menuOpen.value(false)
+      return
+
+    if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
+      if not menuOpen.value()
         menuOpen.value(true)
 
-      if keyCode is 27 # esc = 27
-        menuOpen.value(false)
+      ##increment selection
 
-      d3.event.preventDefault()
-      return
-    ), true) # Capture
-  else
-    valueOut = dvl.bindSingle({
-      parent: divCont
-      self: 'span.title-cont'
-    }).value()
+      _selection = selection.value()
+      selectionIndex = _data.indexOf(_selection)
+      if selectionIndex is -1
+        if _selection is null
+          if _data.length
+            selection.value(_data[0])
+        else
+          throw "selection was not found in data"
+      else
+        if keyCode is 38 then selectionIndex-- else selectionIndex++
+        selectionIndex += _data.length #handles the case with the up arrow on the first element
+        selectionIndex %= _data.length
+        selection.value(_data[selectionIndex])
 
-  valueOut.attr('id', id) if id
+    if keyCode in [13, 27] # enter = 13, esc = 27
+      menuOpen.value(false)
+
+    userChar = String.fromCharCode(keyCode)
+    if userChar and not (keyCode in [9, 38, 40, 13, 27])
+      for datum in _data
+        if datum and _label(datum).charAt(0) is userChar
+          selection.value(datum)
+          break
+
+    d3.event.preventDefault()
+    return
+  ), true) # Capture
 
   myOnSelect = (text, i) ->
     menuOpen.value(false) unless keepOnClick
@@ -368,10 +412,8 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         selLabel = selectionLabel.value()
         titleText = if selLabel then selLabel(sel) else ''
 
-      if editable
-        valueOut.property('value', titleText ? '')
-      else
-        valueOut.text(titleText)
+      valueOut.property('value', titleText ? '')
+
       return
   }
 
@@ -991,3 +1033,6 @@ do ->
           }
         }
   }
+
+
+

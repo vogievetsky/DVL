@@ -1,6 +1,6 @@
 ##-------------------------------------------------------
 ##
-##  Asynchronous ajax fetcher.
+##  Asynchronous request fetcher.
 ##
 ##  Fetches ajax data form the server at the given url.
 ##  This function addes the given url to the global json getter,
@@ -13,37 +13,33 @@
 ##  fn:   a function to apply to the recived input.
 ##
 do ->
-  outstanding = dvl(0).name('json_outstanding')
+  outstanding = dvl(0).name('outstanding')
   ajaxManagers = []
-  normalRequester = null
 
   makeManager = ->
     nextQueryId = 0
     initRequestBundle = []
     queries = []
 
-    maybeDone = (request) ->
+    maybeDone = dvl.group (request) ->
       for q in request
         return if q.status isnt 'ready'
 
       notify = []
       for q in request
-        q.res.set(q.resVal ? null)
-        notify.push(q.res)
+        q.res.value(q.resVal ? null)
         q.status = ''
         q.requestBundle = null
         delete q.resVal
 
-      dvl.notify.apply(null, notify)
       return
 
-    getData = (err, resVal) ->
-      q = @q
+    getData = (q, query, err, resVal) ->
       if err
         q.resVal = null
         q.onError(err) if q.onError
       else
-        q.resVal = if @url then resVal else null
+        q.resVal = if query then resVal else null
 
       q.status = 'ready'
       q.curAjax = null
@@ -52,42 +48,26 @@ do ->
       return
 
     makeRequest = (q) ->
-      _url = q.url.value()
-      _data = q.data.value()
-      _dataFn = q.dataFn.value()
-      _method = q.method.value()
-      _dataType = q.type.value()
-      ctx = {
-        q
-        url:    _url
-        data:   _data
-        dataFn: _dataFn
-        method: _method
-      }
-      if _url? and (_method is 'GET' or (_data? and _dataFn?)) and _dataType
+      _query = q.query.value()
+      if _query?
         if q.invalidOnLoad.value()
           q.res.value(null)
 
         outstanding.value(outstanding.value() + 1)
-        q.curAjax = q.requester.request {
-          url: _url
-          data: _data
-          dataFn: _dataFn
-          method: _method
-          dataType: _dataType
-          contentType: q.contentType.value()
-          processData: q.processData.value()
-          fn: q.fn
-          outstanding
-          complete: (err, data) ->
+        oldAjax = q.curAjax
+        q.curAjax = q.requester(
+          _query
+          (err, data) ->
             outstanding.value(outstanding.value() - 1)
             return if err is 'abort'
-            getData.call(ctx, err, data)
+            getData(q, _query, err, data)
             return
-        }
+        )
+        # Abort the old call after making the new
+        oldAjax?.abort?()
 
       else
-        getData.call(ctx, null, null)
+        getData(q, _query, null, null)
 
       return
 
@@ -95,104 +75,81 @@ do ->
       makeRequestLater = []
       newRequestBundle = []
       for q in queries
-        continue unless q.url.hasChanged() or q.data.hasChanged() or q.dataFn.hasChanged()
+        continue unless q.query.hasChanged()
 
         if q.status is 'virgin'
-          if q.url.value()
+          if q.query.value()
             initRequestBundle.push(q)
             q.status = 'requesting'
             q.requestBundle = initRequestBundle
             makeRequestLater.push(q)
           else
             q.status = ''
-        else if q.requestBundle
-          # We are already waiting on this query so...
-          if q.curAjax
-            # If there a request out there for it, abort it.
-            q.curAjax.abort()
-            q.curAjax = null
-          else
-            # So the request already completed, sadly we need to scrap it.
-            delete q.resVal
-          q.status = 'requesting'
-          makeRequestLater.push(q)
         else
-          newRequestBundle.push(q)
           q.status = 'requesting'
-          q.requestBundle = newRequestBundle
-          makeRequestLater.push(q)
+          if q.requestBundle
+            # Request may have already completed, sadly we need to scrap it.
+            delete q.resVal
+            makeRequestLater.push(q)
+          else
+            newRequestBundle.push(q)
+            q.requestBundle = newRequestBundle
+            makeRequestLater.push(q)
 
       makeRequest(q) for q in makeRequestLater
       return
 
     worker = null
-    addHoock = (url, data, dataFn, ret) ->
+    addHoock = (query, ret) ->
       if worker
-        worker.addListen(url, data, dataFn)
+        worker.addListen(query)
         worker.addChange(ret)
       else
         worker = dvl.register {
           name:   'ajax_manager'
-          listen: [url, data]
+          listen: [query]
           change: [ret, outstanding]
           fn:     inputChange
         }
 
       return
 
-    return (url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name) ->
+    return (query, invalidOnLoad, onError, requester, name) ->
       nextQueryId++
       res = dvl().name(name)
       q = {
         id: nextQueryId
-        url
-        data
-        dataFn
-        method
-        contentType
-        processData
+        query
         res
         status: 'virgin'
-        type
         requester
         onError
         invalidOnLoad
         requestBundle: null
         curAjax: null
       }
-      q.fn = fn if fn
       queries.push(q)
-      addHoock(url, data, dataFn, res)
+      addHoock(query, res)
       return res
 
 
-  dvl.ajax = ({url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, groupId, requester, name}) ->
-    throw 'it does not make sense to not have a url' unless url
-    throw 'the fn function must be non DVL variable' if fn and dvl.knows(fn)
-    url  = dvl.wrap(url)
-    data = dvl.wrap(data)
-    dataFn = dvl.wrap(dataFn or dvl.indentity)
-    method = dvl.wrap(method or 'GET')
-    type = dvl.wrap(type or 'json')
-    contentType = dvl.wrap(contentType or 'application/x-www-form-urlencoded')
-    processData = dvl.wrap(processData ? true)
+  dvl.async = ({query, invalidOnLoad, onError, groupId, requester, name}) ->
+    throw 'it does not make sense to not have a query' unless query
+    throw 'it does not make sense to not have a requester' unless requester
+    throw 'requester must be a function' unless typeof requester is 'function'
+    query = dvl.wrap(query)
     invalidOnLoad = dvl.wrap(invalidOnLoad or false)
     name or= 'ajax_data'
 
-    groupId = dvl.ajax.getGroupId() unless groupId?
+    groupId = dvl.async.getGroupId() unless groupId?
     ajaxManagers[groupId] or= makeManager()
 
-    if not requester
-      normalRequester or= dvl.ajax.requester.normal()
-      requester = normalRequester
+    return ajaxManagers[groupId](query, invalidOnLoad, onError, requester, name)
 
-    return ajaxManagers[groupId](url, data, dataFn, method, type, contentType, processData, fn, invalidOnLoad, onError, requester, name)
-
-  dvl.json = dvl.ajax
-  dvl.ajax.outstanding = outstanding
+  dvl.async.outstanding = outstanding
 
   nextGroupId = 0
-  dvl.ajax.getGroupId = ->
+  dvl.async.getGroupId = ->
     id = nextGroupId
     nextGroupId++
     return id
@@ -200,55 +157,45 @@ do ->
   return
 
 
-dvl.ajax.requester = {
-  normal: ->
-    return {
-      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, complete}) ->
-        dataVal = if method isnt 'GET' then dataFn(data) else null
-
-        getData = (resVal) ->
-          if fn
-            ctx = { url, data }
-            resVal = fn.call(ctx, resVal)
-
-          ajax = null
-          complete(null, resVal)
-          return
-
-        getError = (xhr, textStatus) ->
-          ajax = null
-          complete(xhr.responseText or textStatus, null)
-          return
-
-        ajax = jQuery.ajax {
-          url
-          data:        dataVal
-          type:        method
-          dataType
-          contentType
-          processData
-          success:     getData
-          error:       getError
-          context:     { url }
-        }
-
-        return {
-          abort: ->
-            if ajax
-              ajax.abort()
-              ajax = null
-
-            return
-        }
+dvl.async.requester = {
+  ajax: (query, complete) ->
+    ajax = jQuery.ajax {
+      url: query.url
+      data: if query.dataFn then query.dataFn(query.data) else query.data
+      type: query.method or 'GET'
+      dataType: query.dataType or 'json'
+      contentType: query.contentType or 'application/json'
+      processData: query.processData or false
+      success: (resVal) ->
+        resVal = query.fn(resVal, query) if query.fn
+        ajax = null
+        complete(null, resVal)
+        return
+      error: (xhr, textStatus) ->
+        ajax = null
+        complete(xhr.responseText or textStatus, null)
+        return
     }
 
+    abort = ->
+      if ajax
+        ajax.abort()
+        ajax = null
 
-  cache: ({max, timeout, keyFn} = {}) ->
+      return
+
+    return { abort }
+
+
+  cacheWrap: ({requester, max, timeout, keyFn} = {}) ->
+    throw 'it does not make sense to not have a requester' unless requester
+    throw 'requester must be a function' unless typeof requester is 'function'
+
     max = dvl.wrap(max or 100)
     timeout = dvl.wrap(timeout or 30*60*1000)
     cache = {}
     count = 0
-    keyFn or= (url, data, method, dataType, contentType, processData) ->
+    keyFn or= ({url, data, method, dataType, contentType, processData}) ->
       return [url, dvl.util.strObj(data), method, dataType, contentType, processData].join('@@')
 
     trim = ->
@@ -271,13 +218,19 @@ dvl.ajax.requester = {
         delete cache[oldestQuery]
         count--
 
-    dvl.register {fn:trim, listen:[max, timeout], name:'cache_trim'}
-
+    dvl.register {
+      listen: [max, timeout]
+      fn: trim
+    }
 
     return {
-      request: ({url, data, dataFn, method, dataType, contentType, processData, fn, complete}) ->
-        dataVal = if method isnt 'GET' then dataFn(data) else null
-        key = keyFn(url, data, method, dataType, contentType, processData)
+      clear: ->
+        cache = {}
+        count = 0
+        return
+
+      requester: (query, complete) ->
+        key = keyFn(query)
 
         c = cache[key]
         added = false
@@ -291,66 +244,45 @@ dvl.ajax.requester = {
           count++
           trim()
 
-          # make the request
-          getData = (resVal) ->
-            if fn
-              ctx = { url, data }
-              resVal = fn.call(ctx, resVal)
+          c.ajax = requester(query, (err, resVal) ->
+            if err
+              return if err is "abort"
+              c.ajax = null
+              delete cache[key]
+              count--
+              cb(err, null) for cb in c.waiting
+              delete c.waiting
+              return
 
             c.ajax = null
             c.resVal = resVal
             cb(null, resVal) for cb in c.waiting
             delete c.waiting
             return
-
-          getError = (xhr, textStatus) ->
-            return if textStatus is "abort"
-            c.ajax = null
-            delete cache[key]
-            count--
-            cb(xhr.responseText or textStatus, null) for cb in c.waiting
-            delete c.waiting
-            return
-
-          c.ajax = jQuery.ajax {
-            url
-            data:        dataVal
-            type:        method
-            dataType
-            contentType
-            processData
-            success:     getData
-            error:       getError
-          }
+          )
 
         if c.resVal
           complete(null, c.resVal)
 
-          return {
-            abort: ->
-              return
-          }
+          abort = ->
+            # There is nothing to do
+            return
         else
           c.waiting.push(complete) unless added
 
-          return {
-            abort: ->
-              return unless c.waiting
-              c.waiting = c.waiting.filter((l) -> l isnt complete)
-              complete('abort', null)
+          abort = ->
+            return unless c.waiting
+            c.waiting = c.waiting.filter((l) -> l isnt complete)
+            complete('abort', null)
 
-              if c.waiting.length is 0 and c.ajax
-                c.ajax.abort()
-                c.ajax = null
-                delete cache[key]
-                count--
+            if c.waiting.length is 0 and c.ajax
+              c.ajax.abort()
+              c.ajax = null
+              delete cache[key]
+              count--
 
-              return
-          }
+            return
 
-      clear: ->
-        cache = {}
-        count = 0
-        return
+        return { abort }
     }
 }
