@@ -222,7 +222,7 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
 
 
 dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
-                      onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, highlight}) ->
+                      onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, highlight, focus}) ->
   throw 'must have parent' unless parent
   throw 'must have data' unless data
   selection = dvl.wrapVar(selection, 'selection')
@@ -234,6 +234,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   selectionLabel = dvl.wrap(selectionLabel or label)
   link = dvl.wrap(link)
   disabled = dvl.wrap(disabled ? false)
+  focus = dvl.wrapVar(focus)
 
   # Make sure that the selection is always within the data
   dvl.register {
@@ -279,54 +280,101 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       tabIndex: 0
       id: id
     }
+    on: {
+      blur: ->
+        focus.value(false)
+        return
+    }
     text: title or dvl.applyAlways(selection, label)
   }).value()
 
-  valueOut.on('keypress', (->
+  updateScroll = ->
     _data = data.value()
+    _selection = selection.value()
     return unless _data
-    _label = label.value()
-    return unless _label
-
-    keyCode = d3.event.which or d3.event.keyCode
-    # Do not block tab keys
-    if keyCode is 9 # tab = 9
-      menuOpen.value(false)
-      return
-
-    if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
-      if not menuOpen.value()
-        menuOpen.value(true)
-
-      ##increment selection
-
-      _selection = selection.value()
-      selectionIndex = _data.indexOf(_selection)
-      if selectionIndex is -1
-        if _selection is null
-          if _data.length
-            selection.value(_data[0])
-        else
-          throw "selection was not found in data"
-      else
-        if keyCode is 38 then selectionIndex-- else selectionIndex++
-        selectionIndex += _data.length #handles the case with the up arrow on the first element
-        selectionIndex %= _data.length
-        selection.value(_data[selectionIndex])
-
-    if keyCode in [13, 27] # enter = 13, esc = 27
-      menuOpen.value(false)
-
-    userChar = String.fromCharCode(keyCode)
-    if userChar and not (keyCode in [9, 38, 40, 13, 27])
-      for datum in _data
-        if datum and _label(datum).charAt(0) is userChar
-          selection.value(datum)
-          break
-
-    d3.event.preventDefault()
+    selectionIndex = _data.indexOf(_selection)
+    return if selectionIndex is -1
+    _menuCont = menuCont.node()
+    return if _menuCont.scrollHeight is 0
+    element = menuCont.selectAll('li')[0][selectionIndex]
+    _menuCont.scrollTop = 0
+    _menuCont.scrollTop = $(element).position().top
     return
-  ), true) # Capture
+
+  valueOut
+    .on('keydown', (->
+      _data = data.value()
+      return unless _data
+      _label = label.value()
+      return unless _label
+
+      keyCode = d3.event.which or d3.event.keyCode
+      # Do not block tab keys
+      if keyCode is 9 # tab = 9
+        menuOpen.value(false)
+        return
+
+      if keyCode in [38, 40] # up arrow = 38 | down arrow = 40
+        d3.event.stopPropagation()
+        d3.event.preventDefault()
+        if not menuOpen.value()
+          menuOpen.value(true)
+
+        ##increment selection
+
+        _selection = selection.value()
+        selectionIndex = _data.indexOf(_selection)
+        if selectionIndex is -1
+          if _selection is null
+            if _data.length
+              selection.value(_data[0])
+          else
+            throw "selection was not found in data"
+        else
+          if keyCode is 38 then selectionIndex-- else selectionIndex++
+          selectionIndex += _data.length #handles the case with the up arrow on the first element
+          selectionIndex %= _data.length
+          selection.value(_data[selectionIndex])
+          updateScroll()
+
+      if keyCode in [13, 27] # enter = 13, esc = 27
+        d3.event.stopPropagation()
+        d3.event.preventDefault()
+        menuOpen.value(false)
+
+      return
+    ), true) # Capture
+    .on('keypress', (->
+      _data = data.value()
+      return unless _data
+      _label = label.value()
+      return unless _label
+
+      keyCode = d3.event.which or d3.event.keyCode
+      userChar = String.fromCharCode(keyCode).toLowerCase()
+      if userChar and not (keyCode in [9, 38, 40, 13, 27])
+        for datum in _data
+          if datum and _label(datum).charAt(0).toLowerCase() is userChar
+            selection.value(datum)
+            updateScroll()
+            break
+
+      return
+    ), true) # Capture
+
+  dvl.register {
+    listen: [focus]
+    fn: ->
+      _focus = focus.value()
+      return unless _focus?
+      _valueOut = valueOut.node()
+      return if _focus is (_valueOut is document.activeElement)
+      setTimeout((-> # We need this defer because it seems that the blur of another element is called synchronously
+        if _focus then _valueOut.focus() else _valueOut.blur()
+        return
+      ), 0)
+      return
+  }
 
   myOnSelect = (text, i) ->
     menuOpen.value(false) unless keepOnClick
@@ -421,6 +469,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     node: divCont.node()
     menuCont: menuCont.node()
     open: menuOpen
+    focus
     selection
     selections
   }
