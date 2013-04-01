@@ -2808,7 +2808,7 @@ function lift(fn) {
       if ($(menuCont.node()).find(target).length) {
         return;
       }
-      if (parent.node() === target || $(parent.node()).find(target).length) {
+      if (divCont.node() === target || $(divCont.node()).find(target).length) {
         menuOpen.value(!menuOpen.value());
       } else {
         menuOpen.value(false);
