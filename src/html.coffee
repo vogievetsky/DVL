@@ -235,6 +235,8 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   link = dvl.wrap(link)
   disabled = dvl.wrap(disabled ? false)
   focus = dvl.wrapVar(focus)
+  filterCharacters = dvl.wrapVar([]).compare(false)
+  filteredData = dvl.def()
 
   # Make sure that the selection is always within the data
   dvl.register {
@@ -249,10 +251,32 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       return
   }
 
+  dvl.register {
+    listen: filterCharacters, label, data
+    change: filteredData
+    fn: ->
+      _data = data.value()
+      _filterCharacters = filterCharacters.value()
+      _label = label.value()
+      return unless _data and _filterCharacters
+      _filterPhrase = _filterCharacters.join('')
+      _filteredData = _data.filter((datum) ->
+        return String(_label(datum))?.toLowerCase().indexOf(_filterPhrase) > -1
+      )
+      filteredData.value(_filteredData)
+  }
+
   title = dvl.wrap(title) if title
   icons or= []
 
   menuOpen = dvl(false)
+
+  dvl.register {
+    listen: menuOpen
+    change: filterCharacters
+    fn: ->
+      filterCharacters.value([])
+  }
 
   divCont = dvl.bindSingle({
     parent
@@ -274,7 +298,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 
   valueOut = dvl.bindSingle({
     parent: divCont
-    self: 'div.title-cont'
+    self: 'input.title-cont'
     attr: {
       disabled: dvl.op.iff(disabled, '', null)
       tabIndex: 0
@@ -342,6 +366,10 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         d3.event.preventDefault()
         menuOpen.value(false)
 
+      if keyCode is 8
+        _filterCharacters = filterCharacters.value()
+        _filterCharacters.pop()
+        filterCharacters.value(_filterCharacters)
       return
     ), true) # Capture
     .on('keypress', (->
@@ -351,13 +379,10 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       return unless _label
 
       keyCode = d3.event.which or d3.event.keyCode
-      userChar = String.fromCharCode(keyCode).toLowerCase()
-      if userChar and not (keyCode in [9, 38, 40, 13, 27])
-        for datum in _data
-          if datum and _label(datum).charAt(0).toLowerCase() is userChar
-            selection.value(datum)
-            updateScroll()
-            break
+      if not (keyCode in [9, 38, 40, 13, 27])
+        _filterCharacters = filterCharacters.value()
+        _filterCharacters.push(String.fromCharCode(keyCode).toLowerCase())
+        filterCharacters.value(_filterCharacters)
 
       return
     ), true) # Capture
@@ -418,7 +443,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
   dvl.html.list {
     parent: menuCont
     classStr: 'list'
-    data
+    data: filteredData
     label
     link
     class: listClass

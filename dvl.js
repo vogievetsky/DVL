@@ -2544,7 +2544,7 @@ function lift(fn) {
   };
 
   dvl.html.dropdown = function(_arg) {
-    var classStr, data, disabled, divCont, focus, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, updateScroll, valueOut;
+    var classStr, data, disabled, divCont, filterCharacters, filteredData, focus, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, updateScroll, valueOut;
     parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight, focus = _arg.focus;
     if (!parent) {
       throw 'must have parent';
@@ -2561,6 +2561,8 @@ function lift(fn) {
     link = dvl.wrap(link);
     disabled = dvl.wrap(disabled != null ? disabled : false);
     focus = dvl.wrapVar(focus);
+    filterCharacters = dvl.wrapVar([]).compare(false);
+    filteredData = dvl.def();
     dvl.register({
       listen: data,
       fn: function() {
@@ -2574,11 +2576,39 @@ function lift(fn) {
         }
       }
     });
+    dvl.register({
+      listen: filterCharacters,
+      label: label,
+      data: data,
+      change: filteredData,
+      fn: function() {
+        var _data, _filterCharacters, _filterPhrase, _filteredData, _label;
+        _data = data.value();
+        _filterCharacters = filterCharacters.value();
+        _label = label.value();
+        if (!(_data && _filterCharacters)) {
+          return;
+        }
+        _filterPhrase = _filterCharacters.join('');
+        _filteredData = _data.filter(function(datum) {
+          var _ref;
+          return ((_ref = String(_label(datum))) != null ? _ref.toLowerCase().indexOf(_filterPhrase) : void 0) > -1;
+        });
+        return filteredData.value(_filteredData);
+      }
+    });
     if (title) {
       title = dvl.wrap(title);
     }
     icons || (icons = []);
     menuOpen = dvl(false);
+    dvl.register({
+      listen: menuOpen,
+      change: filterCharacters,
+      fn: function() {
+        return filterCharacters.value([]);
+      }
+    });
     divCont = dvl.bindSingle({
       parent: parent,
       self: 'div',
@@ -2596,7 +2626,7 @@ function lift(fn) {
     }).value();
     valueOut = dvl.bindSingle({
       parent: divCont,
-      self: 'div.title-cont',
+      self: 'input.title-cont',
       attr: {
         disabled: dvl.op.iff(disabled, '', null),
         tabIndex: 0,
@@ -2629,7 +2659,7 @@ function lift(fn) {
       _menuCont.scrollTop = $(element).position().top;
     };
     valueOut.on('keydown', (function() {
-      var keyCode, selectionIndex, _data, _label, _selection;
+      var keyCode, selectionIndex, _data, _filterCharacters, _label, _selection;
       _data = data.value();
       if (!_data) {
         return;
@@ -2676,8 +2706,13 @@ function lift(fn) {
         d3.event.preventDefault();
         menuOpen.value(false);
       }
+      if (keyCode === 8) {
+        _filterCharacters = filterCharacters.value();
+        _filterCharacters.pop();
+        filterCharacters.value(_filterCharacters);
+      }
     }), true).on('keypress', (function() {
-      var datum, keyCode, userChar, _data, _i, _label, _len;
+      var keyCode, _data, _filterCharacters, _label;
       _data = data.value();
       if (!_data) {
         return;
@@ -2687,16 +2722,10 @@ function lift(fn) {
         return;
       }
       keyCode = d3.event.which || d3.event.keyCode;
-      userChar = String.fromCharCode(keyCode).toLowerCase();
-      if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
-        for (_i = 0, _len = _data.length; _i < _len; _i++) {
-          datum = _data[_i];
-          if (datum && _label(datum).charAt(0).toLowerCase() === userChar) {
-            selection.value(datum);
-            updateScroll();
-            break;
-          }
-        }
+      if (!(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
+        _filterCharacters = filterCharacters.value();
+        _filterCharacters.push(String.fromCharCode(keyCode).toLowerCase());
+        filterCharacters.value(_filterCharacters);
       }
     }), true);
     dvl.register({
@@ -2758,7 +2787,7 @@ function lift(fn) {
     dvl.html.list({
       parent: menuCont,
       classStr: 'list',
-      data: data,
+      data: filteredData,
       label: label,
       link: link,
       "class": listClass,
