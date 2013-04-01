@@ -2544,8 +2544,8 @@ function lift(fn) {
   };
 
   dvl.html.dropdown = function(_arg) {
-    var classStr, data, disabled, divCont, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, valueOut;
-    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight;
+    var classStr, data, disabled, divCont, focus, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, updateScroll, valueOut;
+    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight, focus = _arg.focus;
     if (!parent) {
       throw 'must have parent';
     }
@@ -2560,6 +2560,7 @@ function lift(fn) {
     selectionLabel = dvl.wrap(selectionLabel || label);
     link = dvl.wrap(link);
     disabled = dvl.wrap(disabled != null ? disabled : false);
+    focus = dvl.wrapVar(focus);
     dvl.register({
       listen: data,
       fn: function() {
@@ -2601,10 +2602,34 @@ function lift(fn) {
         tabIndex: 0,
         id: id
       },
+      on: {
+        blur: function() {
+          focus.value(false);
+        }
+      },
       text: title || dvl.applyAlways(selection, label)
     }).value();
-    valueOut.on('keypress', (function() {
-      var datum, keyCode, selectionIndex, userChar, _data, _i, _label, _len, _selection;
+    updateScroll = function() {
+      var element, selectionIndex, _data, _menuCont, _selection;
+      _data = data.value();
+      _selection = selection.value();
+      if (!_data) {
+        return;
+      }
+      selectionIndex = _data.indexOf(_selection);
+      if (selectionIndex === -1) {
+        return;
+      }
+      _menuCont = menuCont.node();
+      if (_menuCont.scrollHeight === 0) {
+        return;
+      }
+      element = menuCont.selectAll('li')[0][selectionIndex];
+      _menuCont.scrollTop = 0;
+      _menuCont.scrollTop = $(element).position().top;
+    };
+    valueOut.on('keydown', (function() {
+      var keyCode, selectionIndex, _data, _label, _selection;
       _data = data.value();
       if (!_data) {
         return;
@@ -2619,6 +2644,8 @@ function lift(fn) {
         return;
       }
       if (keyCode === 38 || keyCode === 40) {
+        d3.event.stopPropagation();
+        d3.event.preventDefault();
         if (!menuOpen.value()) {
           menuOpen.value(true);
         }
@@ -2641,23 +2668,58 @@ function lift(fn) {
           selectionIndex += _data.length;
           selectionIndex %= _data.length;
           selection.value(_data[selectionIndex]);
+          updateScroll();
         }
       }
       if (keyCode === 13 || keyCode === 27) {
+        d3.event.stopPropagation();
+        d3.event.preventDefault();
         menuOpen.value(false);
       }
-      userChar = String.fromCharCode(keyCode);
+    }), true).on('keypress', (function() {
+      var datum, keyCode, userChar, _data, _i, _label, _len;
+      _data = data.value();
+      if (!_data) {
+        return;
+      }
+      _label = label.value();
+      if (!_label) {
+        return;
+      }
+      keyCode = d3.event.which || d3.event.keyCode;
+      userChar = String.fromCharCode(keyCode).toLowerCase();
       if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
         for (_i = 0, _len = _data.length; _i < _len; _i++) {
           datum = _data[_i];
-          if (datum && _label(datum).charAt(0) === userChar) {
+          if (datum && _label(datum).charAt(0).toLowerCase() === userChar) {
             selection.value(datum);
+            updateScroll();
             break;
           }
         }
       }
-      d3.event.preventDefault();
     }), true);
+    dvl.register({
+      listen: [focus],
+      fn: function() {
+        var _focus, _valueOut;
+        _focus = focus.value();
+        if (_focus == null) {
+          return;
+        }
+        _valueOut = valueOut.node();
+        if (_focus === (_valueOut === document.activeElement)) {
+          return;
+        }
+        setTimeout((function() {
+          if (_focus) {
+            _valueOut.focus();
+          } else {
+            _valueOut.blur();
+          }
+        }), 0);
+      }
+    });
     myOnSelect = function(text, i) {
       if (!keepOnClick) {
         menuOpen.value(false);
@@ -2744,6 +2806,7 @@ function lift(fn) {
       node: divCont.node(),
       menuCont: menuCont.node(),
       open: menuOpen,
+      focus: focus,
       selection: selection,
       selections: selections
     };
