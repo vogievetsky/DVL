@@ -295,14 +295,6 @@ dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class
     }
   }).value()
 
-  # titleText = dvl.apply {
-  #   args: [title, selection, label, filterCharacters]
-  #   fn: (_title, _selection, _label, _filterCharacters) ->
-  #     if _filterCharacters.length > 0
-  #       return _filterCharacters.join('')
-  #     return _title or _label(_selection)
-  # }
-
   valueOut = dvl.bindSingle({
     parent: divCont
     self: 'input.title-cont'
