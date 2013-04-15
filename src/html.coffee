@@ -691,6 +691,7 @@ do ->
         render:   c.render
         on:       c.on
         width:    c.width
+        href:     c.href
       }
 
     headerCol.forEach (c) ->
@@ -789,6 +790,7 @@ do ->
         tooltip:   dvl.wrap(c.tooltip)
         indicator: dvl.wrap(c.indicator) if c.indicator
         width:     dvl.wrap(c.width)
+        href:      dvl.wrap(c.href)
       })
       listen.push nc.title, nc.class, nc.visible, nc.tooltip, nc.indicator, nc.width
 
@@ -900,6 +902,7 @@ do ->
         hover:   dvl.wrap(c.hover)
         value:   dvl.wrap(c.value)
         width:   dvl.wrap(c.width)
+        href:    dvl.wrap(c.href)
       })
       # don't listen to value which is handled by the render
       listen.push nc.class, nc.visible, nc.hover, nc.width
@@ -1008,12 +1011,12 @@ do ->
       return
 
 
-    aLink: ({href}) -> (selection, value) ->
+    aLink: (selection, value) ->
       return dvl.bind {
         parent: selection
         self: 'a.link'
         attr: {
-          href: href
+          href: @href
         }
         text: value
       }
