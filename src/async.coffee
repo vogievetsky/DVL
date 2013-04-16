@@ -21,53 +21,55 @@ do ->
     initRequestBundle = []
     queries = []
 
-    maybeDone = dvl.group (request) ->
-      for q in request
-        return if q.status isnt 'ready'
+    maybeDone = dvl.group (requestBundle) ->
+      for request in requestBundle
+        return if request.status isnt 'ready'
 
       notify = []
-      for q in request
-        q.res.value(q.resVal ? null)
-        q.status = ''
-        q.requestBundle = null
-        delete q.resVal
+      for request in requestBundle
+        request.res.value(request.resVal ? null)
+        request.status = ''
+        request.requestBundle = null
+        delete request.resVal
 
       return
 
-    getData = (q, query, err, resVal) ->
+    getData = (request, query, err, resVal) ->
+      throw new Error("getData called outside of a request") unless q.requestBundle
       if err
-        q.resVal = null
-        q.onError(err) if q.onError
+        request.resVal = null
+        request.onError(err) if request.onError
       else
-        q.resVal = if query then resVal else null
+        request.resVal = if query then resVal else null
 
-      q.status = 'ready'
-      q.curAjax = null
+      request.status = 'ready'
+      request.curAjax = null
 
-      maybeDone(q.requestBundle)
+      maybeDone(request.requestBundle)
       return
 
-    makeRequest = (q) ->
-      _query = q.query.value()
+    makeRequest = (request) ->
+      throw new Error("invalid request") unless request in request.requestBundle
+      _query = request.query.value()
       if _query?
-        if q.invalidOnLoad.value()
-          q.res.value(null)
+        if request.invalidOnLoad.value()
+          request.res.value(null)
 
         outstanding.value(outstanding.value() + 1)
-        oldAjax = q.curAjax
-        q.curAjax = q.requester(
+        oldAjax = request.curAjax
+        request.curAjax = request.requester(
           _query
           (err, data) ->
             outstanding.value(outstanding.value() - 1)
             return if err is 'abort'
-            getData(q, _query, err, data)
+            getData(request, _query, err, data)
             return
         )
         # Abort the old call after making the new
         oldAjax?.abort?()
 
       else
-        getData(q, _query, null, null)
+        getData(request, _query, null, null)
 
       return
 
@@ -88,7 +90,7 @@ do ->
         else
           q.status = 'requesting'
           if q.requestBundle
-            # Request may have already completed, sadly we need to scrap it.
+            # Query changed mid request which may have already completed, sadly we need to scrap it.
             delete q.resVal
             makeRequestLater.push(q)
           else
