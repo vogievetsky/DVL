@@ -2,15 +2,11 @@
 ##
 ##  Asynchronous request fetcher.
 ##
-##  Fetches ajax data form the server at the given url.
-##  This function addes the given url to the global json getter,
-##  the getter then automaticly groups requests that come from the same event cycle.
+##  Runs asynchronous operations
+##  This function adds the given query to the global async getter,
+##  the getter then automatically groups requests that come from the same event cycle.
 ##
-## ~url:  the url to fetch.
-## ~data: data to send
-##  type: the type of the request. [json]
-##  map:  a map to apply to the recived array.
-##  fn:   a function to apply to the recived input.
+## ~query: the query to send to the asynconous requester
 ##
 do ->
   outstanding = dvl(0).name('outstanding')
@@ -35,7 +31,7 @@ do ->
       return
 
     getData = (request, query, err, resVal) ->
-      throw new Error("getData called outside of a request") unless q.requestBundle
+      throw new Error("getData called outside of a request") unless request.requestBundle
       if err
         request.resVal = null
         request.onError(err) if request.onError
@@ -43,7 +39,8 @@ do ->
         request.resVal = if query then resVal else null
 
       request.status = 'ready'
-      request.curAjax = null
+      delete request.curAjax
+      delete request.processResponce
 
       maybeDone(request.requestBundle)
       return
@@ -55,19 +52,25 @@ do ->
         if request.invalidOnLoad.value()
           request.res.value(null)
 
-        outstanding.value(outstanding.value() + 1)
         oldAjax = request.curAjax
-        request.curAjax = request.requester(
-          _query
-          (err, data) ->
-            outstanding.value(outstanding.value() - 1)
-            return if err is 'abort'
-            getData(request, _query, err, data)
-            return
-        )
-        # Abort the old call after making the new
-        oldAjax?.abort?()
+        oldProcessResponce = request.processResponce
 
+        responceProcessed = false
+        processResponce = (err, data) ->
+          return if responceProcessed
+          responceProcessed = true
+
+          outstanding.value(outstanding.value() - 1)
+          return if err is 'abort'
+          getData(request, _query, err, data)
+          return
+
+        outstanding.value(outstanding.value() + 1)
+        request.processResponce = processResponce
+        request.curAjax = request.requester(_query, processResponce)
+        # Abort the old call after making the new
+        oldProcessResponce?('abort')
+        oldAjax?.abort?()
       else
         getData(request, _query, null, null)
 
