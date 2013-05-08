@@ -2628,6 +2628,319 @@ function lift(fn) {
     };
   };
 
+  dvl.html.combobox = function(_arg) {
+    var classStr, data, disabled, divCont, filterCharacters, filteredData, focus, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, updateScroll, valueOut;
+
+    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight, focus = _arg.focus;
+    if (!parent) {
+      throw 'must have parent';
+    }
+    if (!data) {
+      throw 'must have data';
+    }
+    selection = dvl.wrapVar(selection, 'selection');
+    selections = dvl.wrapVar(selections, 'selections');
+    menuAnchor = dvl.wrap(menuAnchor || 'left');
+    data = dvl.wrap(data);
+    label = dvl.wrap(label || dvl.identity);
+    selectionLabel = dvl.wrap(selectionLabel || label);
+    link = dvl.wrap(link);
+    disabled = dvl.wrap(disabled != null ? disabled : false);
+    focus = dvl.wrapVar(focus);
+    filterCharacters = dvl.wrapVar([]).compare(false);
+    filteredData = dvl.def();
+    dvl.register({
+      listen: data,
+      fn: function() {
+        var _data, _selection;
+
+        _data = data.value();
+        _selection = selection.value();
+        if (!_data || __indexOf.call(_data, _selection) < 0) {
+          setTimeout((function() {
+            return selection.value(null);
+          }), 0);
+        }
+      }
+    });
+    dvl.register({
+      listen: filterCharacters,
+      label: label,
+      data: data,
+      change: filteredData,
+      fn: function() {
+        var _data, _filterCharacters, _filterPhrase, _filteredData, _label;
+
+        _data = data.value();
+        _filterCharacters = filterCharacters.value();
+        _label = label.value();
+        if (!(_data && _filterCharacters)) {
+          return;
+        }
+        _filterPhrase = _filterCharacters.join('');
+        _filteredData = _data.filter(function(datum) {
+          var _ref;
+
+          return ((_ref = String(_label(datum))) != null ? _ref.toLowerCase().indexOf(_filterPhrase) : void 0) > -1;
+        });
+        return filteredData.value(_filteredData);
+      }
+    });
+    if (title) {
+      title = dvl.wrap(title);
+    }
+    icons || (icons = []);
+    menuOpen = dvl(false);
+    dvl.register({
+      listen: menuOpen,
+      change: filterCharacters,
+      fn: function() {
+        return filterCharacters.value([]);
+      }
+    });
+    divCont = dvl.bindSingle({
+      parent: parent,
+      self: 'div',
+      attr: {
+        "class": dvl.applyAlways({
+          args: [classStr, menuOpen, disabled],
+          fn: function(_classStr, _menuOpen, _disabled) {
+            return [_classStr || '', _menuOpen ? 'open' : 'closed', _disabled ? 'disabled' : ''].join(' ');
+          }
+        })
+      },
+      style: {
+        position: 'relative'
+      }
+    }).value();
+    valueOut = dvl.bindSingle({
+      parent: divCont,
+      self: 'input.title-cont',
+      attr: {
+        disabled: dvl.op.iff(disabled, '', null),
+        tabIndex: 0,
+        id: id
+      },
+      on: {
+        blur: function() {
+          focus.value(false);
+        }
+      }
+    }).value();
+    updateScroll = function() {
+      var element, selectionIndex, _data, _menuCont, _selection;
+
+      _data = data.value();
+      _selection = selection.value();
+      if (!_data) {
+        return;
+      }
+      selectionIndex = _data.indexOf(_selection);
+      if (selectionIndex === -1) {
+        return;
+      }
+      _menuCont = menuCont.node();
+      if (_menuCont.scrollHeight === 0) {
+        return;
+      }
+      element = menuCont.selectAll('li')[0][selectionIndex];
+      _menuCont.scrollTop = 0;
+      _menuCont.scrollTop = $(element).position().top;
+    };
+    valueOut.on('keydown', (function() {
+      var keyCode, selectionIndex, _data, _filterCharacters, _label, _selection;
+
+      _data = data.value();
+      if (!_data) {
+        return;
+      }
+      _label = label.value();
+      if (!_label) {
+        return;
+      }
+      keyCode = d3.event.which || d3.event.keyCode;
+      if (keyCode === 9) {
+        menuOpen.value(false);
+        return;
+      }
+      if (keyCode === 38 || keyCode === 40) {
+        d3.event.stopPropagation();
+        d3.event.preventDefault();
+        if (!menuOpen.value()) {
+          menuOpen.value(true);
+        }
+        _selection = selection.value();
+        selectionIndex = _data.indexOf(_selection);
+        if (selectionIndex === -1) {
+          if (_selection === null) {
+            if (_data.length) {
+              selection.value(_data[0]);
+            }
+          } else {
+            throw "selection was not found in data";
+          }
+        } else {
+          if (keyCode === 38) {
+            selectionIndex--;
+          } else {
+            selectionIndex++;
+          }
+          selectionIndex += _data.length;
+          selectionIndex %= _data.length;
+          selection.value(_data[selectionIndex]);
+          updateScroll();
+        }
+      }
+      if (keyCode === 13 || keyCode === 27) {
+        d3.event.stopPropagation();
+        d3.event.preventDefault();
+        menuOpen.value(false);
+      }
+      if (keyCode === 8) {
+        _filterCharacters = filterCharacters.value();
+        _filterCharacters.pop();
+        filterCharacters.value(_filterCharacters);
+      }
+    }), true).on('keypress', (function() {
+      var keyCode, _data, _filterCharacters, _label;
+
+      _data = data.value();
+      if (!_data) {
+        return;
+      }
+      _label = label.value();
+      if (!_label) {
+        return;
+      }
+      keyCode = d3.event.which || d3.event.keyCode;
+      if (!(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
+        _filterCharacters = filterCharacters.value();
+        _filterCharacters.push(String.fromCharCode(keyCode).toLowerCase());
+        filterCharacters.value(_filterCharacters);
+      }
+    }), true);
+    dvl.register({
+      listen: [focus],
+      fn: function() {
+        var _focus, _valueOut;
+
+        _focus = focus.value();
+        if (_focus == null) {
+          return;
+        }
+        _valueOut = valueOut.node();
+        if (_focus === (_valueOut === document.activeElement)) {
+          return;
+        }
+        setTimeout((function() {
+          if (_focus) {
+            _valueOut.focus();
+          } else {
+            _valueOut.blur();
+          }
+        }), 0);
+      }
+    });
+    myOnSelect = function(text, i) {
+      if (!keepOnClick) {
+        menuOpen.value(false);
+      }
+      return typeof onSelect === "function" ? onSelect(text, i) : void 0;
+    };
+    icons.forEach(function(icon) {
+      var icon_onSelect;
+
+      icon_onSelect = icon.onSelect;
+      icon.onSelect = function(val, i) {
+        if (!keepOnClick) {
+          menuOpen.value(false);
+        }
+        return typeof icon_onSelect === "function" ? icon_onSelect(val, i) : void 0;
+      };
+    });
+    menuCont = divCont.append('div').attr('class', 'menu-cont').style('position', 'absolute').style('z-index', 1000);
+    dvl.register({
+      listen: [menuOpen, menuAnchor],
+      fn: function() {
+        var _menuAnchor, _menuOpen;
+
+        _menuOpen = menuOpen.value();
+        if (_menuOpen) {
+          menuCont.style('display', null).style('top', '100%');
+          _menuAnchor = menuAnchor.value();
+          if (_menuAnchor === 'left') {
+            menuCont.style('left', 0).style('right', null);
+          } else {
+            menuCont.style('left', null).style('right', 0);
+          }
+        } else {
+          menuCont.style('display', 'none');
+        }
+      }
+    });
+    dvl.html.list({
+      parent: menuCont,
+      classStr: 'list',
+      data: filteredData,
+      label: label,
+      link: link,
+      "class": listClass,
+      selection: selection,
+      selections: selections,
+      onSelect: myOnSelect,
+      onEnter: onEnter,
+      onLeave: onLeave,
+      icons: icons
+    });
+    namespace = dvl.namespace('dropdown');
+    d3.select(window).on("click." + namespace, (function() {
+      var target;
+
+      target = d3.event.target;
+      if (disabled.value()) {
+        return;
+      }
+      if ($(menuCont.node()).find(target).length) {
+        return;
+      }
+      if (divCont.node() === target || $(divCont.node()).find(target).length) {
+        menuOpen.value(!menuOpen.value());
+      } else {
+        menuOpen.value(false);
+      }
+    }), true).on("blur." + namespace, function() {
+      menuOpen.value(false);
+    });
+    dvl.register({
+      name: 'selection_updater',
+      listen: [menuOpen, selection, selectionLabel, title],
+      fn: function() {
+        var sel, selLabel, titleText;
+
+        if (menuOpen.value()) {
+          valueOut.property('value', '');
+          return;
+        }
+        if (title) {
+          titleText = title.value();
+        } else {
+          sel = selection.value();
+          selLabel = selectionLabel.value();
+          titleText = selLabel ? selLabel(sel) : '';
+        }
+        valueOut.property('value', titleText != null ? titleText : '');
+      }
+    });
+    return {
+      node: divCont.node(),
+      menuCont: menuCont.node(),
+      open: menuOpen,
+      focus: focus,
+      selection: selection,
+      selections: selections
+    };
+  };
+
   dvl.html.dropdown = function(_arg) {
     var classStr, data, disabled, divCont, focus, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, updateScroll, valueOut;
 

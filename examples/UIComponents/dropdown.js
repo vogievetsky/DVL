@@ -1,9 +1,9 @@
-var COUNTRIES = [null, "United States", "United Kingdom", "Canada", "Mexico", "England", 
+var COUNTRIES = [null, "United States", "United Kingdom", "Canada", "Mexico", "England",
 				"Russia", "The United Kingdom of Great Britain and Northern Ireland"];
 
 //example 01
 var parentEx01 = d3.select("div#ex01");
-dvl.html.dropdown({parent: parentEx01, 
+dvl.html.dropdown({parent: parentEx01,
 				  data: COUNTRIES,
 				  label: function(d) { return d === null ? "--" : d; }
 				});
@@ -12,16 +12,16 @@ dvl.html.dropdown({parent: parentEx01,
 var changingData = dvl.wrapVar(null);
 
 setInterval(
-	function () { 
+	function () {
 		var val = changingData.value() === null ? COUNTRIES : null;
-		changingData.value(val); 
+		changingData.value(val);
 	},
 	2000);
 
 var parentEx02 = d3.select("div#ex02");
 
 dvl.html.dropdown({
-  parent: parentEx02, 
+  parent: parentEx02,
 	data: changingData,
   label: function(d) { return d === null ? "--" : d; }
 });
@@ -39,7 +39,7 @@ var filteredCodes = dvl.apply(
 
 var parentExCountryCodes = d3.select("div#ex-country-codes");
 
-dvl.html.dropdown({	parent: parentExCountryCodes, 
+dvl.html.dropdown({	parent: parentExCountryCodes,
 				  	data: filteredCodes,
 				  	label: function(d) { return d === null ? "--" : d; }
 					});
