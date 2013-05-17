@@ -6,11 +6,12 @@
 ##  This function adds the given query to the global async getter,
 ##  the getter then automatically groups requests that come from the same event cycle.
 ##
-## ~query: the query to send to the asynconous requester
+## ~query: the query to send to the asynchronous requester
 ##
 do ->
   outstanding = dvl(0).name('outstanding')
   ajaxManagers = []
+  blockDummy = {}
 
   makeManager = ->
     nextQueryId = 0
@@ -21,7 +22,6 @@ do ->
       for request in requestBundle
         return if request.status isnt 'ready'
 
-      notify = []
       for request in requestBundle
         request.res.value(request.resVal ? null)
         request.status = ''
@@ -47,32 +47,38 @@ do ->
 
     makeRequest = (request) ->
       throw new Error("invalid request") unless request in request.requestBundle
+      requestCount = request.requestCount
       _query = request.query.value()
+
+      oldAjax = request.curAjax
+      oldProcessResponce = request.processResponce
+
       if _query?
         if request.invalidOnLoad.value()
           request.res.value(null)
 
-        oldAjax = request.curAjax
-        oldProcessResponce = request.processResponce
-
         responceProcessed = false
         processResponce = (err, data) ->
+          responceProcessed = true if this is blockDummy
           return if responceProcessed
           responceProcessed = true
 
-          outstanding.value(outstanding.value() - 1)
-          return if err is 'abort'
+          requestCount.value(requestCount.value() - 1)
+
           getData(request, _query, err, data)
           return
 
-        outstanding.value(outstanding.value() + 1)
+        requestCount.value(requestCount.value() + 1)
         request.processResponce = processResponce
         request.curAjax = request.requester(_query, processResponce)
-        # Abort the old call after making the new
-        oldProcessResponce?('abort')
-        oldAjax?.abort?()
       else
         getData(request, _query, null, null)
+
+      # Abort the old call after making the new
+      if oldProcessResponce
+        requestCount.value(requestCount.value() - 1)
+        oldProcessResponce.call(blockDummy)
+        oldAjax?.abort?()
 
       return
 
@@ -105,23 +111,23 @@ do ->
       return
 
     worker = null
-    addHoock = (query, ret) ->
+    addHoock = (query, ret, requestCount) ->
       if worker
         worker.addListen(query)
         worker.addChange(ret)
+        worker.addChange(requestCount)
       else
         worker = dvl.register {
-          name:   'ajax_manager'
           listen: [query]
-          change: [ret, outstanding]
-          fn:     inputChange
+          change: [ret, requestCount]
+          fn: inputChange
         }
 
       return
 
-    return (query, invalidOnLoad, onError, requester, name) ->
+    return (query, invalidOnLoad, onError, requester, requestCount) ->
       nextQueryId++
-      res = dvl().name(name)
+      res = dvl()
       q = {
         id: nextQueryId
         query
@@ -132,24 +138,25 @@ do ->
         invalidOnLoad
         requestBundle: null
         curAjax: null
+        requestCount
       }
       queries.push(q)
-      addHoock(query, res)
+      addHoock(query, res, requestCount)
       return res
 
 
-  dvl.async = ({query, invalidOnLoad, onError, groupId, requester, name}) ->
-    throw 'it does not make sense to not have a query' unless query
-    throw 'it does not make sense to not have a requester' unless requester
-    throw 'requester must be a function' unless typeof requester is 'function'
+  dvl.async = ({query, invalidOnLoad, onError, groupId, requester, requestCount}) ->
+    throw new Error('it does not make sense to not have a query') unless query
+    throw new Error('it does not make sense to not have a requester') unless requester
+    throw new Error('requester must be a function') unless typeof requester is 'function'
     query = dvl.wrap(query)
     invalidOnLoad = dvl.wrap(invalidOnLoad or false)
-    name or= 'ajax_data'
+    requestCount or= outstanding
 
     groupId = dvl.async.getGroupId() unless groupId?
     ajaxManagers[groupId] or= makeManager()
 
-    return ajaxManagers[groupId](query, invalidOnLoad, onError, requester, name)
+    return ajaxManagers[groupId](query, invalidOnLoad, onError, requester, requestCount)
 
   dvl.async.outstanding = outstanding
 
@@ -193,8 +200,8 @@ dvl.async.requester = {
 
 
   cacheWrap: ({requester, max, timeout, keyFn} = {}) ->
-    throw 'it does not make sense to not have a requester' unless requester
-    throw 'requester must be a function' unless typeof requester is 'function'
+    throw new Error('it does not make sense to not have a requester') unless requester
+    throw new Error('requester must be a function') unless typeof requester is 'function'
 
     max = dvl.wrap(max or 100)
     timeout = dvl.wrap(timeout or 30*60*1000)

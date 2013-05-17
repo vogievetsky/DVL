@@ -3860,10 +3860,11 @@ function lift(fn) {
   })();
 
   (function() {
-    var ajaxManagers, makeManager, nextGroupId, outstanding;
+    var ajaxManagers, blockDummy, makeManager, nextGroupId, outstanding;
 
     outstanding = dvl(0).name('outstanding');
     ajaxManagers = [];
+    blockDummy = {};
     makeManager = function() {
       var addHoock, getData, initRequestBundle, inputChange, makeRequest, maybeDone, nextQueryId, queries, worker;
 
@@ -3871,7 +3872,7 @@ function lift(fn) {
       initRequestBundle = [];
       queries = [];
       maybeDone = dvl.group(function(requestBundle) {
-        var notify, request, _i, _j, _len, _len1, _ref;
+        var request, _i, _j, _len, _len1, _ref;
 
         for (_i = 0, _len = requestBundle.length; _i < _len; _i++) {
           request = requestBundle[_i];
@@ -3879,7 +3880,6 @@ function lift(fn) {
             return;
           }
         }
-        notify = [];
         for (_j = 0, _len1 = requestBundle.length; _j < _len1; _j++) {
           request = requestBundle[_j];
           request.res.value((_ref = request.resVal) != null ? _ref : null);
@@ -3906,43 +3906,45 @@ function lift(fn) {
         maybeDone(request.requestBundle);
       };
       makeRequest = function(request) {
-        var oldAjax, oldProcessResponce, processResponce, responceProcessed, _query;
+        var oldAjax, oldProcessResponce, processResponce, requestCount, responceProcessed, _query;
 
         if (__indexOf.call(request.requestBundle, request) < 0) {
           throw new Error("invalid request");
         }
+        requestCount = request.requestCount;
         _query = request.query.value();
+        oldAjax = request.curAjax;
+        oldProcessResponce = request.processResponce;
         if (_query != null) {
           if (request.invalidOnLoad.value()) {
             request.res.value(null);
           }
-          oldAjax = request.curAjax;
-          oldProcessResponce = request.processResponce;
           responceProcessed = false;
           processResponce = function(err, data) {
+            if (this === blockDummy) {
+              responceProcessed = true;
+            }
             if (responceProcessed) {
               return;
             }
             responceProcessed = true;
-            outstanding.value(outstanding.value() - 1);
-            if (err === 'abort') {
-              return;
-            }
+            requestCount.value(requestCount.value() - 1);
             getData(request, _query, err, data);
           };
-          outstanding.value(outstanding.value() + 1);
+          requestCount.value(requestCount.value() + 1);
           request.processResponce = processResponce;
           request.curAjax = request.requester(_query, processResponce);
-          if (typeof oldProcessResponce === "function") {
-            oldProcessResponce('abort');
-          }
+        } else {
+          getData(request, _query, null, null);
+        }
+        if (oldProcessResponce) {
+          requestCount.value(requestCount.value() - 1);
+          oldProcessResponce.call(blockDummy);
           if (oldAjax != null) {
             if (typeof oldAjax.abort === "function") {
               oldAjax.abort();
             }
           }
-        } else {
-          getData(request, _query, null, null);
         }
       };
       inputChange = function() {
@@ -3982,24 +3984,24 @@ function lift(fn) {
         }
       };
       worker = null;
-      addHoock = function(query, ret) {
+      addHoock = function(query, ret, requestCount) {
         if (worker) {
           worker.addListen(query);
           worker.addChange(ret);
+          worker.addChange(requestCount);
         } else {
           worker = dvl.register({
-            name: 'ajax_manager',
             listen: [query],
-            change: [ret, outstanding],
+            change: [ret, requestCount],
             fn: inputChange
           });
         }
       };
-      return function(query, invalidOnLoad, onError, requester, name) {
+      return function(query, invalidOnLoad, onError, requester, requestCount) {
         var q, res;
 
         nextQueryId++;
-        res = dvl().name(name);
+        res = dvl();
         q = {
           id: nextQueryId,
           query: query,
@@ -4009,34 +4011,35 @@ function lift(fn) {
           onError: onError,
           invalidOnLoad: invalidOnLoad,
           requestBundle: null,
-          curAjax: null
+          curAjax: null,
+          requestCount: requestCount
         };
         queries.push(q);
-        addHoock(query, res);
+        addHoock(query, res, requestCount);
         return res;
       };
     };
     dvl.async = function(_arg) {
-      var groupId, invalidOnLoad, name, onError, query, requester;
+      var groupId, invalidOnLoad, onError, query, requestCount, requester;
 
-      query = _arg.query, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, requester = _arg.requester, name = _arg.name;
+      query = _arg.query, invalidOnLoad = _arg.invalidOnLoad, onError = _arg.onError, groupId = _arg.groupId, requester = _arg.requester, requestCount = _arg.requestCount;
       if (!query) {
-        throw 'it does not make sense to not have a query';
+        throw new Error('it does not make sense to not have a query');
       }
       if (!requester) {
-        throw 'it does not make sense to not have a requester';
+        throw new Error('it does not make sense to not have a requester');
       }
       if (typeof requester !== 'function') {
-        throw 'requester must be a function';
+        throw new Error('requester must be a function');
       }
       query = dvl.wrap(query);
       invalidOnLoad = dvl.wrap(invalidOnLoad || false);
-      name || (name = 'ajax_data');
+      requestCount || (requestCount = outstanding);
       if (groupId == null) {
         groupId = dvl.async.getGroupId();
       }
       ajaxManagers[groupId] || (ajaxManagers[groupId] = makeManager());
-      return ajaxManagers[groupId](query, invalidOnLoad, onError, requester, name);
+      return ajaxManagers[groupId](query, invalidOnLoad, onError, requester, requestCount);
     };
     dvl.async.outstanding = outstanding;
     nextGroupId = 0;
@@ -4087,10 +4090,10 @@ function lift(fn) {
 
       _ref = _arg != null ? _arg : {}, requester = _ref.requester, max = _ref.max, timeout = _ref.timeout, keyFn = _ref.keyFn;
       if (!requester) {
-        throw 'it does not make sense to not have a requester';
+        throw new Error('it does not make sense to not have a requester');
       }
       if (typeof requester !== 'function') {
-        throw 'requester must be a function';
+        throw new Error('requester must be a function');
       }
       max = dvl.wrap(max || 100);
       timeout = dvl.wrap(timeout || 30 * 60 * 1000);
