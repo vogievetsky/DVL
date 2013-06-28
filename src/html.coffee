@@ -26,7 +26,6 @@ dvl.html.resizer = ({selector, out, dimension, fn}) ->
 
   $(window).resize(onResize)
   dvl.register {
-    name: 'resizer'
     listen: [dimension, fn]
     change: [out]
     fn: onResize
@@ -37,11 +36,11 @@ dvl.html.resizer = ({selector, out, dimension, fn}) ->
 ##  Output to an HTML attribute
 ##
 dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, text}) ->
-  throw 'must have data' unless data
+  throw new Error('must have data') unless data
   data = dvl.wrap(data)
   format = format ? fn
 
-  throw 'must have selector' unless selector
+  throw new Error('must have selector') unless selector
   selector = dvl.wrap(selector)
 
   format = dvl.wrap(format or dvl.identity)
@@ -59,7 +58,7 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
   else
     out = (selector, string) -> d3.select(selector).html(string)
 
-  updateHtml = () ->
+  updateHtml = ->
     s = selector.value()
     a = format.value()
     d = data.value()
@@ -73,7 +72,10 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
         d3.select(s).style('display', 'none') if hideInvalid.value()
     return
 
-  dvl.register({fn:updateHtml, listen:[data, selector, format], name:'html_out'})
+  dvl.register {
+    listen: [data, selector, format]
+    fn: updateHtml
+  }
   return
 
 
@@ -83,8 +85,8 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
 ##
 dvl.html.list = ({parent, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons,
                   extras, classStr, highlight}) ->
-  throw 'must have parent' unless parent
-  throw 'must have data' unless data
+  throw new Error('must have parent') unless parent
+  throw new Error('must have data') unless data
   selection  = dvl.wrapVar(selection, 'selection')
   selections = dvl.wrapVar(selections or [], 'selections')
   highlight = dvl.wrapVar(highlight, 'highlight')
@@ -222,8 +224,8 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
 
 dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
                       onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, highlight, focus}) ->
-  throw 'must have parent' unless parent
-  throw 'must have data' unless data
+  throw new Error('must have parent') unless parent
+  throw new Error('must have data') unless data
   selection = dvl.wrapVar(selection, 'selection')
   selections = dvl.wrapVar(selections, 'selections')
   menuAnchor = dvl.wrap(menuAnchor or 'left')
@@ -502,8 +504,8 @@ dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class
 
 dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
                       onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, highlight, focus}) ->
-  throw 'must have parent' unless parent
-  throw 'must have data' unless data
+  throw new Error('must have parent') unless parent
+  throw new Error('must have data') unless data
   selection = dvl.wrapVar(selection, 'selection')
   selections = dvl.wrapVar(selections, 'selections')
   menuAnchor = dvl.wrap(menuAnchor or 'left')
@@ -759,8 +761,8 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 ##  Select (dropdown box) made with HTML
 ##
 dvl.html.select = ({parent, data, classStr, label, selection, id, onChange, focus, visible}) ->
-  throw 'must have parent' unless parent
-  throw 'must have data' unless data
+  throw new Error('must have parent') unless parent
+  throw new Error('must have data') unless data
   selection = dvl.wrapVar(selection, 'selection')
   focus = dvl.wrapVar(focus ? false)
   visible = dvl.wrap(visible ? true)
@@ -1051,7 +1053,7 @@ do ->
   ##   ~width:       The width of the column
   ##
   dvl.html.table.header = ({parent, columns, onClick}) ->
-    throw 'there needs to be a parent' unless parent
+    throw new Error('there needs to be a parent') unless parent
     onClick = dvl.wrap(onClick)
 
     thead = dvl.valueOf(parent).append('thead')
@@ -1153,8 +1155,8 @@ do ->
   ##   ~width:      The width of the column
   ##
   dvl.html.table.body = ({parent, data, compare, rowClass, classStr, rowLimit, columns, on:onRow}) ->
-    throw 'there needs to be a parent' unless parent
-    throw 'there needs to be data' unless data
+    throw new Error('there needs to be a parent') unless parent
+    throw new Error('there needs to be data') unless data
     tbody = dvl.valueOf(parent).append('tbody').attr('class', classStr)
 
     compare = dvl.wrap(compare)

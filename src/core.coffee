@@ -669,7 +669,7 @@ end_notify_collect = ->
 
 
 collect_notify = ->
-  throw 'bad stuff happened during a collect block' unless curCollectListener
+  throw new Error('bad stuff happened during a collect block') unless curCollectListener
 
   for v in arguments
     continue unless v instanceof DVLVar
@@ -681,7 +681,7 @@ collect_notify = ->
 
 
 within_notify = ->
-  throw 'bad stuff happened within a notify block' unless curNotifyListener
+  throw new Error('bad stuff happened within a notify block') unless curNotifyListener
 
   for v in arguments
     continue unless v instanceof DVLVar
@@ -697,7 +697,7 @@ within_notify = ->
 
 
 init_notify = ->
-  throw 'bad stuff happened init' if curNotifyListener
+  throw new Error('bad stuff happened init') if curNotifyListener
 
   lastNotifyRun = []
   visitedListener = []
@@ -977,7 +977,7 @@ dvl.random = (options) ->
 
 
 dvl.arrayTick = (data, options) ->
-  throw 'dvl.arrayTick: no data' unless data
+  throw new Error('dvl.arrayTick: no data') unless data
   data = dvl.wrap(data)
 
   point = options.start or 0
@@ -1004,7 +1004,7 @@ dvl.recorder = (options) ->
 
   data = options.data
   fn = dvl.wrap(options.fn or dvl.identity)
-  throw 'it does not make sense not to have data' unless dvl.knows(data)
+  throw new Error('it does not make sense not to have data') unless dvl.knows(data)
 
   max = dvl.wrap(options.max or +Infinity)
   i = 0
