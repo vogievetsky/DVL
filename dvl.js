@@ -1172,7 +1172,7 @@ function lift(fn) {
     var v, _i, _len;
 
     if (!curCollectListener) {
-      throw 'bad stuff happened during a collect block';
+      throw new Error('bad stuff happened during a collect block');
     }
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
@@ -1191,7 +1191,7 @@ function lift(fn) {
     var l, v, _i, _j, _len, _len1, _ref;
 
     if (!curNotifyListener) {
-      throw 'bad stuff happened within a notify block';
+      throw new Error('bad stuff happened within a notify block');
     }
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
@@ -1218,7 +1218,7 @@ function lift(fn) {
     var l, v, visitedListener, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref;
 
     if (curNotifyListener) {
-      throw 'bad stuff happened init';
+      throw new Error('bad stuff happened init');
     }
     lastNotifyRun = [];
     visitedListener = [];
@@ -1567,7 +1567,7 @@ function lift(fn) {
     var gen, move, out, point;
 
     if (!data) {
-      throw 'dvl.arrayTick: no data';
+      throw new Error('dvl.arrayTick: no data');
     }
     data = dvl.wrap(data);
     point = options.start || 0;
@@ -1599,7 +1599,7 @@ function lift(fn) {
     data = options.data;
     fn = dvl.wrap(options.fn || dvl.identity);
     if (!dvl.knows(data)) {
-      throw 'it does not make sense not to have data';
+      throw new Error('it does not make sense not to have data');
     }
     max = dvl.wrap(options.max || +Infinity);
     i = 0;
@@ -2248,7 +2248,7 @@ function lift(fn) {
 
     data = _arg.data, acc = _arg.acc, value = _arg.value, trim = _arg.trim, name = _arg.name;
     if (!data) {
-      throw 'No data given';
+      throw new Error('No data given');
     }
     acc = dvl.wrap(acc || dvl.identity);
     value = dvl.wrap(value);
@@ -2411,7 +2411,6 @@ function lift(fn) {
     };
     $(window).resize(onResize);
     dvl.register({
-      name: 'resizer',
       listen: [dimension, fn],
       change: [out],
       fn: onResize
@@ -2424,12 +2423,12 @@ function lift(fn) {
 
     selector = _arg.selector, data = _arg.data, fn = _arg.fn, format = _arg.format, invalid = _arg.invalid, hideInvalid = _arg.hideInvalid, attr = _arg.attr, style = _arg.style, text = _arg.text;
     if (!data) {
-      throw 'must have data';
+      throw new Error('must have data');
     }
     data = dvl.wrap(data);
     format = format != null ? format : fn;
     if (!selector) {
-      throw 'must have selector';
+      throw new Error('must have selector');
     }
     selector = dvl.wrap(selector);
     format = dvl.wrap(format || dvl.identity);
@@ -2476,490 +2475,55 @@ function lift(fn) {
       }
     };
     dvl.register({
-      fn: updateHtml,
       listen: [data, selector, format],
-      name: 'html_out'
+      fn: updateHtml
     });
-  };
-
-  dvl.html.list = function(_arg) {
-    var classStr, data, extras, highlight, i, icons, label, link, listClass, myOnEnter, myOnLeave, onClick, onEnter, onLeave, onSelect, parent, selection, selections, ul, _i, _len;
-
-    parent = _arg.parent, data = _arg.data, label = _arg.label, link = _arg.link, listClass = _arg["class"], selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, icons = _arg.icons, extras = _arg.extras, classStr = _arg.classStr, highlight = _arg.highlight;
-    if (!parent) {
-      throw 'must have parent';
-    }
-    if (!data) {
-      throw 'must have data';
-    }
-    selection = dvl.wrapVar(selection, 'selection');
-    selections = dvl.wrapVar(selections || [], 'selections');
-    highlight = dvl.wrapVar(highlight, 'highlight');
-    data = dvl.wrap(data);
-    label = dvl.wrap(label || dvl.identity);
-    link = dvl.wrap(link);
-    icons || (icons = []);
-    for (_i = 0, _len = icons.length; _i < _len; _i++) {
-      i = icons[_i];
-      i.position || (i.position = 'right');
-    }
-    if (listClass != null) {
-      listClass = dvl.wrap(listClass);
-    } else {
-      listClass = dvl.applyAlways([selection, selections, highlight], function(_selection, _selections, _highlight) {
-        return function(d) {
-          var classParts;
-
-          classParts = [];
-          if (_selection) {
-            classParts.push(d === _selection ? 'is_selection' : 'isnt_selection');
-          }
-          if (_selections) {
-            classParts.push(__indexOf.call(_selections, d) >= 0 ? 'is_selections' : 'isnt_selections');
-          }
-          if (_highlight) {
-            classParts.push(d === _highlight ? 'is_highlight' : 'isnt_highlight');
-          }
-          if (classParts.length) {
-            return classParts.join(' ');
-          } else {
-            return null;
-          }
-        };
-      });
-    }
-    ul = dvl.valueOf(parent).append('ul').attr('class', classStr);
-    onClick = dvl.group(function(val, i) {
-      var linkVal, _base, _selections;
-
-      if ((typeof onSelect === "function" ? onSelect(val, i) : void 0) === false) {
-        return;
-      }
-      linkVal = typeof (_base = link.value()) === "function" ? _base(val) : void 0;
-      selection.value(val);
-      _selections = (selections.value() || []).slice();
-      i = _selections.indexOf(val);
-      if (i === -1) {
-        _selections.push(val);
-      } else {
-        _selections.splice(i, 1);
-      }
-      selections.value(_selections);
-      if (linkVal) {
-        window.location.href = linkVal;
-      }
-    });
-    myOnEnter = function(val) {
-      if ((typeof onEnter === "function" ? onEnter(val) : void 0) === false) {
-        return;
-      }
-      highlight.value(val);
-    };
-    myOnLeave = function(val) {
-      if ((typeof onLeave === "function" ? onLeave(val) : void 0) === false) {
-        return;
-      }
-      if (highlight.value() === val) {
-        highlight.value("");
-      }
-    };
-    dvl.register({
-      name: 'update_html_list',
-      listen: [data, label, link],
-      fn: function() {
-        var a, addIcons, cont, sel, _class, _data, _label, _link;
-
-        _data = data.value();
-        _label = label.value();
-        _link = link.value();
-        _class = listClass.value();
-        if (!_data) {
-          return;
-        }
-        _data = _data.valueOf();
-        addIcons = function(el, position) {
-          icons.forEach(function(icon) {
-            if (icon.position !== position) {
-              return;
-            }
-            classStr = 'icon_cont ' + position;
-            if (icon.classStr) {
-              classStr += ' ' + icon.classStr;
-            }
-            el.append('div').attr('class', classStr).attr('title', icon.title).on('click', function(val, i) {
-              if ((typeof icon.onSelect === "function" ? icon.onSelect(val, i) : void 0) === false) {
-                d3.event.stopPropagation();
-              }
-            }).on('mouseover', function(val, i) {
-              if ((typeof icon.onEnter === "function" ? icon.onEnter(val, i) : void 0) === false) {
-                d3.event.stopPropagation();
-              }
-            }).on('mouseout', function(val, i) {
-              if ((typeof icon.onLeave === "function" ? icon.onLeave(val, i) : void 0) === false) {
-                d3.event.stopPropagation();
-              }
-            }).append('div').attr('class', 'icon');
-          });
-        };
-        sel = ul.selectAll('li').data(_data);
-        a = sel.enter().append('li').append('a');
-        addIcons(a, 'left');
-        a.append('span');
-        addIcons(a, 'right');
-        cont = sel.attr('class', _class).on('click', onClick).on('mouseover', myOnEnter).on('mouseout', myOnLeave).select('a').attr('href', _link);
-        cont.select('span').text(_label);
-        sel.exit().remove();
-      }
-    });
-    dvl.register({
-      name: 'update_class_list',
-      listen: [listClass],
-      fn: function() {
-        var _class;
-
-        _class = listClass.value();
-        ul.selectAll('li').attr('class', _class);
-      }
-    });
-    return {
-      selection: selection,
-      selections: selections,
-      node: ul.node()
-    };
-  };
-
-  dvl.html.combobox = function(_arg) {
-    var classStr, data, disabled, divCont, filterCharacters, filteredData, focus, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, updateScroll, valueOut;
-
-    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight, focus = _arg.focus;
-    if (!parent) {
-      throw 'must have parent';
-    }
-    if (!data) {
-      throw 'must have data';
-    }
-    selection = dvl.wrapVar(selection, 'selection');
-    selections = dvl.wrapVar(selections, 'selections');
-    menuAnchor = dvl.wrap(menuAnchor || 'left');
-    data = dvl.wrap(data);
-    label = dvl.wrap(label || dvl.identity);
-    selectionLabel = dvl.wrap(selectionLabel || label);
-    link = dvl.wrap(link);
-    disabled = dvl.wrap(disabled != null ? disabled : false);
-    focus = dvl.wrapVar(focus);
-    filterCharacters = dvl.wrapVar([]).compare(false);
-    filteredData = dvl.def();
-    dvl.register({
-      listen: data,
-      fn: function() {
-        var _data, _selection;
-
-        _data = data.value();
-        _selection = selection.value();
-        if (!_data || __indexOf.call(_data, _selection) < 0) {
-          setTimeout((function() {
-            return selection.value(null);
-          }), 0);
-        }
-      }
-    });
-    dvl.register({
-      listen: filterCharacters,
-      label: label,
-      data: data,
-      change: filteredData,
-      fn: function() {
-        var _data, _filterCharacters, _filterPhrase, _filteredData, _label;
-
-        _data = data.value();
-        _filterCharacters = filterCharacters.value();
-        _label = label.value();
-        if (!(_data && _filterCharacters)) {
-          return;
-        }
-        _filterPhrase = _filterCharacters.join('');
-        _filteredData = _data.filter(function(datum) {
-          var _ref;
-
-          return ((_ref = String(_label(datum))) != null ? _ref.toLowerCase().indexOf(_filterPhrase) : void 0) > -1;
-        });
-        return filteredData.value(_filteredData);
-      }
-    });
-    if (title) {
-      title = dvl.wrap(title);
-    }
-    icons || (icons = []);
-    menuOpen = dvl(false);
-    dvl.register({
-      listen: menuOpen,
-      change: filterCharacters,
-      fn: function() {
-        return filterCharacters.value([]);
-      }
-    });
-    divCont = dvl.bindSingle({
-      parent: parent,
-      self: 'div',
-      attr: {
-        "class": dvl.applyAlways({
-          args: [classStr, menuOpen, disabled],
-          fn: function(_classStr, _menuOpen, _disabled) {
-            return [_classStr || '', _menuOpen ? 'open' : 'closed', _disabled ? 'disabled' : ''].join(' ');
-          }
-        })
-      },
-      style: {
-        position: 'relative'
-      }
-    }).value();
-    valueOut = dvl.bindSingle({
-      parent: divCont,
-      self: 'input.title-cont',
-      attr: {
-        disabled: dvl.op.iff(disabled, '', null),
-        tabIndex: 0,
-        id: id
-      },
-      on: {
-        blur: function() {
-          focus.value(false);
-        }
-      }
-    }).value();
-    updateScroll = function() {
-      var element, selectionIndex, _data, _menuCont, _selection;
-
-      _data = data.value();
-      _selection = selection.value();
-      if (!_data) {
-        return;
-      }
-      selectionIndex = _data.indexOf(_selection);
-      if (selectionIndex === -1) {
-        return;
-      }
-      _menuCont = menuCont.node();
-      if (_menuCont.scrollHeight === 0) {
-        return;
-      }
-      element = menuCont.selectAll('li')[0][selectionIndex];
-      _menuCont.scrollTop = 0;
-      _menuCont.scrollTop = $(element).position().top;
-    };
-    valueOut.on('keydown', (function() {
-      var keyCode, selectionIndex, _data, _filterCharacters, _label, _selection;
-
-      _data = data.value();
-      if (!_data) {
-        return;
-      }
-      _label = label.value();
-      if (!_label) {
-        return;
-      }
-      keyCode = d3.event.which || d3.event.keyCode;
-      if (keyCode === 9) {
-        menuOpen.value(false);
-        return;
-      }
-      if (keyCode === 38 || keyCode === 40) {
-        d3.event.stopPropagation();
-        d3.event.preventDefault();
-        if (!menuOpen.value()) {
-          menuOpen.value(true);
-        }
-        _selection = selection.value();
-        selectionIndex = _data.indexOf(_selection);
-        if (selectionIndex === -1) {
-          if (_selection === null) {
-            if (_data.length) {
-              selection.value(_data[0]);
-            }
-          } else {
-            throw "selection was not found in data";
-          }
-        } else {
-          if (keyCode === 38) {
-            selectionIndex--;
-          } else {
-            selectionIndex++;
-          }
-          selectionIndex += _data.length;
-          selectionIndex %= _data.length;
-          selection.value(_data[selectionIndex]);
-          updateScroll();
-        }
-      }
-      if (keyCode === 13 || keyCode === 27) {
-        d3.event.stopPropagation();
-        d3.event.preventDefault();
-        menuOpen.value(false);
-      }
-      if (keyCode === 8) {
-        _filterCharacters = filterCharacters.value();
-        _filterCharacters.pop();
-        filterCharacters.value(_filterCharacters);
-      }
-    }), true).on('keypress', (function() {
-      var keyCode, _data, _filterCharacters, _label;
-
-      _data = data.value();
-      if (!_data) {
-        return;
-      }
-      _label = label.value();
-      if (!_label) {
-        return;
-      }
-      keyCode = d3.event.which || d3.event.keyCode;
-      if (!(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
-        _filterCharacters = filterCharacters.value();
-        _filterCharacters.push(String.fromCharCode(keyCode).toLowerCase());
-        filterCharacters.value(_filterCharacters);
-      }
-    }), true);
-    dvl.register({
-      listen: [focus],
-      fn: function() {
-        var _focus, _valueOut;
-
-        _focus = focus.value();
-        if (_focus == null) {
-          return;
-        }
-        _valueOut = valueOut.node();
-        if (_focus === (_valueOut === document.activeElement)) {
-          return;
-        }
-        setTimeout((function() {
-          if (_focus) {
-            _valueOut.focus();
-          } else {
-            _valueOut.blur();
-          }
-        }), 0);
-      }
-    });
-    myOnSelect = function(text, i) {
-      if (!keepOnClick) {
-        menuOpen.value(false);
-      }
-      return typeof onSelect === "function" ? onSelect(text, i) : void 0;
-    };
-    icons.forEach(function(icon) {
-      var icon_onSelect;
-
-      icon_onSelect = icon.onSelect;
-      icon.onSelect = function(val, i) {
-        if (!keepOnClick) {
-          menuOpen.value(false);
-        }
-        return typeof icon_onSelect === "function" ? icon_onSelect(val, i) : void 0;
-      };
-    });
-    menuCont = divCont.append('div').attr('class', 'menu-cont').style('position', 'absolute').style('z-index', 1000);
-    dvl.register({
-      listen: [menuOpen, menuAnchor],
-      fn: function() {
-        var _menuAnchor, _menuOpen;
-
-        _menuOpen = menuOpen.value();
-        if (_menuOpen) {
-          menuCont.style('display', null).style('top', '100%');
-          _menuAnchor = menuAnchor.value();
-          if (_menuAnchor === 'left') {
-            menuCont.style('left', 0).style('right', null);
-          } else {
-            menuCont.style('left', null).style('right', 0);
-          }
-        } else {
-          menuCont.style('display', 'none');
-        }
-      }
-    });
-    dvl.html.list({
-      parent: menuCont,
-      classStr: 'list',
-      data: filteredData,
-      label: label,
-      link: link,
-      "class": listClass,
-      selection: selection,
-      selections: selections,
-      onSelect: myOnSelect,
-      onEnter: onEnter,
-      onLeave: onLeave,
-      icons: icons
-    });
-    namespace = dvl.namespace('dropdown');
-    d3.select(window).on("click." + namespace, (function() {
-      var target;
-
-      target = d3.event.target;
-      if (disabled.value()) {
-        return;
-      }
-      if ($(menuCont.node()).find(target).length) {
-        return;
-      }
-      if (divCont.node() === target || $(divCont.node()).find(target).length) {
-        menuOpen.value(!menuOpen.value());
-      } else {
-        menuOpen.value(false);
-      }
-    }), true).on("blur." + namespace, function() {
-      menuOpen.value(false);
-    });
-    dvl.register({
-      name: 'selection_updater',
-      listen: [menuOpen, selection, selectionLabel, title],
-      fn: function() {
-        var sel, selLabel, titleText;
-
-        if (menuOpen.value()) {
-          valueOut.property('value', '');
-          return;
-        }
-        if (title) {
-          titleText = title.value();
-        } else {
-          sel = selection.value();
-          selLabel = selectionLabel.value();
-          titleText = selLabel ? selLabel(sel) : '';
-        }
-        valueOut.property('value', titleText != null ? titleText : '');
-      }
-    });
-    return {
-      node: divCont.node(),
-      menuCont: menuCont.node(),
-      open: menuOpen,
-      focus: focus,
-      selection: selection,
-      selections: selections
-    };
   };
 
   dvl.html.dropdown = function(_arg) {
-    var classStr, data, disabled, divCont, focus, highlight, icons, id, keepOnClick, label, link, listClass, menuAnchor, menuCont, menuOpen, myOnSelect, namespace, onEnter, onLeave, onSelect, parent, selection, selectionLabel, selections, title, updateScroll, valueOut;
+    var blankHighlight, classStr, combo, data, dataWithSpacers, disabled, divCont, focus, highlight, id, keepOnClick, listClass, listItems, menuCont, menuOpen, myOnSelect, namespace, onSelect, parent, realDataItems, render, searchText, selection, selectionValue, shownData, spacerDummy, spacers, title, updateScroll, value, valueOut, visible;
 
-    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, label = _arg.label, selectionLabel = _arg.selectionLabel, link = _arg.link, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, selections = _arg.selections, onSelect = _arg.onSelect, onEnter = _arg.onEnter, onLeave = _arg.onLeave, menuAnchor = _arg.menuAnchor, title = _arg.title, icons = _arg.icons, keepOnClick = _arg.keepOnClick, disabled = _arg.disabled, highlight = _arg.highlight, focus = _arg.focus;
+    parent = _arg.parent, classStr = _arg.classStr, data = _arg.data, value = _arg.value, selectionValue = _arg.selectionValue, title = _arg.title, render = _arg.render, listClass = _arg["class"], id = _arg.id, selection = _arg.selection, highlight = _arg.highlight, onSelect = _arg.onSelect, keepOnClick = _arg.keepOnClick, visible = _arg.visible, disabled = _arg.disabled, focus = _arg.focus, spacers = _arg.spacers, combo = _arg.combo;
     if (!parent) {
-      throw 'must have parent';
+      throw new Error('must have parent');
     }
     if (!data) {
-      throw 'must have data';
+      throw new Error('must have data');
     }
-    selection = dvl.wrapVar(selection, 'selection');
-    selections = dvl.wrapVar(selections, 'selections');
-    menuAnchor = dvl.wrap(menuAnchor || 'left');
+    classStr || (classStr = 'dropdown');
+    selection = dvl.wrapVar(selection);
+    highlight = dvl.wrapVar(highlight);
+    if (render == null) {
+      render = dvl.html.dropdown.render.text;
+    }
     data = dvl.wrap(data);
-    label = dvl.wrap(label || dvl.identity);
-    selectionLabel = dvl.wrap(selectionLabel || label);
-    link = dvl.wrap(link);
+    value = dvl.wrap(value || String);
+    if (title && !selectionValue) {
+      selectionValue = dvl.apply(title, function(_title) {
+        return function() {
+          return _title;
+        };
+      });
+    }
+    selectionValue = dvl.wrap(selectionValue || value);
+    keepOnClick = dvl.wrap(keepOnClick || true);
     disabled = dvl.wrap(disabled != null ? disabled : false);
+    visible = dvl.wrap(visible != null ? visible : true);
     focus = dvl.wrapVar(focus);
+    searchText = dvl(null);
+    dvl.debug('searchText', searchText);
+    dvl.debug('highlight', highlight);
+    spacerDummy = {};
+    blankHighlight = {};
+    if (listClass != null) {
+      listClass = dvl.wrap(listClass);
+    } else {
+      listClass = dvl.applyAlways([selection, highlight], function(_selection, _highlight) {
+        return function(d) {
+          return [d === _selection ? 'is-selection' : 'isnt-selection', d === _highlight ? 'is-highlight' : 'isnt-highlight'].join(' ');
+        };
+      });
+    }
     dvl.register({
       listen: data,
       fn: function() {
@@ -2977,7 +2541,6 @@ function lift(fn) {
     if (title) {
       title = dvl.wrap(title);
     }
-    icons || (icons = []);
     menuOpen = dvl(false);
     divCont = dvl.bindSingle({
       parent: parent,
@@ -2989,204 +2552,319 @@ function lift(fn) {
             return [_classStr || '', _menuOpen ? 'open' : 'closed', _disabled ? 'disabled' : ''].join(' ');
           }
         })
-      },
-      style: {
-        position: 'relative'
       }
-    }).value();
+    });
     valueOut = dvl.bindSingle({
       parent: divCont,
-      self: 'div.title-cont',
+      self: (combo ? 'input' : 'div') + '.title-cont',
       attr: {
+        id: id,
         disabled: dvl.op.iff(disabled, '', null),
-        tabIndex: 0,
-        id: id
+        tabIndex: 0
+      },
+      style: {
+        display: dvl.op.iff(visible, null, '')
       },
       on: {
         blur: function() {
           focus.value(false);
         }
       },
-      text: title || dvl.applyAlways(selection, label)
-    }).value();
-    updateScroll = function() {
-      var element, selectionIndex, _data, _menuCont, _selection;
+      text: combo ? null : dvl.applyAlways(selection, value)
+    });
+    if (combo) {
+      dvl.register({
+        listen: [valueOut, selection, selectionValue],
+        fn: function() {
+          var _ref, _selection, _selectionValue, _valueOut;
 
-      _data = data.value();
-      _selection = selection.value();
-      if (!_data) {
-        return;
-      }
-      selectionIndex = _data.indexOf(_selection);
-      if (selectionIndex === -1) {
-        return;
-      }
-      _menuCont = menuCont.node();
-      if (_menuCont.scrollHeight === 0) {
-        return;
-      }
-      element = menuCont.selectAll('li')[0][selectionIndex];
-      _menuCont.scrollTop = 0;
-      _menuCont.scrollTop = $(element).position().top;
-    };
-    valueOut.on('keydown', (function() {
-      var keyCode, selectionIndex, _data, _label, _selection;
-
-      _data = data.value();
-      if (!_data) {
-        return;
-      }
-      _label = label.value();
-      if (!_label) {
-        return;
-      }
-      keyCode = d3.event.which || d3.event.keyCode;
-      if (keyCode === 9) {
-        menuOpen.value(false);
-        return;
-      }
-      if (keyCode === 38 || keyCode === 40) {
-        d3.event.stopPropagation();
-        d3.event.preventDefault();
-        if (!menuOpen.value()) {
-          menuOpen.value(true);
-        }
-        _selection = selection.value();
-        selectionIndex = _data.indexOf(_selection);
-        if (selectionIndex === -1) {
-          if (_selection === null) {
-            if (_data.length) {
-              selection.value(_data[0]);
-            }
-          } else {
-            throw "selection was not found in data";
+          _valueOut = valueOut.value();
+          if (!_valueOut) {
+            return;
           }
+          _selection = selection.value();
+          _selectionValue = selectionValue.value();
+          console.log(_selectionValue, _selection);
+          _valueOut.property('value', (_ref = typeof _selectionValue === "function" ? _selectionValue(_selection) : void 0) != null ? _ref : '');
+        }
+      });
+      shownData = dvl.applyAlways([data, value, searchText], function(_data, _value, _searchText) {
+        if (!_searchText) {
+          return _data;
+        }
+        _searchText = _searchText.toLowerCase();
+        return _data.filter(function(d) {
+          return _value(d).toLowerCase().indexOf(_searchText) !== -1;
+        });
+      });
+      dvl.register({
+        listen: [shownData, searchText],
+        change: highlight,
+        fn: function() {
+          if (!(searchText.value() && searchText.hasChanged())) {
+            return;
+          }
+          if (highlight.value() !== blankHighlight) {
+            return;
+          }
+          highlight.value();
+        }
+      });
+    } else {
+      shownData = data;
+    }
+    dvl.register({
+      listen: [menuOpen, shownData, searchText],
+      change: highlight,
+      fn: function() {
+        var _highlight, _shownData;
+
+        if (menuOpen.value()) {
+          _shownData = shownData.value();
+          _highlight = highlight.value();
+          if (!(combo && searchText.value() && searchText.hasChanged() && _shownData.indexOf(_highlight) === -1)) {
+            return;
+          }
+          highlight.value(_shownData[0] || blankHighlight);
         } else {
-          if (keyCode === 38) {
-            selectionIndex--;
-          } else {
-            selectionIndex++;
-          }
-          selectionIndex += _data.length;
-          selectionIndex %= _data.length;
-          selection.value(_data[selectionIndex]);
-          updateScroll();
+          highlight.value(blankHighlight);
         }
       }
-      if (keyCode === 13 || keyCode === 27) {
-        d3.event.stopPropagation();
-        d3.event.preventDefault();
-        menuOpen.value(false);
-      }
-    }), true).on('keypress', (function() {
-      var datum, keyCode, userChar, _data, _i, _label, _len;
+    });
+    updateScroll = function() {
+      var element, menuContNode, position, scrollIndex, _data, _menuCont;
 
+      _menuCont = menuCont.value();
       _data = data.value();
-      if (!_data) {
+      if (!(_menuCont && _data)) {
         return;
       }
-      _label = label.value();
-      if (!_label) {
+      scrollIndex = _data.indexOf(highlight.value());
+      if (scrollIndex === -1) {
+        scrollIndex = _data.indexOf(selection.value());
+      }
+      if (scrollIndex === -1) {
+        return;
+      }
+      menuContNode = _menuCont.node();
+      if (menuContNode.scrollHeight === 0) {
+        return;
+      }
+      element = _menuCont.selectAll('li.item')[0][scrollIndex];
+      if (!element) {
+        return;
+      }
+      position = $(element).position();
+      menuContNode.scrollTop = 0;
+      menuContNode.scrollTop = position.top;
+    };
+    valueOut.value().on('keydown', dvl.group(function() {
+      var highlightIndex, keyCode, _data, _value;
+
+      _data = data.value();
+      _value = value.value();
+      if (!(_data && _value)) {
         return;
       }
       keyCode = d3.event.which || d3.event.keyCode;
-      userChar = String.fromCharCode(keyCode).toLowerCase();
-      if (userChar && !(keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
+      switch (keyCode) {
+        case 9:
+          menuOpen.value(false);
+          break;
+        case 38:
+        case 40:
+          d3.event.stopPropagation();
+          d3.event.preventDefault();
+          if (!menuOpen.value()) {
+            menuOpen.value(true);
+          }
+          highlightIndex = _data.indexOf(highlight.value());
+          if (highlightIndex === -1 && keyCode === 38) {
+            highlightIndex = _data.length;
+          }
+          if (keyCode === 38) {
+            highlightIndex--;
+          } else {
+            highlightIndex++;
+          }
+          highlightIndex = Math.min(Math.max(highlightIndex, 0), _data.length - 1);
+          highlight.value(_data[highlightIndex]);
+          updateScroll();
+          break;
+        case 13:
+        case 27:
+          d3.event.stopPropagation();
+          d3.event.preventDefault();
+          if (keyCode === 13 && highlight.value() !== blankHighlight) {
+            selection.value(highlight.value());
+          }
+          menuOpen.value(false);
+      }
+      if (combo) {
+        setTimeout((function() {
+          return searchText.value(valueOut.value().property('value'));
+        }), 1);
+      }
+    }), true);
+    if (!combo) {
+      valueOut.value().on('keypress', (function() {
+        var datum, keyCode, userChar, _data, _i, _len, _value;
+
+        _data = data.value();
+        _value = value.value();
+        if (!(_data && _value)) {
+          return;
+        }
+        keyCode = d3.event.which || d3.event.keyCode;
+        userChar = String.fromCharCode(keyCode).toLowerCase();
+        if (!userChar || (keyCode === 9 || keyCode === 38 || keyCode === 40 || keyCode === 13 || keyCode === 27)) {
+          return;
+        }
         for (_i = 0, _len = _data.length; _i < _len; _i++) {
           datum = _data[_i];
-          if (datum && _label(datum).charAt(0).toLowerCase() === userChar) {
-            selection.value(datum);
+          if (datum && _value(datum).charAt(0).toLowerCase() === userChar) {
+            highlight.value(datum);
             updateScroll();
             break;
           }
         }
-      }
-    }), true);
+      }), true);
+    }
     dvl.register({
-      listen: [focus],
+      listen: focus,
       fn: function() {
-        var _focus, _valueOut;
+        var valueOutNode, _focus, _valueOut;
 
+        _valueOut = valueOut.value();
+        if (!_valueOut) {
+          return;
+        }
         _focus = focus.value();
         if (_focus == null) {
           return;
         }
-        _valueOut = valueOut.node();
-        if (_focus === (_valueOut === document.activeElement)) {
+        valueOutNode = _valueOut.node();
+        if (_focus === (valueOutNode === document.activeElement)) {
           return;
         }
         setTimeout((function() {
           if (_focus) {
-            _valueOut.focus();
+            valueOutNode.focus();
           } else {
-            _valueOut.blur();
+            valueOutNode.blur();
           }
         }), 0);
       }
     });
-    myOnSelect = function(text, i) {
-      if (!keepOnClick) {
+    myOnSelect = function(d, i) {
+      if (!keepOnClick.value()) {
         menuOpen.value(false);
       }
-      return typeof onSelect === "function" ? onSelect(text, i) : void 0;
+      if ((typeof onSelect === "function" ? onSelect(d, i) : void 0) === false) {
+        return;
+      }
+      selection.value(d);
     };
-    icons.forEach(function(icon) {
-      var icon_onSelect;
+    if (spacers) {
+      dataWithSpacers = dvl.applyAlways({
+        args: [shownData, spacers, searchText],
+        fn: function(_shownData, _spacers, _searchText) {
+          var d, i, si, spacerAt, _dataWithSpacers, _i, _j, _len, _len1;
 
-      icon_onSelect = icon.onSelect;
-      icon.onSelect = function(val, i) {
-        if (!keepOnClick) {
-          menuOpen.value(false);
-        }
-        return typeof icon_onSelect === "function" ? icon_onSelect(val, i) : void 0;
-      };
-    });
-    menuCont = divCont.append('div').attr('class', 'menu-cont').style('position', 'absolute').style('z-index', 1000);
-    dvl.register({
-      listen: [menuOpen, menuAnchor],
-      fn: function() {
-        var _menuAnchor, _menuOpen;
-
-        _menuOpen = menuOpen.value();
-        if (_menuOpen) {
-          menuCont.style('display', null).style('top', '100%');
-          _menuAnchor = menuAnchor.value();
-          if (_menuAnchor === 'left') {
-            menuCont.style('left', 0).style('right', null);
-          } else {
-            menuCont.style('left', null).style('right', 0);
+          if (!_shownData) {
+            return null;
           }
-        } else {
-          menuCont.style('display', 'none');
+          if (!(_spacers && !_searchText)) {
+            return _shownData;
+          }
+          spacerAt = {};
+          for (_i = 0, _len = _spacers.length; _i < _len; _i++) {
+            si = _spacers[_i];
+            spacerAt[si] = 1;
+          }
+          _dataWithSpacers = [];
+          for (i = _j = 0, _len1 = _shownData.length; _j < _len1; i = ++_j) {
+            d = _shownData[i];
+            if (spacerAt[i]) {
+              _dataWithSpacers.push(spacerDummy);
+            }
+            _dataWithSpacers.push(d);
+          }
+          if (spacerAt[_shownData.length]) {
+            _dataWithSpacers.push(spacerDummy);
+          }
+          return _dataWithSpacers;
+        }
+      });
+    } else {
+      dataWithSpacers = shownData;
+    }
+    menuCont = dvl.bindSingle({
+      parent: divCont,
+      self: 'ul.menu-cont',
+      attr: {
+        "class": dvl.applyAlways({
+          args: dataWithSpacers,
+          fn: function(_data) {
+            if (_data && _data.length) {
+              return '';
+            } else {
+              return 'empty';
+            }
+          }
+        })
+      },
+      style: {
+        display: dvl.op.iff(menuOpen, null, 'none')
+      }
+    });
+    listItems = dvl.bind({
+      parent: menuCont,
+      data: dataWithSpacers,
+      self: 'li',
+      attr: {
+        "class": dvl.op.concat(listClass, function(d) {
+          if (d === spacerDummy) {
+            return ' spacer';
+          } else {
+            return ' item';
+          }
+        })
+      },
+      on: {
+        click: myOnSelect,
+        mouseover: function(d) {
+          highlight.value(d);
+        },
+        mouseout: function() {
+          highlight.value(blankHighlight);
         }
       }
     });
-    dvl.html.list({
-      parent: menuCont,
-      classStr: 'list',
-      data: data,
-      label: label,
-      link: link,
-      "class": listClass,
-      selection: selection,
-      selections: selections,
-      onSelect: myOnSelect,
-      onEnter: onEnter,
-      onLeave: onLeave,
-      icons: icons
+    realDataItems = dvl.apply({
+      args: [menuCont, listItems],
+      fn: function(_menuCont) {
+        return _menuCont.selectAll('li.item');
+      }
     });
+    render(realDataItems, value);
     namespace = dvl.namespace('dropdown');
     d3.select(window).on("click." + namespace, (function() {
-      var target;
+      var target, _divCont, _menuCont;
 
+      _divCont = divCont.value();
+      _menuCont = menuCont.value();
+      if (!(_divCont && _menuCont)) {
+        return;
+      }
       target = d3.event.target;
       if (disabled.value()) {
         return;
       }
-      if ($(menuCont.node()).find(target).length) {
+      if ($(_menuCont.node()).find(target).length) {
         return;
       }
-      if (divCont.node() === target || $(divCont.node()).find(target).length) {
+      if (_divCont.node() === target || $(_divCont.node()).find(target).length) {
         menuOpen.value(!menuOpen.value());
       } else {
         menuOpen.value(false);
@@ -3194,47 +2872,42 @@ function lift(fn) {
     }), true).on("blur." + namespace, function() {
       menuOpen.value(false);
     });
-    dvl.register({
-      name: 'selection_updater',
-      listen: [selection, selectionLabel, title],
-      fn: function() {
-        var sel, selLabel, titleText;
-
-        if (title) {
-          titleText = title.value();
-        } else {
-          sel = selection.value();
-          selLabel = selectionLabel.value();
-          titleText = selLabel ? selLabel(sel) : '';
-        }
-        valueOut.property('value', titleText != null ? titleText : '');
-      }
-    });
     return {
-      node: divCont.node(),
-      menuCont: menuCont.node(),
+      node: divCont,
+      menuCont: menuCont,
       open: menuOpen,
       focus: focus,
       selection: selection,
-      selections: selections
+      highlight: highlight
     };
   };
 
-  dvl.html.select = function(_arg) {
-    var classStr, data, focus, id, label, onChange, parent, selChange, selectEl, selection, visible;
+  dvl.html.dropdown.render = {
+    text: function(selection, value) {
+      dvl.bind({
+        parent: selection,
+        self: 'span',
+        text: value
+      });
+    }
+  };
 
-    parent = _arg.parent, data = _arg.data, classStr = _arg.classStr, label = _arg.label, selection = _arg.selection, id = _arg.id, onChange = _arg.onChange, focus = _arg.focus, visible = _arg.visible;
+  dvl.html.select = function(_arg) {
+    var classStr, data, focus, id, label, onChange, parent, selChange, selectEl, selection, value, visible;
+
+    parent = _arg.parent, data = _arg.data, classStr = _arg.classStr, value = _arg.value, label = _arg.label, selection = _arg.selection, id = _arg.id, onChange = _arg.onChange, focus = _arg.focus, visible = _arg.visible;
     if (!parent) {
-      throw 'must have parent';
+      throw new Error('must have parent');
     }
     if (!data) {
-      throw 'must have data';
+      throw new Error('must have data');
     }
     selection = dvl.wrapVar(selection, 'selection');
     focus = dvl.wrapVar(focus != null ? focus : false);
     visible = dvl.wrap(visible != null ? visible : true);
     data = dvl.wrap(data);
-    label = dvl.wrap(label || dvl.identity);
+    value || (value = label);
+    value = dvl.wrap(value || String);
     selChange = function() {
       var i, val, _data, _selectEl;
 
@@ -3281,7 +2954,7 @@ function lift(fn) {
           return i;
         }
       },
-      text: label
+      text: value
     });
     dvl.register({
       listen: [data, selection],
@@ -3511,7 +3184,7 @@ function lift(fn) {
 
       parent = _arg.parent, columns = _arg.columns, onClick = _arg.onClick;
       if (!parent) {
-        throw 'there needs to be a parent';
+        throw new Error('there needs to be a parent');
       }
       onClick = dvl.wrap(onClick);
       thead = dvl.valueOf(parent).append('thead');
@@ -3599,10 +3272,10 @@ function lift(fn) {
 
       parent = _arg.parent, data = _arg.data, compare = _arg.compare, rowClass = _arg.rowClass, classStr = _arg.classStr, rowLimit = _arg.rowLimit, columns = _arg.columns, onRow = _arg.on;
       if (!parent) {
-        throw 'there needs to be a parent';
+        throw new Error('there needs to be a parent');
       }
       if (!data) {
-        throw 'there needs to be data';
+        throw new Error('there needs to be data');
       }
       tbody = dvl.valueOf(parent).append('tbody').attr('class', classStr);
       compare = dvl.wrap(compare);
