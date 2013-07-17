@@ -171,12 +171,13 @@ do ->
 
 dvl.async.requester = {
   ajax: (query, complete) ->
+    data = if query.dataFn then query.dataFn(query.data) else query.data
     ajax = jQuery.ajax {
       url: query.url
-      data: if query.dataFn then query.dataFn(query.data) else query.data
+      data: data
       type: query.method or 'GET'
       dataType: query.dataType or 'json'
-      contentType: query.contentType or 'application/json'
+      contentType: (query.contentType or 'application/json') if data?
       processData: query.processData or false
       success: (resVal) ->
         resVal = query.fn(resVal, query) if query.fn
