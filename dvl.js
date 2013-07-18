@@ -2386,33 +2386,31 @@ function lift(fn) {
   dvl.html = {};
 
   dvl.html.resizer = function(_arg) {
-    var dimension, fn, onResize, out, selector;
+    var dimension, onResize, out, selector;
 
-    selector = _arg.selector, out = _arg.out, dimension = _arg.dimension, fn = _arg.fn;
+    selector = _arg.selector, out = _arg.out, dimension = _arg.dimension;
     out = dvl.wrapVar(out);
     dimension = dvl.wrap(dimension || 'width');
-    fn = dvl.wrap(fn || dvl.identity);
     onResize = function() {
-      var e, val, _dimension, _fn;
+      var e, val, _dimension;
 
       _dimension = dimension.value();
-      _fn = fn.value();
-      if ((_dimension === 'width' || _dimension === 'height') && _fn) {
+      if (_dimension === 'width' || _dimension === 'height') {
         if (selector) {
           e = jQuery(selector);
           val = e[_dimension]();
         } else {
           val = document.body[_dimension === 'width' ? 'clientWidth' : 'clientHeight'];
         }
-        return out.value(_fn(val));
+        return out.value(val);
       } else {
         return out.value(null);
       }
     };
     $(window).resize(onResize);
     dvl.register({
-      listen: [dimension, fn],
-      change: [out],
+      listen: dimension,
+      change: out,
       fn: onResize
     });
     return out;
@@ -3727,14 +3725,15 @@ function lift(fn) {
 
   dvl.async.requester = {
     ajax: function(query, complete) {
-      var abort, ajax;
+      var abort, ajax, data;
 
+      data = query.dataFn ? query.dataFn(query.data) : query.data;
       ajax = jQuery.ajax({
         url: query.url,
-        data: query.dataFn ? query.dataFn(query.data) : query.data,
+        data: data,
         type: query.method || 'GET',
         dataType: query.dataType || 'json',
-        contentType: query.contentType || 'application/json',
+        contentType: data != null ? query.contentType || 'application/json' : void 0,
         processData: query.processData || false,
         success: function(resVal) {
           if (query.fn) {
