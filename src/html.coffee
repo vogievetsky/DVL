@@ -4,29 +4,27 @@ dvl.html = {}
 
 # Capture the size of something in HTML
 #
-dvl.html.resizer = ({selector, out, dimension, fn}) ->
+dvl.html.resizer = ({selector, out, dimension}) ->
   out = dvl.wrapVar(out)
   dimension = dvl.wrap(dimension or 'width')
-  fn = dvl.wrap(fn or dvl.identity)
 
   onResize = ->
     _dimension = dimension.value()
-    _fn = fn.value()
-    if _dimension in ['width', 'height'] and _fn
+    if _dimension in ['width', 'height']
       if selector
         e = jQuery(selector)
         val = e[_dimension]()
       else
         val = document.body[if _dimension is 'width' then 'clientWidth' else 'clientHeight']
 
-      out.value(_fn(val))
+      out.value(val)
     else
       out.value(null)
 
   $(window).resize(onResize)
   dvl.register {
-    listen: [dimension, fn]
-    change: [out]
+    listen: dimension
+    change: out
     fn: onResize
   }
   return out
