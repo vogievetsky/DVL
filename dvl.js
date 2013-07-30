@@ -1059,7 +1059,7 @@ function lift(fn) {
     return res;
   };
 
-  sortGraph = function(from) {
+  dvl.sortGraph = sortGraph = function(from) {
     var getInboundCount, i, ic, idPriorityQueue, inboundCount, isSource, j, level, nextWorker, nwid, prevWorker, v, worker, workerListen, workerListenLength, workersLength, _i, _len, _ref, _ref1, _sources;
 
     if (from == null) {

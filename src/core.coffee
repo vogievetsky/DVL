@@ -559,7 +559,7 @@ uniqById = (vs, allowConst) ->
   return res
 
 # Sorts the graph. Will sort nodes at levels [0, workers.length)
-sortGraph = (from = 0) ->
+dvl.sortGraph = sortGraph = (from = 0) ->
   # L ← Empty list that will contain the sorted elements
   # S ← Set of all nodes with no incoming edges
   # while S is non-empty do

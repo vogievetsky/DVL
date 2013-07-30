@@ -2,6 +2,7 @@ chai = require("chai")
 expect = chai.expect
 dvl = require("../../dvl")
 
+
 describe "dvl.register", ->
 
   describe "basic register", ->
@@ -16,20 +17,20 @@ describe "dvl.register", ->
     it "correct initial run", ->
       expect(runs).to.equal(1)
 
-
     it "correct next run", ->
       a.value(4)
       expect(runs).to.equal(2)
-
 
     it "correct next run / same value", ->
       a.value(4)
       expect(runs).to.equal(2)
 
-
     it "correct next run / notify", ->
       a.notify()
       expect(runs).to.equal(3)
+
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
 
   describe "basic register / const", ->
@@ -50,6 +51,9 @@ describe "dvl.register", ->
       a.notify()
       expect(runs).to.equal(1)
 
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
+
 
   describe "basic register / no init run", ->
     runs = 0
@@ -67,6 +71,9 @@ describe "dvl.register", ->
     it "correct next run", ->
       a.value(4)
       expect(runs).to.equal(1)
+
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
 
   describe "change and listen register", ->
@@ -90,6 +97,9 @@ describe "dvl.register", ->
       a.value(4)
       expect(runs).to.equal(2)
       expect(b.value()).to.equal(20)
+
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
 
   describe "double link", ->
@@ -125,6 +135,9 @@ describe "dvl.register", ->
       a.value(4)
       expect(runs).to.equal(2)
 
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
+
 
   describe "hasChanged works", ->
     a = dvl(3)
@@ -153,28 +166,8 @@ describe "dvl.register", ->
       b.value(14)
       expect(status).to.equal('B')
 
-
-  describe "circular register", ->
-    runs = 0
-    a = dvl(3)
-    b = dvl(null)
-
-    dvl.register {
-      listen: a
-      change: b
-      fn: ->
-        b.value(a.value() * 5)
-        runs++
-    }
-
-    it "cant make circular", ->
-      expect(->
-        dvl.register {
-          listen: b
-          change: a
-          fn: -> "whatever"
-        }
-      ).to.throw(Error)
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
 
   describe "addListen", ->
@@ -215,8 +208,11 @@ describe "dvl.register", ->
       b.notify()
       expect(status).to.equal('A')
 
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
-  describe.skip "addChange", ->
+
+  describe "addChange", ->
     a = dvl(3)
     b = dvl(3)
     changes = []
@@ -253,8 +249,11 @@ describe "dvl.register", ->
       a.notify()
       expect(status).to.equal('AB')
 
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
-  describe.skip "remove basic", ->
+
+  describe "remove basic", ->
     a = dvl(3)
     status = ''
 
@@ -277,6 +276,9 @@ describe "dvl.register", ->
       a.notify()
       expect(status).to.equal('')
 
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
+
 
   describe "register order preserved - 1", ->
     a = dvl(3)
@@ -293,6 +295,9 @@ describe "dvl.register", ->
       status = ''
       a.notify()
       expect(status).to.equal('ABC')
+
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
 
   describe "register order preserved - 2", ->
@@ -311,6 +316,9 @@ describe "dvl.register", ->
       status = ''
       dvl.notify(a, b)
       expect(status).to.equal('ABC')
+
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
 
   describe "register order preserved - 3", ->
@@ -339,6 +347,9 @@ describe "dvl.register", ->
       dvl.notify(a)
       expect(status).to.equal('AB')
 
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
+
 
   describe "register order preserved - 4", ->
     a = dvl(3)
@@ -360,11 +371,13 @@ describe "dvl.register", ->
     it "correct init run", ->
       expect(status).to.equal('&ABC')
 
-
     it "correct next run", ->
       status = ''
       a.notify()
       expect(status).to.equal('&ABC')
+
+    it "maintains graph consistency", ->
+      expect(dvl.sortGraph).not.to.throw()
 
 
   describe "register order preserved - 5", ->
@@ -411,3 +424,33 @@ describe "dvl.register", ->
       status = ''
       source.value(2)
       expect(status).to.equal('ABCDE#')
+
+
+
+describe "dvl.register errors", ->
+  describe "circular register", ->
+    runs = 0
+    a = dvl(3)
+    b = dvl(null)
+
+    dvl.register {
+      listen: a
+      change: b
+      fn: ->
+        b.value(a.value() * 5)
+        runs++
+    }
+
+    it "cant make circular", ->
+      expect(->
+        dvl.register {
+          listen: b
+          change: a
+          fn: -> "whatever"
+        }
+      ).to.throw(Error)
+
+    it "maintains graph consistency", ->
+      dvl.clearAll()
+      expect(dvl.sortGraph).not.to.throw()
+

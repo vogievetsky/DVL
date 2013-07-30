@@ -1,4 +1,2 @@
 #!/bin/bash
-./node_modules/vows/bin/vows test/core/*
-mocha --compilers coffee:coffee-script --reporter spec test/async/async.coffee
-echo ''
+mocha --compilers coffee:coffee-script --reporter spec test/*

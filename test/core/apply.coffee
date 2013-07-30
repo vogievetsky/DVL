@@ -15,24 +15,21 @@ describe "dvl.apply", ->
         runs++
         return a * 7
       invalid: invalid
-
+    }
 
     it "correct initial run", ->
       expect(runs).to.equal(1)
       expect(b.value()).to.equal(21)
-
 
     it "correct next run", ->
       a.value(4)
       expect(runs).to.equal(2)
       expect(b.value()).to.equal(28)
 
-
     it "correct invalid", ->
       a.value(null)
       expect(runs).to.equal(2)
       expect(b.value()).to.equal(10)
-
 
     it "correct on invalid change", ->
       invalid.value(20)
