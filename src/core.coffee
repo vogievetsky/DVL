@@ -9,7 +9,7 @@ variables = []
 workers = []
 
 dvl = (value) -> new DVLVar(value)
-dvl.version = '1.2.1'
+dvl.version = '1.4.0'
 dvl._variables = variables
 dvl._workers = workers
 this.dvl = dvl
@@ -560,8 +560,8 @@ uniqById = (vs, allowConst) ->
 
 # Sorts the graph. Will sort nodes at levels [0, workers.length)
 dvl.sortGraph = sortGraph = (from = 0) ->
-  # L ← Empty list that will contain the sorted elements
-  # S ← Set of all nodes with no incoming edges
+  # L <- Empty list that will contain the sorted elements
+  # S <- Set of all nodes with no incoming edges
   # while S is non-empty do
   #   remove a node n from S
   #   insert n into L
@@ -591,7 +591,7 @@ dvl.sortGraph = sortGraph = (from = 0) ->
 
   _sources = []
 
-  # S ← Set of all nodes with no incoming edges
+  # S <- Set of all nodes with no incoming edges
   # TODO: This can be optimized out to be it's own array
   i = from
   workersLength = workers.length
@@ -626,7 +626,6 @@ dvl.sortGraph = sortGraph = (from = 0) ->
         inboundCount[nwid] = ic
 
   if level isnt workers.length
-    #console.log 'f', from, level, workers.length, dbg
     throw new Error('there is a cycle')
 
   return
@@ -650,8 +649,6 @@ levelPriorityQueue = new PriorityQueue('level')
 
 curNotifyListener = null
 curCollectListener = null
-changedInNotify = null
-lastNotifyRun = null
 toNotify = null
 
 
@@ -683,31 +680,18 @@ collect_notify = ->
 
   return
 
-
-within_notify = ->
-  throw new Error('bad stuff happened within a notify block') unless curNotifyListener
-
-  for v in arguments
-    continue unless v instanceof DVLVar
-    v = getBase(v)
-    if v not in curNotifyListener.change
-      prevStr = changedInNotify.map((v) -> v.id).join(';')
-      throw new Error("changed unregistered object #{v.id} [prev:#{prevStr}]")
-    changedInNotify.push v
-    lastNotifyRun.push v.id
-    for l in v.listeners
-      if not l.visited
-        levelPriorityQueue.push l
-
-  return
-
-
-init_notify = ->
-  throw new Error('bad stuff happened init') if curNotifyListener
-
+dvl.notify = init_notify = ->
   lastNotifyRun = []
   visitedListener = []
   changedInNotify = []
+  curNotifyListener = null
+
+  notifyChainReset = ->
+    curNotifyListener = null
+    dvl.notify = init_notify
+    v.resetChanged() for v in changedInNotify
+    l.visited = false for l in visitedListener # reset visited
+    return
 
   for v in arguments
     continue unless v instanceof DVLVar
@@ -716,7 +700,23 @@ init_notify = ->
     lastNotifyRun.push v.id
     levelPriorityQueue.push l for l in v.listeners
 
-  dvl.notify = within_notify
+  dvl.notify = -> # within_notify
+    throw new Error('bad stuff happened within a notify block') unless curNotifyListener
+
+    for v in arguments
+      continue unless v instanceof DVLVar
+      v = getBase(v)
+      if v not in curNotifyListener.change
+        prevStr = changedInNotify.map((v) -> v.id).join(';')
+        notifyChainReset()
+        throw new Error("changed unregistered object #{v.id} [prev:#{prevStr}]")
+      changedInNotify.push v
+      lastNotifyRun.push v.id
+      for l in v.listeners
+        if not l.visited
+          levelPriorityQueue.push l
+
+    return
 
   # Handle events in a BFS way
   while levelPriorityQueue.length() > 0
@@ -727,14 +727,9 @@ init_notify = ->
     lastNotifyRun.push(curNotifyListener.id)
     curNotifyListener.fn.apply(curNotifyListener.ctx)
 
-  curNotifyListener = null
-  dvl.notify = init_notify
-  v.resetChanged() for v in changedInNotify
-  l.visited = false for l in visitedListener # reset visited
+  notifyChainReset()
   return
 
-
-dvl.notify = init_notify
 
 ######################################################
 ##
@@ -742,10 +737,6 @@ dvl.notify = init_notify
 ##
 dvl.graphToDot = (lastTrace, showId) ->
   execOrder = {}
-  if lastTrace and lastNotifyRun
-    for pos, id of lastNotifyRun
-      execOrder[id] = pos
-
   nameMap = {}
 
   for worker in workers

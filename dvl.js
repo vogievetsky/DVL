@@ -32,7 +32,7 @@ function lift(fn) {
   };
 }
 ;
-  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, Set, changedInNotify, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, getBase, init_notify, lastNotifyRun, levelPriorityQueue, nextObjId, sortGraph, start_notify_collect, toNotify, uniqById, variables, within_notify, workers,
+  var DVLBlock, DVLConst, DVLVar, DVLWorker, PriorityQueue, Set, clipId, collect_notify, curBlock, curCollectListener, curNotifyListener, default_compare, dvl, end_notify_collect, getBase, init_notify, levelPriorityQueue, nextObjId, sortGraph, start_notify_collect, toNotify, uniqById, variables, workers,
     __slice = [].slice,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -124,7 +124,7 @@ function lift(fn) {
     return new DVLVar(value);
   };
 
-  dvl.version = '1.2.1';
+  dvl.version = '1.4.0';
 
   dvl._variables = variables;
 
@@ -1153,10 +1153,6 @@ function lift(fn) {
 
   curCollectListener = null;
 
-  changedInNotify = null;
-
-  lastNotifyRun = null;
-
   toNotify = null;
 
   start_notify_collect = function(listener) {
@@ -1191,45 +1187,27 @@ function lift(fn) {
     }
   };
 
-  within_notify = function() {
-    var l, prevStr, v, _i, _j, _len, _len1, _ref;
+  dvl.notify = init_notify = function() {
+    var changedInNotify, l, lastNotifyRun, notifyChainReset, v, visitedListener, _i, _j, _len, _len1, _ref;
 
-    if (!curNotifyListener) {
-      throw new Error('bad stuff happened within a notify block');
-    }
-    for (_i = 0, _len = arguments.length; _i < _len; _i++) {
-      v = arguments[_i];
-      if (!(v instanceof DVLVar)) {
-        continue;
-      }
-      v = getBase(v);
-      if (__indexOf.call(curNotifyListener.change, v) < 0) {
-        prevStr = changedInNotify.map(function(v) {
-          return v.id;
-        }).join(';');
-        throw new Error("changed unregistered object " + v.id + " [prev:" + prevStr + "]");
-      }
-      changedInNotify.push(v);
-      lastNotifyRun.push(v.id);
-      _ref = v.listeners;
-      for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
-        l = _ref[_j];
-        if (!l.visited) {
-          levelPriorityQueue.push(l);
-        }
-      }
-    }
-  };
-
-  init_notify = function() {
-    var l, v, visitedListener, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref;
-
-    if (curNotifyListener) {
-      throw new Error('bad stuff happened init');
-    }
     lastNotifyRun = [];
     visitedListener = [];
     changedInNotify = [];
+    curNotifyListener = null;
+    notifyChainReset = function() {
+      var l, v, _i, _j, _len, _len1;
+
+      curNotifyListener = null;
+      dvl.notify = init_notify;
+      for (_i = 0, _len = changedInNotify.length; _i < _len; _i++) {
+        v = changedInNotify[_i];
+        v.resetChanged();
+      }
+      for (_j = 0, _len1 = visitedListener.length; _j < _len1; _j++) {
+        l = visitedListener[_j];
+        l.visited = false;
+      }
+    };
     for (_i = 0, _len = arguments.length; _i < _len; _i++) {
       v = arguments[_i];
       if (!(v instanceof DVLVar)) {
@@ -1244,7 +1222,36 @@ function lift(fn) {
         levelPriorityQueue.push(l);
       }
     }
-    dvl.notify = within_notify;
+    dvl.notify = function() {
+      var prevStr, _k, _l, _len2, _len3, _ref1;
+
+      if (!curNotifyListener) {
+        throw new Error('bad stuff happened within a notify block');
+      }
+      for (_k = 0, _len2 = arguments.length; _k < _len2; _k++) {
+        v = arguments[_k];
+        if (!(v instanceof DVLVar)) {
+          continue;
+        }
+        v = getBase(v);
+        if (__indexOf.call(curNotifyListener.change, v) < 0) {
+          prevStr = changedInNotify.map(function(v) {
+            return v.id;
+          }).join(';');
+          notifyChainReset();
+          throw new Error("changed unregistered object " + v.id + " [prev:" + prevStr + "]");
+        }
+        changedInNotify.push(v);
+        lastNotifyRun.push(v.id);
+        _ref1 = v.listeners;
+        for (_l = 0, _len3 = _ref1.length; _l < _len3; _l++) {
+          l = _ref1[_l];
+          if (!l.visited) {
+            levelPriorityQueue.push(l);
+          }
+        }
+      }
+    };
     while (levelPriorityQueue.length() > 0) {
       curNotifyListener = levelPriorityQueue.shift();
       if (curNotifyListener.visited) {
@@ -1255,30 +1262,13 @@ function lift(fn) {
       lastNotifyRun.push(curNotifyListener.id);
       curNotifyListener.fn.apply(curNotifyListener.ctx);
     }
-    curNotifyListener = null;
-    dvl.notify = init_notify;
-    for (_k = 0, _len2 = changedInNotify.length; _k < _len2; _k++) {
-      v = changedInNotify[_k];
-      v.resetChanged();
-    }
-    for (_l = 0, _len3 = visitedListener.length; _l < _len3; _l++) {
-      l = visitedListener[_l];
-      l.visited = false;
-    }
+    notifyChainReset();
   };
 
-  dvl.notify = init_notify;
-
   dvl.graphToDot = function(lastTrace, showId) {
-    var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, pos, v, varName, w, worker, _i, _j, _k, _l, _len, _len1, _len2, _len3, _name, _ref, _ref1, _ref2;
+    var color, dot, execOrder, fnName, id, k, l, level, levels, nameMap, v, varName, w, worker, _i, _j, _k, _l, _len, _len1, _len2, _len3, _name, _ref, _ref1, _ref2;
 
     execOrder = {};
-    if (lastTrace && lastNotifyRun) {
-      for (pos in lastNotifyRun) {
-        id = lastNotifyRun[pos];
-        execOrder[id] = pos;
-      }
-    }
     nameMap = {};
     for (_i = 0, _len = workers.length; _i < _len; _i++) {
       worker = workers[_i];
