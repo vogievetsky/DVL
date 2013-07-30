@@ -27,7 +27,8 @@
   "devDependencies": {
     "uglify-js": "1.2.3",
     "vows": "0.6.x",
-    "chai": "~1.7.2"
+    "chai": "~1.7.2",
+    "d3": "~3.2.7"
   },
   "scripts": {
     "test": "./test"

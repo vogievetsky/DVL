@@ -3,9 +3,17 @@
 # DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
 
+nextObjId = 1
+
+variables = []
+workers = []
+
 dvl = (value) -> new DVLVar(value)
 dvl.version = '1.2.1'
+dvl._variables = variables
+dvl._workers = workers
 this.dvl = dvl
+
 if typeof module isnt 'undefined' and module.exports
   module.exports = dvl
   dvl.dvl = dvl
@@ -138,12 +146,6 @@ class Set
       delete @map[obj.id]
       @len--
     return this
-
-
-nextObjId = 1
-
-variables = []
-workers = []
 
 curBlock = null
 default_compare = (a, b) -> a is b
@@ -521,6 +523,7 @@ dvl.group = (fn) -> (fnArgs...) ->
     fn.apply(this, fnArgs)
   return
 
+
 dvl.wrapConstIfNeeded =
 dvl.wrap = (v, name) ->
   v = null if v is undefined
@@ -674,7 +677,8 @@ collect_notify = ->
   for v in arguments
     continue unless v instanceof DVLVar
     v = getBase(v)
-    throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
+    if v not in curCollectListener.change
+      throw new Error("changed unregistered object #{v.id} (collect)")
     toNotify.push v
 
   return
@@ -686,7 +690,9 @@ within_notify = ->
   for v in arguments
     continue unless v instanceof DVLVar
     v = getBase(v)
-    throw "changed unregisterd object #{v.id}" if v not in curNotifyListener.change
+    if v not in curNotifyListener.change
+      prevStr = changedInNotify.map((v) -> v.id).join(';')
+      throw new Error("changed unregistered object #{v.id} [prev:#{prevStr}]")
     changedInNotify.push v
     lastNotifyRun.push v.id
     for l in v.listeners
