@@ -456,8 +456,6 @@ function lift(fn) {
       this.id = nextObjId++;
       this.prev = null;
       this.changed = false;
-      this.vgen = void 0;
-      this.vgenPrev = void 0;
       this.vlen = -1;
       this.lazy = null;
       this.listeners = [];
@@ -537,7 +535,6 @@ function lift(fn) {
         this.prev = this.v;
       }
       this.v = val;
-      this.vgen = void 0;
       this.changed = true;
       this.lazy = null;
       return this;
@@ -1239,7 +1236,7 @@ function lift(fn) {
             return v.id;
           }).join(';');
           notifyChainReset();
-          throw new Error("changed unregistered object " + v.id + " [prev:" + prevStr + "]");
+          throw new Error("changed unregistered object " + v.id + " within worker " + curNotifyListener.id + " [prev:" + prevStr + "]");
         }
         changedInNotify.push(v);
         lastNotifyRun.push(v.id);
@@ -2721,7 +2718,7 @@ function lift(fn) {
       }
     }).value();
     updateScroll = function() {
-      var element, selectionIndex, _data, _menuCont, _selection;
+      var element, pos, selectionIndex, _data, _menuCont, _selection;
 
       _data = data.value();
       _selection = selection.value();
@@ -2737,8 +2734,12 @@ function lift(fn) {
         return;
       }
       element = menuCont.selectAll('li')[0][selectionIndex];
+      pos = $(element).position();
+      if (!pos) {
+        return;
+      }
       _menuCont.scrollTop = 0;
-      _menuCont.scrollTop = $(element).position().top;
+      _menuCont.scrollTop = pos.top;
     };
     valueOut.on('keydown', (function() {
       var keyCode, selectionIndex, _data, _filterCharacters, _label, _selection;

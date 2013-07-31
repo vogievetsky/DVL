@@ -338,8 +338,10 @@ dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class
     _menuCont = menuCont.node()
     return if _menuCont.scrollHeight is 0
     element = menuCont.selectAll('li')[0][selectionIndex]
+    pos = $(element).position()
+    return unless pos
     _menuCont.scrollTop = 0
-    _menuCont.scrollTop = $(element).position().top
+    _menuCont.scrollTop = pos.top
     return
 
   valueOut

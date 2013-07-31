@@ -193,8 +193,6 @@ class DVLVar
     @id = nextObjId++
     @prev = null
     @changed = false
-    @vgen = undefined
-    @vgenPrev = undefined
     @vlen = -1
     @lazy = null
     @listeners = []
@@ -246,7 +244,6 @@ class DVLVar
       return this
     @prev = @v unless @changed
     @v = val
-    @vgen = undefined
     @changed = true
     @lazy = null
     return this
@@ -709,7 +706,7 @@ dvl.notify = init_notify = ->
       if v not in curNotifyListener.change
         prevStr = changedInNotify.map((v) -> v.id).join(';')
         notifyChainReset()
-        throw new Error("changed unregistered object #{v.id} [prev:#{prevStr}]")
+        throw new Error("changed unregistered object #{v.id} within worker #{curNotifyListener.id} [prev:#{prevStr}]")
       changedInNotify.push v
       lastNotifyRun.push v.id
       for l in v.listeners
