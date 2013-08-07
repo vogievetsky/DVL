@@ -113,8 +113,7 @@ do ->
     worker = null
     addHoock = (query, ret, requestCount) ->
       if worker
-        worker.addChange(ret)
-        worker.addChange(requestCount)
+        worker.addChange(ret, requestCount)
         worker.addListen(query) #! After add change
       else
         worker = dvl.register {

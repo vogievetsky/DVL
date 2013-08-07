@@ -3982,9 +3982,8 @@ function lift(fn) {
       worker = null;
       addHoock = function(query, ret, requestCount) {
         if (worker) {
+          worker.addChange(ret, requestCount);
           worker.addListen(query);
-          worker.addChange(ret);
-          worker.addChange(requestCount);
         } else {
           worker = dvl.register({
             listen: [query],
@@ -4031,6 +4030,7 @@ function lift(fn) {
       query = dvl.wrap(query);
       invalidOnLoad = dvl.wrap(invalidOnLoad || false);
       requestCount || (requestCount = outstanding);
+      requestCount = dvl.wrapVar(requestCount);
       if (groupId == null) {
         groupId = dvl.async.getGroupId();
       }
