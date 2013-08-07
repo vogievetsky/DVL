@@ -113,9 +113,9 @@ do ->
     worker = null
     addHoock = (query, ret, requestCount) ->
       if worker
-        worker.addListen(query)
         worker.addChange(ret)
         worker.addChange(requestCount)
+        worker.addListen(query) #! After add change
       else
         worker = dvl.register {
           listen: [query]
@@ -152,6 +152,7 @@ do ->
     query = dvl.wrap(query)
     invalidOnLoad = dvl.wrap(invalidOnLoad or false)
     requestCount or= outstanding
+    requestCount = dvl.wrapVar(requestCount)
 
     groupId = dvl.async.getGroupId() unless groupId?
     ajaxManagers[groupId] or= makeManager()

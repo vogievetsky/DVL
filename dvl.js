@@ -1220,7 +1220,7 @@ function lift(fn) {
       }
     }
     dvl.notify = function() {
-      var prevStr, _k, _l, _len2, _len3, _ref1;
+      var errorMessage, prevStr, _k, _l, _len2, _len3, _ref1;
 
       if (!curNotifyListener) {
         throw new Error('bad stuff happened within a notify block');
@@ -1235,8 +1235,9 @@ function lift(fn) {
           prevStr = changedInNotify.map(function(v) {
             return v.id;
           }).join(';');
+          errorMessage = "changed unregistered object " + v.id + " within worker " + curNotifyListener.id + " [prev:" + prevStr + "]";
           notifyChainReset();
-          throw new Error("changed unregistered object " + v.id + " within worker " + curNotifyListener.id + " [prev:" + prevStr + "]");
+          throw new Error(errorMessage);
         }
         changedInNotify.push(v);
         lastNotifyRun.push(v.id);

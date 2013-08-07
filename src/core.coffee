@@ -327,6 +327,12 @@ getBase = (v) ->
 dvl.def   = (value) -> new DVLVar(value)
 dvl.const = (value) -> new DVLConst(value)
 
+
+# Returns weather the input is a DVL variable (or constant or not)
+#
+# @param v - the variable to examine
+# @return {Boolean} true if v is a DVL variable or constant
+
 dvl.knows = (v) -> v instanceof DVLVar or v instanceof DVLConst
 
 
@@ -531,11 +537,14 @@ dvl.wrapVar = (v, name) ->
   v = null if v is undefined
   if dvl.knows(v) then v else dvl(v).name(name)
 
+
+# Returns the value of a variable if the supplied variable is DVL then it would get the value() of it
+#
+# @param v the value of the variable to get
+# @return the value
+
 dvl.valueOf = (v) ->
-  if dvl.knows(v)
-    return v.value()
-  else
-    return v ? null
+  return if dvl.knows(v) then v.value() else (v ? null)
 
 do ->
   nsId = 0
@@ -705,8 +714,9 @@ dvl.notify = init_notify = ->
       v = getBase(v)
       if v not in curNotifyListener.change
         prevStr = changedInNotify.map((v) -> v.id).join(';')
+        errorMessage = "changed unregistered object #{v.id} within worker #{curNotifyListener.id} [prev:#{prevStr}]"
         notifyChainReset()
-        throw new Error("changed unregistered object #{v.id} within worker #{curNotifyListener.id} [prev:#{prevStr}]")
+        throw new Error(errorMessage)
       changedInNotify.push v
       lastNotifyRun.push v.id
       for l in v.listeners
