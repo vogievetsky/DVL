@@ -2081,11 +2081,11 @@ function lift(fn) {
             }
             ex = s.exit().remove();
             if (!e.empty() || !ex.empty() || force) {
-              out.set(s).notify();
+              out.value(s);
             }
           } else {
             s = _parent.selectAll(self).remove();
-            out.set(s).notify();
+            out.value(s);
           }
         }
       });
