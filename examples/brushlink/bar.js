@@ -167,8 +167,11 @@ function bar(args) {
         if (d3.event.shiftKey) {
           _selectedDims[what] = !_selectedDims[what];
         } else {
+          selectedDimKeys = Object.keys(_selectedDims)
           _selectedDims = {};
-          _selectedDims[what] = true;
+          if (! (selectedDimKeys.length == 1 && selectedDimKeys[0] == what)) {
+            _selectedDims[what] = true;
+          }
         }
         selectedDims.set(_selectedDims);
         selHolder.set(me);
