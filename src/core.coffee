@@ -3,9 +3,17 @@
 # DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
 
+nextObjId = 1
+
+variables = []
+workers = []
+
 dvl = (value) -> new DVLVar(value)
-dvl.version = '1.2.1'
+dvl.version = '1.4.0'
+dvl._variables = variables
+dvl._workers = workers
 this.dvl = dvl
+
 if typeof module isnt 'undefined' and module.exports
   module.exports = dvl
   dvl.dvl = dvl
@@ -139,12 +147,6 @@ class Set
       @len--
     return this
 
-
-nextObjId = 1
-
-variables = []
-workers = []
-
 curBlock = null
 default_compare = (a, b) -> a is b
 
@@ -191,8 +193,6 @@ class DVLVar
     @id = nextObjId++
     @prev = null
     @changed = false
-    @vgen = undefined
-    @vgenPrev = undefined
     @vlen = -1
     @lazy = null
     @listeners = []
@@ -244,7 +244,6 @@ class DVLVar
       return this
     @prev = @v unless @changed
     @v = val
-    @vgen = undefined
     @changed = true
     @lazy = null
     return this
@@ -327,6 +326,12 @@ getBase = (v) ->
 
 dvl.def   = (value) -> new DVLVar(value)
 dvl.const = (value) -> new DVLConst(value)
+
+
+# Returns weather the input is a DVL variable (or constant or not)
+#
+# @param v - the variable to examine
+# @return {Boolean} true if v is a DVL variable or constant
 
 dvl.knows = (v) -> v instanceof DVLVar or v instanceof DVLConst
 
@@ -521,6 +526,7 @@ dvl.group = (fn) -> (fnArgs...) ->
     fn.apply(this, fnArgs)
   return
 
+
 dvl.wrapConstIfNeeded =
 dvl.wrap = (v, name) ->
   v = null if v is undefined
@@ -531,11 +537,14 @@ dvl.wrapVar = (v, name) ->
   v = null if v is undefined
   if dvl.knows(v) then v else dvl(v).name(name)
 
+
+# Returns the value of a variable if the supplied variable is DVL then it would get the value() of it
+#
+# @param v the value of the variable to get
+# @return the value
+
 dvl.valueOf = (v) ->
-  if dvl.knows(v)
-    return v.value()
-  else
-    return v ? null
+  return if dvl.knows(v) then v.value() else (v ? null)
 
 do ->
   nsId = 0
@@ -556,9 +565,9 @@ uniqById = (vs, allowConst) ->
   return res
 
 # Sorts the graph. Will sort nodes at levels [0, workers.length)
-sortGraph = (from = 0) ->
-  # L ← Empty list that will contain the sorted elements
-  # S ← Set of all nodes with no incoming edges
+dvl.sortGraph = sortGraph = (from = 0) ->
+  # L <- Empty list that will contain the sorted elements
+  # S <- Set of all nodes with no incoming edges
   # while S is non-empty do
   #   remove a node n from S
   #   insert n into L
@@ -588,7 +597,7 @@ sortGraph = (from = 0) ->
 
   _sources = []
 
-  # S ← Set of all nodes with no incoming edges
+  # S <- Set of all nodes with no incoming edges
   # TODO: This can be optimized out to be it's own array
   i = from
   workersLength = workers.length
@@ -623,7 +632,6 @@ sortGraph = (from = 0) ->
         inboundCount[nwid] = ic
 
   if level isnt workers.length
-    #console.log 'f', from, level, workers.length, dbg
     throw new Error('there is a cycle')
 
   return
@@ -647,8 +655,6 @@ levelPriorityQueue = new PriorityQueue('level')
 
 curNotifyListener = null
 curCollectListener = null
-changedInNotify = null
-lastNotifyRun = null
 toNotify = null
 
 
@@ -669,39 +675,29 @@ end_notify_collect = ->
 
 
 collect_notify = ->
-  throw 'bad stuff happened during a collect block' unless curCollectListener
+  throw new Error('bad stuff happened during a collect block') unless curCollectListener
 
   for v in arguments
     continue unless v instanceof DVLVar
     v = getBase(v)
-    throw "changed unregisterd object #{v.id}" if v not in curCollectListener.change
+    if v not in curCollectListener.change
+      throw new Error("changed unregistered object #{v.id} (collect)")
     toNotify.push v
 
   return
 
-
-within_notify = ->
-  throw 'bad stuff happened within a notify block' unless curNotifyListener
-
-  for v in arguments
-    continue unless v instanceof DVLVar
-    v = getBase(v)
-    throw "changed unregisterd object #{v.id}" if v not in curNotifyListener.change
-    changedInNotify.push v
-    lastNotifyRun.push v.id
-    for l in v.listeners
-      if not l.visited
-        levelPriorityQueue.push l
-
-  return
-
-
-init_notify = ->
-  throw 'bad stuff happened init' if curNotifyListener
-
+dvl.notify = init_notify = ->
   lastNotifyRun = []
   visitedListener = []
   changedInNotify = []
+  curNotifyListener = null
+
+  notifyChainReset = ->
+    curNotifyListener = null
+    dvl.notify = init_notify
+    v.resetChanged() for v in changedInNotify
+    l.visited = false for l in visitedListener # reset visited
+    return
 
   for v in arguments
     continue unless v instanceof DVLVar
@@ -710,7 +706,24 @@ init_notify = ->
     lastNotifyRun.push v.id
     levelPriorityQueue.push l for l in v.listeners
 
-  dvl.notify = within_notify
+  dvl.notify = -> # within_notify
+    throw new Error('bad stuff happened within a notify block') unless curNotifyListener
+
+    for v in arguments
+      continue unless v instanceof DVLVar
+      v = getBase(v)
+      if v not in curNotifyListener.change
+        prevStr = changedInNotify.map((v) -> v.id).join(';')
+        errorMessage = "changed unregistered object #{v.id} within worker #{curNotifyListener.id} [prev:#{prevStr}]"
+        notifyChainReset()
+        throw new Error(errorMessage)
+      changedInNotify.push v
+      lastNotifyRun.push v.id
+      for l in v.listeners
+        if not l.visited
+          levelPriorityQueue.push l
+
+    return
 
   # Handle events in a BFS way
   while levelPriorityQueue.length() > 0
@@ -721,14 +734,9 @@ init_notify = ->
     lastNotifyRun.push(curNotifyListener.id)
     curNotifyListener.fn.apply(curNotifyListener.ctx)
 
-  curNotifyListener = null
-  dvl.notify = init_notify
-  v.resetChanged() for v in changedInNotify
-  l.visited = false for l in visitedListener # reset visited
+  notifyChainReset()
   return
 
-
-dvl.notify = init_notify
 
 ######################################################
 ##
@@ -736,10 +744,6 @@ dvl.notify = init_notify
 ##
 dvl.graphToDot = (lastTrace, showId) ->
   execOrder = {}
-  if lastTrace and lastNotifyRun
-    for pos, id of lastNotifyRun
-      execOrder[id] = pos
-
   nameMap = {}
 
   for worker in workers
@@ -977,7 +981,7 @@ dvl.random = (options) ->
 
 
 dvl.arrayTick = (data, options) ->
-  throw 'dvl.arrayTick: no data' unless data
+  throw new Error('dvl.arrayTick: no data') unless data
   data = dvl.wrap(data)
 
   point = options.start or 0
@@ -1004,7 +1008,7 @@ dvl.recorder = (options) ->
 
   data = options.data
   fn = dvl.wrap(options.fn or dvl.identity)
-  throw 'it does not make sense not to have data' unless dvl.knows(data)
+  throw new Error('it does not make sense not to have data') unless dvl.knows(data)
 
   max = dvl.wrap(options.max or +Infinity)
   i = 0

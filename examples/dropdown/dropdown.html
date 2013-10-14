@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Dropdown</title>
+    <script src="../../lib/jquery/jquery-1.6.2.min.js"></script>
+    <script src="../../d3/d3.v2.js"></script>
+    <script src="../../dvl.js"></script>
+    <link type="text/css" href="../../dvl.css" rel="Stylesheet" />
+    <style type="text/css">
+
+body {
+  font: 12px sans-serif;
+}
+
+.ex {
+  margin-bottom: 20px;
+}
+
+.dropdown {
+  width: 180px;
+  background-color: #f0f0f0;
+}
+
+ul.menu-cont.empty:before {
+  content: "<empty list>"
+}
+
+li.is-selection {
+  font-weight: bold;
+}
+
+li.is-highlight {
+  background: steelblue;
+  color: white;
+}
+
+span.icon {
+  position: absolute;
+  display: inline-block;
+  top: 3px;
+}
+
+span.icon.a {
+  right: 25px;
+}
+
+span.icon.b {
+  right: 5px;
+}
+
+    </style>
+
+  </head>
+  <body>
+    <div class="ex">
+      Selection: <span id="out1"></span>
+    </div>
+    <div id="cont1" class="ex">
+      Countries simple:<br>
+    </div>
+    <div id="cont2" class="ex">
+      Countries with random icons and spacers:<br>
+    </div>
+    <div id="cont3" class="ex">
+      Countries with null / none:<br>
+    </div>
+    <div id="cont4" class="ex">
+      Countries editable with null / none:<br>
+    </div>
+  </body>
+  <script>
+    stateCodes = [
+      'AL','AK','AZ','AR','CA',
+      'CO','CT','DE','DC','FL',
+      'GA','HI','ID','IL','IN',
+      'IA','KS','KY','LA','ME',
+      'MD','MA','MI','MN','MS',
+      'MO','MT','NE','NV','NH',
+      'NJ','NM','NY','NC','ND',
+      'OH','OK','OR','PA','RI',
+      'SC','SD','TN','TX','UT',
+      'VT','VA','WA','WV','WI',
+      'WY'
+    ]
+
+    stateName = {
+      AL: 'Alabama',
+      AK: 'Alaska',
+      AZ: 'Arizona',
+      AR: 'Arkansas',
+      CA: 'California',
+      CO: 'Colorado',
+      CT: 'Connecticut',
+      DE: 'Delaware',
+      DC: 'District of Columbia',
+      FL: 'Florida',
+      GA: 'Georgia',
+      HI: 'Hawaii',
+      ID: 'Idaho',
+      IL: 'Illinois',
+      IN: 'Indiana',
+      IA: 'Iowa',
+      KS: 'Kansas',
+      KY: 'Kentucky',
+      LA: 'Louisiana',
+      ME: 'Maine',
+      MD: 'Maryland',
+      MA: 'Massachusetts',
+      MI: 'Michigan',
+      MN: 'Minnesota',
+      MS: 'Mississippi',
+      MO: 'Missouri',
+      MT: 'Montana',
+      NE: 'Nebraska',
+      NV: 'Nevada',
+      NH: 'New Hampshire',
+      NJ: 'New Jersey',
+      NM: 'New Mexico',
+      NY: 'New York',
+      NC: 'North Carolina',
+      ND: 'North Dakota',
+      OH: 'Ohio',
+      OK: 'Oklahoma',
+      OR: 'Oregon',
+      PA: 'Pennsylvania',
+      RI: 'Rhode Island',
+      SC: 'South Carolina',
+      SD: 'South Dakota',
+      TN: 'Tennessee',
+      TX: 'Texas',
+      UT: 'Utah',
+      VT: 'Vermont',
+      VA: 'Virginia',
+      WA: 'Washington',
+      WV: 'West Virginia',
+      WI: 'Wisconsin',
+      WY: 'Wyoming'
+    }
+
+    var selection = dvl();
+
+    dvl.bindSingle({
+      self: d3.select('#out1'),
+      text: selection
+    });
+
+    // ----------------------------------
+
+    dvl.html.dropdown({
+      parent: d3.select('#cont1'),
+      data: stateCodes,
+      value: function(s) { return stateName[s] || '???'; },
+      selection: selection
+    });
+
+    // ----------------------------------
+
+    function iconRender(selection, value) {
+      dvl.bind({
+        parent: selection,
+        self: 'span.text',
+        text: value
+      })
+
+      dvl.bind({
+        parent: selection,
+        self: 'span.icon.a',
+        text: 'A',
+        on: {
+          click: function(d) {
+            d3.event.stopPropagation();
+            d3.event.preventDefault();
+            console.log('A:', d)
+            return false;
+          }
+        }
+      })
+
+      dvl.bind({
+        parent: selection,
+        self: 'span.icon.b',
+        text: 'B',
+        on: {
+          click: function(d) {
+            d3.event.stopPropagation();
+            d3.event.preventDefault();
+            console.log('B:', d)
+            return false;
+          }
+        }
+      })
+    }
+
+    dvl.html.dropdown({
+      parent: d3.select('#cont2'),
+      data: stateCodes,
+      value: function(s) { return stateName[s] || '???'; },
+      selection: selection,
+      render: iconRender,
+      spacers: [1, 4]
+    });
+
+    // ----------------------------------
+
+    dvl.html.dropdown({
+      parent: d3.select('#cont3'),
+      data: [null].concat(stateCodes),
+      value: function(s) {
+        if (s == null)
+          return '<none>'
+        return stateName[s] || '???';
+      },
+      selection: selection
+    });
+
+    // ----------------------------------
+
+    dvl.html.dropdown({
+      parent: d3.select('#cont4'),
+      data: [null].concat(stateCodes),
+      value: function(s) {
+        if (s == null)
+          return '<none>'
+        return stateName[s] || '???';
+      },
+      selection: selection,
+      combo: true
+    });
+
+  </script>
+</html>

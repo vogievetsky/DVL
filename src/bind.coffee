@@ -146,7 +146,9 @@ do ->
     return out
 
 
-  dvl.bindSingle = ({parent, self, datum, attr, style, property, text, html, on:argsOn, transition}) ->
+  dvl.bindSingle = ({parent, self, data, datum, attr, style, property, text, html, on:argsOn, transition}) ->
+    throw new Error("bindSingle does not accept a parameter 'data'. Did you mean 'datum'?") if data
+
     if typeof self is 'string'
       throw "'parent' not defined for string self" unless parent
       parts = self.split(id_class_spliter)

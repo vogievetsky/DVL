@@ -13,7 +13,7 @@
   ],
   "homepage": "http://vogievetsky.github.com/dvl",
   "author": {
-    "name": "Mike Bostock",
+    "name": "Vadim Ogievetsky",
     "url": "http://vadim.ogievetsky.com"
   },
   "repository": {
@@ -22,13 +22,14 @@
   },
   "main": "dvl.js",
   "dependencies": {
-    "jsdom": "0.2.10"
+    "jsdom": "0.7.0"
   },
   "devDependencies": {
     "uglify-js": "1.2.3",
-    "vows": "0.6.x"
+    "chai": "~1.7.2",
+    "d3": "~3.2.7"
   },
   "scripts": {
-    "test": "./node_modules/vows/bin/vows"
+    "test": "./test"
   }
 }

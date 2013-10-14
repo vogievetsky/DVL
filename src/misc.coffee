@@ -1,5 +1,5 @@
 dvl.snap = ({data, acc, value, trim, name}) ->
-  throw 'No data given' unless data
+  throw new Error('No data given') unless data
   acc = dvl.wrap(acc or dvl.identity)
   value = dvl.wrap(value)
   trim = dvl.wrap(trim or false)

@@ -64,30 +64,29 @@
     if (! _data)
       return null;
 
-    _d = _data[17];
+    var d = _data[17];
 
-    found = false;
+    var selected = false;
     if (_selData && _selData.length) {
       for (var i = 0; i < _selData.length; i++) {
         item = _selData[i];
-        if (item.time == _d.time) {
-          found = true;
+        if (item.time == d.time) {
+          selected = true;
           break;
         }
-        if (item.time > _d.time) break;
+        if (item.time > d.time) break;
       }
     }
 
-    s = found ? "" : "Selected!";
-    pretty_d = {
-      time    : _d.time,
-      phase   : _d.phase,
-      temp    : _d.temp.toFixed(3),
-      bubbling: _d.bubbling.toFixed(3),
-      energy  : _d.energy.toFixed(3)
+    prettyD = {
+      time    : d.time,
+      phase   : d.phase,
+      temp    : d.temp.toFixed(3),
+      bubbling: d.bubbling.toFixed(3),
+      energy  : d.energy.toFixed(3)
     }
-    return s + "\n" + JSON.stringify(pretty_d, null, "  ");
-  })
+    return (selected ? "Selected!" : "") + "\n" + JSON.stringify(prettyD, null, 2);
+  });
 
   dvl.bindSingle({
     self: d3.select('pre.demo'),
