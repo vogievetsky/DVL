@@ -67,7 +67,7 @@ console.log(c.value()) //=> 5
 
 **dvl.applyAlways**
 
-Auto invalidation is often the desired behavior and a convenience since the arguments within the 'worker function' will never be null, but sometimes it does make scenes for the result of the apply to be something valid even if some of the arguments are invalid.
+Auto invalidation is often the desired behavior and a convenience since the arguments within the 'worker function' will never be null, but sometimes it does make sense for the result of the apply to be something valid even if some of the arguments are invalid.
 
 ```javascript
 var who = dvl('Jason');
