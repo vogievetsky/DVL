@@ -30,6 +30,6 @@
     "d3": "~3.2.7"
   },
   "scripts": {
-    "test": "./test"
+    "test": "./test-run"
   }
 }
