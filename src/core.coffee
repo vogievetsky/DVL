@@ -9,7 +9,7 @@ variables = []
 workers = []
 
 dvl = (value) -> new DVLVar(value)
-dvl.version = '1.4.0'
+dvl.version = '1.4.1'
 dvl._variables = variables
 dvl._workers = workers
 this.dvl = dvl
