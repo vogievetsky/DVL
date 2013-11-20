@@ -135,10 +135,10 @@ do ->
           t[a.fn](a.a1, a.a2) for a in postTrans
 
           ex = s.exit().remove()
-          out.set(s).notify() if not e.empty() or not ex.empty() or force
+          out.value(s) if not e.empty() or not ex.empty() or force
         else
           s = _parent.selectAll(self).remove()
-          out.set(s).notify()
+          out.value(s)
 
         return
     }

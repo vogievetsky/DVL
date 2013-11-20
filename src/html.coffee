@@ -761,7 +761,6 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
         titleText = if selLabel then selLabel(sel) else ''
 
       valueOut.property('value', titleText ? '')
-
       return
   }
 

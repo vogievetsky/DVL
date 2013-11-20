@@ -976,7 +976,7 @@ function lift(fn) {
 
   dvl.group = function(fn) {
     return function() {
-      var captured_notifies, fnArgs;
+      var captured_notifies, fnArgs, ret;
 
       fnArgs = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
       if (dvl.notify === init_notify) {
@@ -987,12 +987,13 @@ function lift(fn) {
           args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
           Array.prototype.push.apply(captured_notifies, args);
         };
-        fn.apply(this, fnArgs);
+        ret = fn.apply(this, fnArgs);
         dvl.notify = init_notify;
         init_notify.apply(dvl, captured_notifies);
       } else {
-        fn.apply(this, fnArgs);
+        ret = fn.apply(this, fnArgs);
       }
+      return ret;
     };
   };
 
@@ -2081,11 +2082,11 @@ function lift(fn) {
             }
             ex = s.exit().remove();
             if (!e.empty() || !ex.empty() || force) {
-              out.set(s).notify();
+              out.value(s);
             }
           } else {
             s = _parent.selectAll(self).remove();
-            out.set(s).notify();
+            out.value(s);
           }
         }
       });

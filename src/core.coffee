@@ -518,13 +518,13 @@ dvl.group = (fn) -> (fnArgs...) ->
     dvl.notify = (args...) ->
       Array::push.apply(captured_notifies, args)
       return
-    fn.apply(this, fnArgs)
+    ret = fn.apply(this, fnArgs)
     dvl.notify = init_notify
     init_notify.apply(dvl, captured_notifies)
   else
     # this is already runing in a group or a register
-    fn.apply(this, fnArgs)
-  return
+    ret = fn.apply(this, fnArgs)
+  return ret
 
 
 dvl.wrapConstIfNeeded =
