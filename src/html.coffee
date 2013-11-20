@@ -482,7 +482,11 @@ dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class
       return if $(menuCont.node()).find(target).length
 
       if divCont.node() is target or $(divCont.node()).find(target).length
-        menuOpen.value(not menuOpen.value())
+        # only open the menu if the current state is closed or if the
+        # activeElement isn't the input text box for this combobox
+        togMenuOpen = not menuOpen.value()
+        if (togMenuOpen or valueOut.node().id isnt document.activeElement?.id)
+          menuOpen.value(not menuOpen.value())
       else
         menuOpen.value(false)
 
