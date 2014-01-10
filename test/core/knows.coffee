@@ -1,6 +1,6 @@
 chai = require("chai")
 expect = chai.expect
-dvl = require("../../dvl")
+dvl = require("../../src")
 
 describe "dvl.knows", ->
 

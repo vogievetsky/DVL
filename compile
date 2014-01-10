@@ -1,5 +1,4 @@
 #!/bin/bash
 compass compile --sass-dir src/style/ --css-dir ./
 coffee --compile --bare --output build src
-coffee --compile --bare --output . index.coffee
-browserify index.js -o dvl.js
+browserify build/index.js -o dvl.js

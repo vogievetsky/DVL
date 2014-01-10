@@ -3,7 +3,10 @@
 # DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
 
-{ PriorityQueue, Set } = require './basic'
+lift = require '../lib/lift'
+
+PriorityQueue = require './dataStructure/priorityQueue'
+Set = require './dataStructure/set'
 utilModule = require './util'
 
 nextObjId = 1
@@ -341,8 +344,8 @@ dvl.register = ({ctx, fn, listen, change, name, noRun}) ->
   throw new Error('cannot call register from within a notify') if curNotifyListener
   throw new TypeError('fn must be a function') if typeof(fn) != 'function'
 
-  listen = [listen] unless dvl.typeOf(listen) is 'array'
-  change = [change] unless dvl.typeOf(change) is 'array'
+  listen = [listen] unless utilModule.typeOf(listen) is 'array'
+  change = [change] unless utilModule.typeOf(change) is 'array'
 
   listenConst = []
   if listen
