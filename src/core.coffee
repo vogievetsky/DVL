@@ -400,7 +400,6 @@ class DVLBlock
     d.discard() for d in @owns
     return
 
-
 dvl.blockFn = ->
   switch arguments.length
     when 1 then [fn] = arguments
@@ -408,7 +407,7 @@ dvl.blockFn = ->
     else throw "bad number of arguments"
 
   return (args...) ->
-    block = new DVLBlock(name, curBlock)
+    curBlock = block = new DVLBlock(name, curBlock)
     ret = fn.apply(this, args)
     curBlock = block.parent
     return ret
@@ -419,7 +418,7 @@ dvl.block = ->
     when 2 then [name, fn] = arguments
     else throw "bad number of arguments"
 
-  block = new DVLBlock(name, curBlock)
+  curBlock = block = new DVLBlock(name, curBlock)
   fn.call(this)
   curBlock = block.parent
   return block
