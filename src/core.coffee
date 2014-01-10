@@ -3,149 +3,48 @@
 # DVL is a framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.
 # DVL is based the concept that the data in a program should be the programmer’s main focus.
 
+{ PriorityQueue, Set } = require './basic'
+utilModule = require './util'
+
 nextObjId = 1
 
-variables = []
-workers = []
-
 dvl = (value) -> new DVLVar(value)
-dvl.version = '1.4.1'
-dvl._variables = variables
-dvl._workers = workers
-this.dvl = dvl
+dvl.version = '1.5.0'
+dvl._variables = variables = []
+dvl._workers = workers = []
 
-if typeof module isnt 'undefined' and module.exports
-  module.exports = dvl
-  dvl.dvl = dvl
-
-dvl.typeOf = do ->
-  toString = Object.prototype.toString
-  return (v) ->
-    type = toString.call(v)
-    return type.substring(8, type.length - 1).toLowerCase()
-
-dvl.util = {
-  strObj: (obj) ->
-    type = dvl.typeOf(obj)
-    if type in ['object', 'array']
-      str = []
-      keys = []
-      for k of obj
-        continue unless obj.hasOwnProperty(k)
-        keys.push k
-      keys.sort()
-      str.push k, dvl.util.strObj(obj[k]) for k in keys
-      return str.join('|')
-
-    if type is 'function'
-      return '&'
-
-    return String(obj)
-
-  uniq: (array) ->
-    seen = {}
-    uniq = []
-    for a in array
-      uniq.push a unless seen[a]
-      seen[a] = 1
-
-    return uniq
-
-  crossDomainPost: (url, params) ->
-    frame = d3.select('body').append('iframe').style('display', 'none')
-
-    clean = (d) -> d.replace(/'/g, "\\'")
-    inputs = []
-    inputs.push "<input name='#{k}' value='#{clean(v)}'/>" for k,v of params
-
-    post_process = frame.node().contentWindow.document
-    post_process.open()
-    post_process.write "<form method='POST' action='#{url}'>#{inputs.join('')}</form>"
-    post_process.write "<script>window.onload=function(){document.forms[0].submit();}</script>"
-    post_process.close()
-    setTimeout(frame.remove, 800)
-    return;
-
-  isEqual: (a, b, cmp) ->
-    # Check object identity.
-    return true if a is b
-    # Different types?
-    atype = dvl.typeOf(a)
-    btype = dvl.typeOf(b)
-    return false if atype isnt btype
-    # One is falsy and the other truthy.
-    return false if (not a and b) or (a and not b)
-    # Check dates' integer values.
-    return a.getTime() is b.getTime() if atype is 'date'
-    # Both are NaN?
-    return false if a isnt a and b isnt b
-    # and Compare regular expressions.
-    return a.source is b.source and a.global is b.global and a.ignoreCase is b.ignoreCase and a.multiline is b.multiline if atype is 'regexp'
-    # If a is not an object by this point, we can't handle it.
-    return false unless atype is 'object' or atype is 'array'
-    # Check if already compared
-    if cmp
-      for c in cmp
-        return true if (c.a is a and c.b is b) or (c.a is b and c.b is a)
-    # Check for different array lengths before comparing contents.
-    return false if a.length? and a.length isnt b.length
-    # Nothing else worked, deep compare the contents.
-    aKeys = []
-    aKeys.push k for k of a
-    bKeys = []
-    bKeys.push k for k of b
-    # Different object sizes?
-    return false if aKeys.length isnt bKeys.length
-    # Recursive comparison of contents.
-    cmp = if cmp then cmp.slice() else []
-    cmp.push {a,b}
-    for k of a
-      return false unless b[k]? and dvl.util.isEqual(a[k], b[k], cmp)
-
-    return true
-
-  clone: (obj) ->
-    t = dvl.typeOf(obj)
-    switch t
-      when 'array'
-        return obj.slice()
-      when 'object'
-        ret = {}
-        ret[k] = v for k,v of obj
-        return ret
-      when 'date'
-        return new Date(obj.getTime())
-      else
-        return obj
-
-  escapeHTML: (str) ->
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/>/g, '&gt;')
-      .replace(/</g, '&lt;')
-      .replace(/"/g, '&quot;')
-}
-
-class Set
-  constructor: ->
-    @map = {}
-    @len = 0
-
-  valueOf: -> @map
-
-  length: -> @len
-
-  add: (obj) ->
-    if not @map.hasOwnProperty(obj.id)
-      @map[obj.id] = obj
-      @len++
-    return this
-
-  remove: (obj) ->
-    if @map.hasOwnProperty(obj.id)
-      delete @map[obj.id]
-      @len--
-    return this
+# Available attributes / functions
+#
+# dvl._variables
+# dvl._workers
+# dvl.acc
+# dvl.apply
+# dvl.applyAlways
+# dvl.block
+# dvl.blockFn
+# dvl.chain
+# dvl.clearAll
+# dvl.const
+# dvl.debug
+# dvl.def
+# dvl.group
+# dvl.ident
+# dvl.identity
+# dvl.knows
+# dvl.namespace
+# dvl.notify
+# dvl.null
+# dvl.op
+# dvl.op[k]
+# dvl.register
+# dvl.sortGraph
+# dvl.valueOf
+# dvl.version
+# dvl.wrap
+# dvl.wrapConstIfNeeded
+# dvl.wrapVar
+# dvl.wrapVarIfNeeded
+# dvl.zero
 
 curBlock = null
 default_compare = (a, b) -> a is b
@@ -178,6 +77,7 @@ class DVLConst
     else
       @n = arguments[0]
       return this
+
   compare: -> if arguments.length then this else default_compare
   verify: -> if arguments.length then this else null
   apply: (fn) -> dvl.apply(this, fn)
@@ -247,22 +147,28 @@ class DVLVar
     @changed = true
     @lazy = null
     return this
+
   lazyValue: (fn) ->
     @lazy = fn
     @changed = true
     dvl.notify(this)
     return this
+
   update: (val) ->
-    if not dvl.util.isEqual(val, @v)
+    if not utilModule.isEqual(val, @v)
       this.set(val)
       dvl.notify(this)
     return this
+
   get: -> @value()
+
   getPrev: ->
     @resolveLazy()
     if @prev and @changed then @prev else @v
+
   notify: ->
     dvl.notify(this)
+
   discard: ->
     if @listeners.length > 0
       throw "Cannot remove variable #{@id} because it has listeners."
@@ -270,24 +176,28 @@ class DVLVar
       throw "Cannot remove variable #{@id} because it has changers."
     variables.splice(variables.indexOf(this), 1)
     return null
+
   name: ->
     if arguments.length is 0
       return @n ? '<anon>'
     else
       @n = arguments[0]
       return this
+
   compare: ->
     if arguments.length
       @compareFn = arguments[0]
       return this
     else
       return @compareFn
+
   verify: ->
     if arguments.length
       @verifyFn = arguments[0]
       return this
     else
       return @verifyFn
+
   apply: (fn) -> dvl.apply(this, fn)
   applyValid: (fn) -> dvl.applyValid(this, fn)
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
@@ -546,12 +456,10 @@ dvl.wrapVar = (v, name) ->
 dvl.valueOf = (v) ->
   return if dvl.knows(v) then v.value() else (v ? null)
 
-do ->
-  nsId = 0
-  dvl.namespace = (str = 'ns') ->
-    nsId++
-    return str + nsId
-  return
+nsId = 0
+dvl.namespace = (str = 'ns') ->
+  nsId++
+  return str + nsId
 
 # filter out undefineds and nulls and constants also make unique
 uniqById = (vs, allowConst) ->
@@ -737,72 +645,6 @@ dvl.notify = init_notify = ->
   notifyChainReset()
   return
 
-
-######################################################
-##
-##  Renders the variable graph into dot
-##
-dvl.graphToDot = (lastTrace, showId) ->
-  execOrder = {}
-  nameMap = {}
-
-  for worker in workers
-    id = worker.id
-    fnName = id.replace(/\n/g, '')
-    #fnName = fnName.replace(/_\d+/, '') unless showId
-    fnName = fnName + ' (' + worker.level + ')'
-    # fnName += ' [[' + execOrder[worker.id] + ']]' if execOrder[worker.id]
-    fnName = '"' + fnName + '"'
-    nameMap[id] = fnName
-
-  for v of variables
-    id = v.id
-    varName = id.replace(/\n/g, '')
-    #varName = varName.replace(/_\d+/, '') unless showId
-    # varName += ' [[' + execOrder[id] + ']]' if execOrder[id]
-    varName = '"' + varName + '"'
-    nameMap[id] = varName
-
-  dot = []
-  dot.push 'digraph G {'
-  dot.push '  rankdir=LR;'
-
-  levels = []
-  for id, v of variables.valueOf()
-    color = if execOrder[id] then 'red' else 'black'
-    dot.push "  #{nameMap[id]} [color=#{color}];"
-
-  for k, l of workers
-    levels[l.level] or= []
-    levels[l.level].push nameMap[l.id]
-    color = if execOrder[l.id] then 'red' else 'black'
-
-    dot.push "  #{nameMap[l.id]} [shape=box,color=#{color}];"
-    for v in l.listen
-      color = if execOrder[v.id] and execOrder[l.id] then 'red' else 'black'
-      dot.push "  #{nameMap[v.id]} -> #{nameMap[l.id]} [color=#{color}];"
-    for w in l.change
-      color = if execOrder[l.id] and execOrder[w.id] then 'red' else 'black'
-      dot.push "  #{nameMap[l.id]} -> #{nameMap[w.id]} [color=#{color}];"
-
-  for level in levels
-    dot.push('{ rank = same; ' + level.join('; ') + '; }')
-
-  dot.push '}'
-  return dot.join('\n')
-
-dvl.postGraph = (file, showId) ->
-  file or= 'dvl_graph'
-  g = dvl.graphToDot(false, showId)
-  dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
-  return
-
-dvl.postLatest = (file, showId) ->
-  file or= 'dvl_graph_latest'
-  g = dvl.graphToDot(true, showId)
-  dvl.util.crossDomainPost('http://localhost:8124/' + file, { graph: JSON.stringify(g) })
-  return
-
 dvl.zero = dvl.const(0).name('zero')
 
 dvl.null = dvl.const(null).name('null')
@@ -953,151 +795,6 @@ dvl.applyAlways = ->
   return out
 
 
-dvl.random = (options) ->
-  min = options.min or 0
-  max = options.max or min + 10
-  int = options.integer
-  walk = options.walk
-
-  random = dvl((max - min)/2, options.name or 'random')
-
-  gen = ->
-    if walk and walk > 0
-      # do a random walk
-      scale = walk * Math.abs(max - min)
-      r = random.value() + scale*(2*Math.random()-1)
-      r = min if r < min
-      r = max if max < r
-    else
-      r = Math.random()*(max-min) + min
-
-    r = Math.floor(r) if int
-    random.set(r)
-    dvl.notify(random)
-
-  setInterval(gen, options.interval) if options.interval
-  gen()
-  return random
-
-
-dvl.arrayTick = (data, options) ->
-  throw new Error('dvl.arrayTick: no data') unless data
-  data = dvl.wrap(data)
-
-  point = options.start or 0
-  move = options.move or 1
-
-  out = dvl(null, 'array_tick_data')
-
-  gen = ->
-    d = data.value()
-    len = d.length
-    if len > 0
-      v = d[point % len]
-      point = (point + move) % len
-      out.set(v)
-      dvl.notify(out)
-
-  setInterval(gen, options.interval) if options.interval
-  gen()
-  return out
-
-
-dvl.recorder = (options) ->
-  array = dvl.wrapVar(options.array or [], options.name or 'recorder_array').compare(false)
-
-  data = options.data
-  fn = dvl.wrap(options.fn or dvl.identity)
-  throw new Error('it does not make sense not to have data') unless dvl.knows(data)
-
-  max = dvl.wrap(options.max or +Infinity)
-  i = 0
-
-  record = ->
-    d = fn.value()(data.value())
-    m = max.value()
-    if d?
-      if options.value
-         o = {}
-         o[options.value] = d
-         d = o
-      d[options.index] = i if options.index
-      d[options.timestamp] = new Date() if options.timestamp
-      _array = array.value()
-      _array.push(d)
-      _array.shift() while m < _array.length
-      array.value(_array)
-      i += 1
-
-  dvl.register({fn:record, listen:[data], change:[array], name:'recorder'})
-  return array
-
-do ->
-  # dvl.urlHash {
-  #   key: 'where'
-  #   object: mmx.gv.where
-  #   validator: () -> true
-  #   history: false
-  # }
-
-  vars = []
-
-  inputChange = ->
-    obj = {}
-    for v in vars
-      obj[v.name] = v.object.value()
-
-    window.location.hash = dvl.urlHash.toHashString(obj)
-    return
-
-  onHashChange = ->
-    obj = dvl.urlHash.fromHashString(window.location.hash)
-    for v in vars
-      val = obj[v.name]
-      if validate(val)
-        v.object.value(val)
-    return
-
-  worker = null
-  addHoock = (v) ->
-    if worker
-      worker.addListen(v)
-    else
-      worker = dvl.register {
-        name:   'hash_man'
-        listen: [v]
-        fn:     inputChange
-        force:  true
-      }
-      window.onhashchange = onHashChange
-
-    return
-
-  dvl.urlHash = ({key, object, validate}) ->
-    vars.push { key, object, validate }
-    addHoock(object)
-    return
-
-    updateHash = ->
-      h = obj.value()
-      window.location.hash = h unless window.location.hash is h
-
-    dvl.register({fn:updateHash, listen:[obj], name:'hash_changer'})
-    return
-
-  dvl.urlHash.version = 3
-
-  dvl.urlHash.upgradeVersion = ->
-    throw "upgrade not defined"
-    return
-
-  dvl.urlHash.toHashString = (obj) ->
-    return JSON.stringify(obj)
-
-  dvl.urlHash.fromHashString = (str) ->
-    return JSON.parse(str)
-
-  return
 
 # -------------------------------------------------------
 
@@ -1122,80 +819,78 @@ dvl.chain = (f, h) ->
   return out
 
 
-do ->
-  dvl_value = (v) -> v.value()
-  dvl.op = dvl_op = (fn) ->
-    liftedFn = lift(fn)
-    return (args...) ->
-      args = args.map(dvl.wrap)
-      out = dvl()
+dvl.op = (fn) ->
+  liftedFn = lift(fn)
+  return (args...) ->
+    args = args.map(dvl.wrap)
+    out = dvl()
 
-      dvl.register {
-        listen: args
-        change: [out]
-        fn: ->
-          out.set(liftedFn.apply(null, args.map(dvl_value)))
-          dvl.notify(out)
-          return
-      }
+    dvl.register {
+      listen: args
+      change: [out]
+      fn: ->
+        out.set(liftedFn.apply(null, args.map((v) -> v.value())))
+        dvl.notify(out)
+        return
+    }
 
-      return out
+    return out
 
-  op_to_lift = {
-    'or': ->
-      ret = false
-      ret or= arg for arg in arguments
-      return ret
+op_to_lift = {
+  'or': ->
+    ret = false
+    ret or= arg for arg in arguments
+    return ret
 
-    'and': ->
-      ret = true
-      ret and= arg for arg in arguments
-      return ret
+  'and': ->
+    ret = true
+    ret and= arg for arg in arguments
+    return ret
 
-    'add': ->
-      sum = 0
-      for arg in arguments
-        if arg?
-          sum += arg
-        else
-          return null
-      return sum
+  'add': ->
+    sum = 0
+    for arg in arguments
+      if arg?
+        sum += arg
+      else
+        return null
+    return sum
 
-    'sub': ->
-      sum = 0
-      mult = 1
-      for arg in arguments
-        if arg?
-          sum += arg * mult
-          mult = -1
-        else
-          return null
-      return sum
+  'sub': ->
+    sum = 0
+    mult = 1
+    for arg in arguments
+      if arg?
+        sum += arg * mult
+        mult = -1
+      else
+        return null
+    return sum
 
-    'list': (args...) ->
-      for arg in args
-        return null unless arg?
-      return args
+  'list': (args...) ->
+    for arg in args
+      return null unless arg?
+    return args
 
-    'concat': (args...) ->
-      for arg in args
-        return null unless arg?
-      return args.join('')
+  'concat': (args...) ->
+    for arg in args
+      return null unless arg?
+    return args.join('')
 
-    'iff': (cond, truthy, falsy) ->
-      return if cond then truthy else falsy
+  'iff': (cond, truthy, falsy) ->
+    return if cond then truthy else falsy
 
-    'iffEq': (lhs, rhs, truthy, falsy) ->
-      return if lhs is rhs then truthy else falsy
+  'iffEq': (lhs, rhs, truthy, falsy) ->
+    return if lhs is rhs then truthy else falsy
 
-    'iffLt': (lhs, rhs, truthy, falsy) ->
-      return if lhs < rhs then truthy else falsy
+  'iffLt': (lhs, rhs, truthy, falsy) ->
+    return if lhs < rhs then truthy else falsy
 
-    'makeTranslate': (x, y) ->
-      return if x? and y? then "translate(#{x},#{y})" else null
-  }
+  'makeTranslate': (x, y) ->
+    return if x? and y? then "translate(#{x},#{y})" else null
+}
 
-  dvl_op[k] = dvl_op(fn) for k, fn of op_to_lift
-  return
+dvl.op[k] = dvl.op(fn) for k, fn of op_to_lift
 
 
+module.exports = dvl

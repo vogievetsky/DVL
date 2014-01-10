@@ -1,8 +1,11 @@
+dvl = require './core'
+{ bind, bindSingle } = require './bind'
+
 # SVG
 
 clipId = 0
-dvl.svg or= {}
-dvl.svg.clipPath = ({parent, x, y, width, height}) ->
+svgModule = {}
+svgModule.clipPath = ({parent, x, y, width, height}) ->
   x = dvl.wrap(x or 0)
   y = dvl.wrap(y or 0)
 
@@ -13,7 +16,7 @@ dvl.svg.clipPath = ({parent, x, y, width, height}) ->
       .append('clipPath')
       .attr('id', myId)
 
-  dvl.bind {
+  bind {
     parent: cp
     self: 'rect'
     attr: {
@@ -25,3 +28,6 @@ dvl.svg.clipPath = ({parent, x, y, width, height}) ->
   }
 
   return "url(##{myId})"
+
+
+module.exports = svgModule

@@ -1,19 +1,23 @@
+dvl = './core'
+
 # Data # ------------------------------------------------
 
-dvl.data = {}
+data = {}
 
-dvl.data.min = (data, acc) ->
+data.min = (data, acc) ->
   acc or= dvl.identity
   return dvl.apply {
     args: [data, acc]
     update: true
-    fn: (data, acc) -> d3.min(data.valueOf(), acc)
+    fn: (_data, _acc) -> _data.reduce((_prev, _curr) -> if _acc(_prev) > _acc(_curr) then _curr else _prev)
   }
 
-dvl.data.max = (data, acc) ->
+data.max = (data, acc) ->
   acc or= dvl.identity
   return dvl.apply {
     args: [data, acc]
     update: true
-    fn: (data, acc) -> d3.max(data.valueOf(), acc)
+    fn: (_data, _acc) -> _data.reduce((_prev, _curr) -> if _acc(_prev) < _acc(_curr) then _curr else _prev)
   }
+
+module.exports = data

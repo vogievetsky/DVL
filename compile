@@ -1,11 +1,5 @@
 #!/bin/bash
 compass compile --sass-dir src/style/ --css-dir ./
-coffee --compile --join dvl.js \
-  src/basic.coffee \
-  src/core.coffee \
-  src/bind.coffee \
-  src/data.coffee \
-  src/misc.coffee \
-  src/svg.coffee \
-  src/html.coffee \
-  src/async.coffee
+coffee --compile --bare --output build src
+coffee --compile --bare --output . index.coffee
+browserify index.js -o dvl.js
