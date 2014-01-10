@@ -1,10 +1,15 @@
+d3 = require 'd3'
+
+dvl = require './core'
+{ bind, bindSingle } = require './bind'
+
 # HTML # --------------------------------------------------
 
-dvl.html = {}
+htmlModule = {}
 
 # Capture the size of something in HTML
 #
-dvl.html.resizer = ({selector, out, dimension}) ->
+htmlModule.resizer = ({selector, out, dimension}) ->
   out = dvl.wrapVar(out)
   dimension = dvl.wrap(dimension or 'width')
 
@@ -31,7 +36,7 @@ dvl.html.resizer = ({selector, out, dimension}) ->
 
 # Output to an HTML attribute
 # DEPRICATED
-dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, text}) ->
+htmlModule.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, text}) ->
   throw new Error('must have data') unless data
   data = dvl.wrap(data)
   format = format ? fn
@@ -75,32 +80,11 @@ dvl.html.out = ({selector, data, fn, format, invalid, hideInvalid, attr, style, 
   return
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ##-------------------------------------------------------
 ##
 ##  Create HTML list
 ##
-dvl.html.list = ({parent, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons,
+htmlModule.list = ({parent, data, label, link, class:listClass, selection, selections, onSelect, onEnter, onLeave, icons,
                   extras, classStr, highlight}) ->
   throw new Error('must have parent') unless parent
   throw new Error('must have data') unless data
@@ -239,7 +223,7 @@ dvl.html.list = ({parent, data, label, link, class:listClass, selection, selecti
     node: ul.node()
   }
 
-dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
+htmlModule.combobox = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
                       onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, highlight, focus}) ->
   throw new Error('must have parent') unless parent
   throw new Error('must have data') unless data
@@ -296,7 +280,7 @@ dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class
       filterCharacters.value([])
   }
 
-  divCont = dvl.bindSingle({
+  divCont = bindSingle({
     parent
     self: 'div'
     attr: {
@@ -314,7 +298,7 @@ dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class
     }
   }).value()
 
-  valueOut = dvl.bindSingle({
+  valueOut = bindSingle({
     parent: divCont
     self: 'input.title-cont'
     attr: {
@@ -459,7 +443,7 @@ dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class
       return
   }
 
-  dvl.html.list {
+  htmlModule.list {
     parent: menuCont
     classStr: 'list'
     data: filteredData
@@ -521,7 +505,7 @@ dvl.html.combobox = ({parent, classStr, data, label, selectionLabel, link, class
     selections
   }
 
-dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
+htmlModule.dropdown = ({parent, classStr, data, label, selectionLabel, link, class:listClass, id, selection, selections,
                       onSelect, onEnter, onLeave, menuAnchor, title, icons, keepOnClick, disabled, highlight, focus}) ->
   throw new Error('must have parent') unless parent
   throw new Error('must have data') unless data
@@ -554,7 +538,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 
   menuOpen = dvl(false)
 
-  divCont = dvl.bindSingle({
+  divCont = bindSingle({
     parent
     self: 'div'
     attr: {
@@ -572,7 +556,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
     }
   }).value()
 
-  valueOut = dvl.bindSingle({
+  valueOut = bindSingle({
     parent: divCont
     self: 'div.title-cont'
     attr: {
@@ -715,7 +699,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
       return
   }
 
-  dvl.html.list {
+  htmlModule.list {
     parent: menuCont
     classStr: 'list'
     data
@@ -809,7 +793,7 @@ dvl.html.dropdown = ({parent, classStr, data, label, selectionLabel, link, class
 ##
 ##  Select (dropdown box) made with HTML
 ##
-dvl.html.select = ({parent, data, classStr, value, label, selection, id, onChange, focus, visible}) ->
+htmlModule.select = ({parent, data, classStr, value, label, selection, id, onChange, focus, visible}) ->
   throw new Error('must have parent') unless parent
   throw new Error('must have data') unless data
   selection = dvl.wrapVar(selection, 'selection')
@@ -833,7 +817,7 @@ dvl.html.select = ({parent, data, classStr, value, label, selection, id, onChang
       selection.value(null)
     return
 
-  selectEl = dvl.bindSingle {
+  selectEl = bindSingle {
     parent
     self: 'select'
     attr: {
@@ -854,7 +838,7 @@ dvl.html.select = ({parent, data, classStr, value, label, selection, id, onChang
     }
   }
 
-  dvl.bind {
+  bind {
     parent: selectEl
     self: 'option'
     data
@@ -961,8 +945,8 @@ do ->
     return null unless str?
     return if numberRegEx.test(str) then str + 'px' else str
 
-  dvl.html.table = ({parent, headParent, data, sort, classStr, rowClass, rowLimit, columns, on:onRow}) ->
-    table = dvl.bindSingle {
+  htmlModule.table = ({parent, headParent, data, sort, classStr, rowClass, rowLimit, columns, on:onRow}) ->
+    table = bindSingle {
       parent
       self: 'table'
       attr: {
@@ -971,7 +955,7 @@ do ->
     }
 
     if headParent
-      headTable = dvl.bindSingle {
+      headTable = bindSingle {
         parent: headParent
         self: 'table'
         attr: {
@@ -1048,7 +1032,7 @@ do ->
         return
     }
 
-    dvl.html.table.header {
+    htmlModule.table.header {
       parent: headTable
       columns: headerCol
       onClick: (id) ->
@@ -1072,7 +1056,7 @@ do ->
         return
     }
 
-    dvl.html.table.body {
+    htmlModule.table.body {
       parent: table
       classStr: 'data'
       data
@@ -1102,7 +1086,7 @@ do ->
   ##   ~indicator:   The column indicator
   ##   ~width:       The width of the column
   ##
-  dvl.html.table.header = ({parent, columns, onClick}) ->
+  htmlModule.table.header = ({parent, columns, onClick}) ->
     throw new Error('there needs to be a parent') unless parent
     onClick = dvl.wrap(onClick)
 
@@ -1204,7 +1188,7 @@ do ->
   ##    on:         Whatever on events you want
   ##   ~width:      The width of the column
   ##
-  dvl.html.table.body = ({parent, data, compare, rowClass, classStr, rowLimit, columns, on:onRow}) ->
+  htmlModule.table.body = ({parent, data, compare, rowClass, classStr, rowLimit, columns, on:onRow}) ->
     throw new Error('there needs to be a parent') unless parent
     throw new Error('there needs to be data') unless data
     tbody = dvl.valueOf(parent).append('tbody').attr('class', classStr)
@@ -1305,7 +1289,7 @@ do ->
     }
 
     for c in columns
-      render = if typeof c.render is 'function' then c.render else dvl.html.table.render[c.render]
+      render = if typeof c.render is 'function' then c.render else htmlModule.table.render[c.render]
       render.call(c, c.selection, c.value)
 
     return {
@@ -1313,7 +1297,7 @@ do ->
     }
 
 
-  dvl.html.table.render = {
+  htmlModule.table.render = {
     text: (selection, value) ->
       dvl.register {
         listen: [selection, value]
@@ -1340,7 +1324,7 @@ do ->
 
 
     aLink: ({href}) -> (selection, value) ->
-      return dvl.bind {
+      return bind {
         parent: selection
         self: 'a.link'
         attr: {
@@ -1350,7 +1334,7 @@ do ->
       }
 
     img: (selection, value) ->
-      return dvl.bind {
+      return bind {
         parent: selection
         self: 'img'
         attr: {
@@ -1359,7 +1343,7 @@ do ->
       }
 
     imgDiv: (selection, value) ->
-      return dvl.bind {
+      return bind {
         parent: selection
         self: 'div'
         attr: {
@@ -1368,7 +1352,7 @@ do ->
       }
 
     button: ({classStr, on: onObj}) -> (selection, value) ->
-      return dvl.bind {
+      return bind {
         parent: selection
         self: 'button'
         attr: {
@@ -1394,7 +1378,7 @@ do ->
           fn: (value) -> (d,i) -> [value(d,i)]
         }
 
-        svg = dvl.bind {
+        svg = bind {
           parent: selection
           self: 'svg.sparkline'
           data: dataFn
@@ -1404,7 +1388,7 @@ do ->
           }
         }
 
-        return dvl.bind {
+        return bind {
           parent: svg
           self: 'path'
           data: (d) -> [d]
@@ -1415,4 +1399,4 @@ do ->
   }
 
 
-
+module.exports = htmlModule
