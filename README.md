@@ -30,6 +30,8 @@ console.log(dvl(5).value(undefined).value()); //=> null
 
 A DVL variable is considered invalid if its value is set to `null`. It is perfectly fine to have variables in an invalid state but some functions will treat invalid variables as a special case.
 
+
+
 **dvl.apply**
 
 One of the most useful functions in DVL, the apply function creates a new DVL variable the value of which tracks the result of the given function as applied to the supplied parameters.
@@ -126,6 +128,35 @@ The above example is equvelant to the first `dvl.apply` example.
 
 We must explicitly declare that the function being registered will be changing `c`. This is important for DVL to calculate the dependency graph and ensure that it is acyclic. Modifying a variable without specifying that it might be modified will throw an error.
 
+**dvl.bind**
+
+Ties data to DOM elements. If data is in an array format, multiple DOM elements will be created. If you want to create only one DOM element out of an array, use ```dvl.bindSingle```.
+
+***Required arguments***
+- parent {DVL(DOM elements)}: parent element for the created DOM elements to be attached
+- self {String}: the type of DOM elements for the data to be attached to. The format of the string follow d3 convention.
+
+***Optional arguments***
+
+A lot of these arguments have similar API's to d3 selections because the internal mechanics of ```dvl.bind``` depends on d3. https://github.com/mbostock/d3/wiki/Selections
+
+- data {DVL(Object)}: data to back the DOM elements.
+- join {Object}: data to join with ```data```.
+- attr {Object}: attributes of DOM elements. It works similar to d3's ```attr``` function. One significant difference is that ```class``` of the elements are a part of ```attr```
+- style {Object}: styles of DOM elements. It works similar to d3's ```style``` function.
+- property {Object}: properties of DOM elements. It works similar to d3's ```property``` function.
+- text {Object}: text of DOM elements. It works similar to d3's ```text``` function.
+- html {Object}: HTML content of DOM elements. It works similar to d3's ```html``` function.
+- on {Object}: Append listeners to DOM events. It works similar to d3's ```on``` function.
+- transition
+
+
+
+
+**dvl.bindSingle**
+
+Ties data to a single DOM element. Aside from the name change of the argument 'data' to 'datum', it is very similar to how ```dvl.bind``` works.
+
 ## Credits
 
 [Vadim Ogievetsky](http://vadim.ogievetsky.com)
@@ -133,5 +164,3 @@ We must explicitly declare that the function being registered will be changing `
 [Barret Schloerke](http://github.com/schloerke)
 
 With invaluable advice from [Mike Bostock](http://bost.ocks.org/mike/)
-
-

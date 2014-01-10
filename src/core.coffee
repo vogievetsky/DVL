@@ -178,6 +178,7 @@ class DVLConst
     else
       @n = arguments[0]
       return this
+
   compare: -> if arguments.length then this else default_compare
   verify: -> if arguments.length then this else null
   apply: (fn) -> dvl.apply(this, fn)
@@ -247,22 +248,28 @@ class DVLVar
     @changed = true
     @lazy = null
     return this
+
   lazyValue: (fn) ->
     @lazy = fn
     @changed = true
     dvl.notify(this)
     return this
+
   update: (val) ->
     if not dvl.util.isEqual(val, @v)
       this.set(val)
       dvl.notify(this)
     return this
+
   get: -> @value()
+
   getPrev: ->
     @resolveLazy()
     if @prev and @changed then @prev else @v
+
   notify: ->
     dvl.notify(this)
+
   discard: ->
     if @listeners.length > 0
       throw "Cannot remove variable #{@id} because it has listeners."
@@ -270,24 +277,28 @@ class DVLVar
       throw "Cannot remove variable #{@id} because it has changers."
     variables.splice(variables.indexOf(this), 1)
     return null
+
   name: ->
     if arguments.length is 0
       return @n ? '<anon>'
     else
       @n = arguments[0]
       return this
+
   compare: ->
     if arguments.length
       @compareFn = arguments[0]
       return this
     else
       return @compareFn
+
   verify: ->
     if arguments.length
       @verifyFn = arguments[0]
       return this
     else
       return @verifyFn
+
   apply: (fn) -> dvl.apply(this, fn)
   applyValid: (fn) -> dvl.applyValid(this, fn)
   applyAlways: (fn) -> dvl.applyAlways(this, fn)
