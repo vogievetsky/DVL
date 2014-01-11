@@ -20,7 +20,7 @@
     "type": "git",
     "url": "http://github.com/vogievetsky/dvl.git"
   },
-  "main": "dvl.js",
+  "main": "./build/index.js",
   "dependencies": {
     "jsdom": "0.7.0",
     "d3": "3.3.13"
