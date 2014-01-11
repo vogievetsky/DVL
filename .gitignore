@@ -1,6 +1,6 @@
 copy
 node_modules
-
+build/
 ideas
 _old
 _oldsandbox
