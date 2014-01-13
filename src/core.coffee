@@ -345,7 +345,7 @@ class DVLWorker
 
     sortGraph()
     @change = @listen = @updates = null # cause an error if we hit these
-    @eventArrays.discard.forEach((fn) -> fn())
+    @eventArrays.discard?.forEach((fn) -> fn())
     return
 
   on: (type, fn) ->

@@ -6,8 +6,8 @@ class DVLCollection
     @_serialize = serialize
     @_fn = fn
 
-    @_blocks = {} # key: serialized. # value: blocks
-    @_dvlSingles = {} # key: serialized. # value: blocks
+    @_dvlBlocks = {} # key: serialized. # value: blocks
+    @_dvlVariables = {} # key: serialized. # value: blocks
     @_positions = {} # value: position. # key: serialized
 
     that = this
@@ -31,34 +31,55 @@ class DVLCollection
 
   _destroyBlocks: (_data) ->
     _serializedData = _data.map(@_serialize)
-    for own k, _block of @_blocks
+    for own k, _block of @_dvlBlocks
       if k not in _serializedData
-        console.log k, 'here'
-        delete @_blocks[k]
+        delete @_dvlBlocks[k]
         _block.discard()
     return
 
   _buildBlocks: (_data) ->
     that = this
+    transitionMap = {}
+    badSerials = []
     _data.forEach((_datum, i) ->
       _serializedDatum = that._serialize(_datum)
-      # block exists
-      if that._blocks[_serializedDatum]
-        # at the right position
-        return if _serializedDatum is that._positions[i] # return
-        # at the wrong position
-        _badSerializedDatum = that._positions[i]
-        that._dvlSingles[_badSerializedDatum].value(_datum) # update the appropriate dvl variable using index
-        that._dvlSingles[_serializedDatum] = that._dvlSingles[_badSerializedDatum]
-        delete that._dvlSingles[_badSerializedDatum]
-        return
+      if not that._dvlBlocks[_serializedDatum]?
+        # block doesn't exist
+        that._dvlBlocks[_serializedDatum] = dvl.block -> # create the new block.
+          that._dvlVariables[_serializedDatum] = dvl(_datum)
+          that._positions[i] = _serializedDatum
+          that._fn(that._dvlVariables[_serializedDatum])
 
-      # block doesn't exist
-      that._blocks[_serializedDatum] = dvl.block -> # create the new block.
-        that._dvlSingles[_serializedDatum] ?= dvl(_datum)
-        that._positions[i] = _serializedDatum
-        that._fn(that._dvlSingles[_serializedDatum])
+      # at the right position
+      return if _serializedDatum is that._positions[i]
+      # else
+      badSerials.push _badSerializedDatum = that._positions[i]
+      transitionMap[_serializedDatum] = {
+        badSerial: _badSerializedDatum
+        datum: _datum
+        index: i
+      }
     )
+
+    tempDvlVariables = {}
+    tempDvlBlocks = {}
+
+    for k, v of transitionMap
+      tempDvlVariables[k] = @_dvlVariables[v.badSerial]
+      tempDvlBlocks[k] = @_dvlBlocks[v.badSerial]
+
+    for k, v of transitionMap
+      @_dvlVariables[k] = tempDvlVariables[k]
+      @_dvlBlocks[k] = tempDvlBlocks[k]
+      @_dvlVariables[k].value(v.datum)
+      @_positions[v.index] = k
+      badSerials.splice(badSerials.indexOf(k), 1)
+
+    for badSerial in badSerials
+      delete @_dvlVariables[badSerial]
+      delete @_dvlBlocks[badSerial]
+
+    return
 
   @factory: () ->
     switch arguments.length
@@ -82,28 +103,3 @@ class DVLCollection
 
 
 module.exports = DVLCollection.factory
-
-
-# dimmensions = dvl([])
-
-# dvl.collection({
-#   data: dimmensions
-#   compare: (a, b) -> a is b
-#   fn: (dimmension) ->
-#     makeSideTable({
-#       parent: sideTableCont
-#       dimmension
-#       where: gv.where
-#     })
-#     return
-# })
-
-
-# a: [Dim(page), Dim(lang)]
-# blocks: [
-#   { v: Dim(page), b:Block(Table(page)) }
-# ]
-# Table(page), Table(lang)
-
-# b: [Dim(page), Dim(robot), Dim(lang)]
-# Table(page), Table(lang), Table(robot)

@@ -1,16 +1,18 @@
 { expect } = require 'chai'
 d3 = require 'd3'
-jsdom = require 'jsdom'
 
 dvl = require '../src'
 
-describe 'dvl.collection', ->
-  docs = null
-  beforeEach ->
-    doc = jsdom.jsdom("<html><body></body></html>", jsdom.level(1, "core"))
+nextTick = (fn) ->
+  setTimeout(fn, 0)
 
-  afterEach ->
-    doc = jsdom.jsdom("<html><body></body></html>", jsdom.level(1, "core"))
+verifyCleanState = -> throw new Error('Body is not empty') unless d3.select('body').selectAll('div').size() is 0
+cleanUp = -> d3.select('body').selectAll('div').remove()
+
+
+describe 'dvl.collection', ->
+  beforeEach verifyCleanState
+  afterEach cleanUp
 
   it 'initializes correctly with one argument', ->
     data = dvl([1, 2, 3])
@@ -43,20 +45,20 @@ describe 'dvl.collection', ->
       counter += 1
     )
 
-    setTimeout(->
+    nextTick(->
       test = {
         1: pointers[1]
       }
       expect(counter).to.equal(1)
       data.value([1, 2])
 
-      setTimeout(->
+      nextTick(->
         expect(pointers[1]).to.equal(test[1])
         expect(pointers[2].value()).to.equal(7)
         expect(counter).to.equal(2)
         done()
-      , 0)
-    , 0)
+      )
+    )
 
   it 'correctly executes the block', (done) ->
     data = dvl([1])
@@ -70,20 +72,20 @@ describe 'dvl.collection', ->
       }
     )
     expect(collection._data).to.equal(data)
-    setTimeout(->
+    nextTick(->
       expect(externalVariable.value()).to.equal(1)
       data.value([2])
 
-      setTimeout(->
+      nextTick(->
         expect(externalVariable.value()).to.equal(2)
         data.value([10])
 
-        setTimeout(->
+        nextTick(->
           expect(externalVariable.value()).to.equal(10)
           done()
-        , 0)
-      , 0)
-    , 0)
+        )
+      )
+    )
 
   it 'appends the element correctly without destroying original element', (done) ->
     data = dvl([0, 1])
@@ -98,7 +100,7 @@ describe 'dvl.collection', ->
         }
       }
     )
-    setTimeout(->
+    nextTick(->
       firstDivs = {}
       divs = d3.select('body').selectAll('div')
       divs.each((d, i) ->
@@ -108,7 +110,7 @@ describe 'dvl.collection', ->
       expect(divs.size()).to.equal(2)
       data.value([0, 1, 2])
 
-      setTimeout(->
+      nextTick(->
         divs = d3.select('body').selectAll('div')
         divs.each((d, i) ->
           expect(d).to.equal(i)
@@ -117,10 +119,10 @@ describe 'dvl.collection', ->
         )
         expect(divs.size()).to.equal(3)
         done()
-      , 0)
-    , 0)
+      )
+    )
 
-  it.only 'removes the element correctly without destroying original element', (done) ->
+  it 'removes the element correctly without destroying original element', (done) ->
     data = dvl([0, 1, 2])
     collection = dvl.collection(data, (number) ->
       dvl.bindSingle {
@@ -130,7 +132,7 @@ describe 'dvl.collection', ->
         text: String
       }
     )
-    setTimeout(->
+    nextTick(->
       firstDivs = {}
       divs = d3.select('body').selectAll('div')
       divs.each((d, i) ->
@@ -140,7 +142,7 @@ describe 'dvl.collection', ->
       expect(divs.size()).to.equal(3)
       data.value([0, 1])
 
-      setTimeout(->
+      nextTick(->
         divs = d3.select('body').selectAll('div')
         divs.each((d, i) ->
           expect(d).to.equal(i)
@@ -148,12 +150,12 @@ describe 'dvl.collection', ->
         )
         expect(divs.size()).to.equal(2)
         done()
-      , 0)
-    , 0)
+      )
+    )
 
 
   it 'order the element correctly', (done) ->
-    data = dvl([1, 2])
+    data = dvl([0, 1])
     collection = dvl.collection(data, (number) ->
       dvl.bindSingle {
         parent: d3.select('body')
@@ -162,14 +164,25 @@ describe 'dvl.collection', ->
         text: String
       }
     )
-    setTimeout(->
-      console.log d3.select('body').html()
-      data.value([2, 1])
+    nextTick(->
+      firstDivs = {}
+      divs = d3.select('body').selectAll('div')
+      expect(divs.size()).to.equal(2)
+      divs.each((d, i) ->
+        expect(d).to.equal(i)
+        firstDivs[i] = this
+      )
+      data.value([1, 0])
 
-      setTimeout(->
-        console.log d3.select('body').html()
+      nextTick(->
+        divs = d3.select('body').selectAll('div')
+        expect(divs.size()).to.equal(2)
+        divs.each((d, i) ->
+          expect(d).to.equal(1 - i)
+          expect(this).to.equal(firstDivs[i])
+        )
         done()
-      , 0)
-    , 0)
+      )
+    )
 
 
