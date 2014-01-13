@@ -266,11 +266,10 @@ describe 'dvl.bindSingle', ->
         expect(selection.size()).to.equal(1)
         expect(selection.data()).to.deep.equal([0])
         expect(selection.text()).to.equal('0')
-        done()
 
         block.discard()
         nextTick(->
-          selections = boundSelections.value()
+          selections = boundSelection.value()
           expect(selections).to.not.exist
           expect(d3.select('body').selectAll('div').size()).to.equal(0)
           done()
