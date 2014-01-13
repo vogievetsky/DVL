@@ -173,10 +173,14 @@ class DVLVar
     dvl.notify(this)
 
   discard: ->
-    if @listeners.length > 0
-      throw "Cannot remove variable #{@id} because it has listeners."
-    if @changers.length > 0
-      throw "Cannot remove variable #{@id} because it has changers."
+    for v in @changers
+      if v.change.indexOf(this) > -1
+        v.change.splice(v.change.indexOf(this), 1)
+
+    for v in @listeners
+      if v.listen.indexOf(this) > -1
+        v.listen.splice(v.listen.indexOf(this), 1)
+
     variables.splice(variables.indexOf(this), 1)
     return null
 
@@ -253,6 +257,7 @@ class DVLWorker
   constructor: (@name, @ctx, @fn, @listen, @change) ->
     @id = nextObjId++
     @updates = new Set()
+    @eventArrays = {}
     @level = workers.length # place at the end
     workers.push(this)
 
@@ -331,14 +336,23 @@ class DVLWorker
         prevWorker.updates.remove(this)
 
     for v in @change
-      v.changers.splice(v.changers.indexOf(this), 1)
+      if v.changers.indexOf(this) > -1
+        v.changers.splice(v.changers.indexOf(this), 1)
 
     for v in @listen
-      v.listeners.splice(v.listeners.indexOf(this), 1)
+      if v.listeners.indexOf(this) > -1
+        v.listeners.splice(v.listeners.indexOf(this), 1)
 
     sortGraph()
     @change = @listen = @updates = null # cause an error if we hit these
+    @eventArrays.discard.forEach((fn) -> fn())
     return
+
+  on: (type, fn) ->
+    @eventArrays[type] ?= []
+    @eventArrays[type].push fn
+    return
+
 
 dvl.register = ({ctx, fn, listen, change, name, noRun}) ->
   throw new Error('cannot call register from within a notify') if curNotifyListener
@@ -397,7 +411,7 @@ class DVLBlock
 
   discard: ->
     @parent?.removeMemeber(this)
-    d.discard() for d in @owns
+    v.discard() for k, v of @owns
     return
 
 dvl.blockFn = ->

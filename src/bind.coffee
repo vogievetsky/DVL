@@ -66,7 +66,7 @@ bind = ({parent, self, data, join, attr, style, property, text, html, on:argsOn,
 
   out = dvl().name('selection')
 
-  dvl.register {
+  bindWorker = dvl.register {
     listen
     change: [out]
     fn: ->
@@ -145,6 +145,11 @@ bind = ({parent, self, data, join, attr, style, property, text, html, on:argsOn,
       return
   }
 
+  bindWorker.on('discard', ->
+    out.value().remove()
+    out.value(null)
+  )
+
   return out
 
 
@@ -210,7 +215,7 @@ bindSingle = ({parent, self, data, datum, attr, style, property, text, html, on:
     listen.push(v)
     onList[k] = v
 
-  dvl.register {
+  bindWorker = dvl.register {
     listen
     change: [self]
     fn: ->
@@ -237,6 +242,12 @@ bindSingle = ({parent, self, data, datum, attr, style, property, text, html, on:
       self.notify() if force
       return
   }
+
+
+  bindWorker.on('discard', ->
+    self.value().remove()
+    self.value(null)
+  )
 
   return self
 
