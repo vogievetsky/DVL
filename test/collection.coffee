@@ -3,59 +3,39 @@ d3 = require 'd3'
 
 dvl = require '../src'
 
-nextTick = (fn) ->
-  setTimeout(fn, 0)
-
 verifyCleanState = -> throw new Error('Body is not empty') unless d3.select('body').selectAll('div').size() is 0
-cleanUp = -> d3.select('body').selectAll('div').remove()
-
+cleanUp = ->
+  dvl.clearAll()
+  d3.select('body').selectAll('div').remove()
 
 describe 'dvl.collection', ->
   beforeEach verifyCleanState
   afterEach cleanUp
 
-  it 'initializes correctly with one argument', ->
-    data = dvl([1, 2, 3])
-    collection = dvl.collection({
-      data
-      serialize: (number) -> String(number)
-      fn: (number) ->
-        a = number.apply((_number) -> _number + 5)
-        b = number.apply((_number) -> _number / 5)
-    })
-    expect(collection._data).to.equal(data)
-
-  it 'initializes correctly with two arguments', ->
-    data = dvl([1, 2, 3])
-    collection = dvl.collection(data, (number) ->
-      a = number.apply((_number) -> _number + 5)
-      b = number.apply((_number) -> _number / 5)
-    )
-    expect(collection._data).to.equal(data)
-
   it 'adds members without errors', (done) ->
-    data = dvl([1])
-
-    pointers = {}
+    data = dvl([0])
     counter = 0
 
     collection = dvl.collection(data, (number) ->
-      a = number.apply((_number) -> _number + 5)
-      pointers[number.value()] = a
+      dvl.bindSingle {
+        parent: d3.select('body')
+        self: 'div'
+        datum: number
+        text: String
+      }
       counter += 1
     )
 
-    nextTick(->
-      test = {
-        1: pointers[1]
-      }
+    process.nextTick(->
       expect(counter).to.equal(1)
-      data.value([1, 2])
+      data.value([0, 1])
 
-      nextTick(->
-        expect(pointers[1]).to.equal(test[1])
-        expect(pointers[2].value()).to.equal(7)
-        expect(counter).to.equal(2)
+      process.nextTick(->
+        divs = d3.select('body').selectAll('div')
+        expect(divs.size()).to.equal(2)
+        divs.each((d, i) ->
+          expect(d).to.equal(i)
+        )
         done()
       )
     )
@@ -71,16 +51,15 @@ describe 'dvl.collection', ->
           externalVariable.value(number.value())
       }
     )
-    expect(collection._data).to.equal(data)
-    nextTick(->
+    process.nextTick(->
       expect(externalVariable.value()).to.equal(1)
       data.value([2])
 
-      nextTick(->
+      process.nextTick(->
         expect(externalVariable.value()).to.equal(2)
         data.value([10])
 
-        nextTick(->
+        process.nextTick(->
           expect(externalVariable.value()).to.equal(10)
           done()
         )
@@ -100,7 +79,7 @@ describe 'dvl.collection', ->
         }
       }
     )
-    nextTick(->
+    process.nextTick(->
       firstDivs = {}
       divs = d3.select('body').selectAll('div')
       divs.each((d, i) ->
@@ -110,7 +89,7 @@ describe 'dvl.collection', ->
       expect(divs.size()).to.equal(2)
       data.value([0, 1, 2])
 
-      nextTick(->
+      process.nextTick(->
         divs = d3.select('body').selectAll('div')
         divs.each((d, i) ->
           expect(d).to.equal(i)
@@ -132,7 +111,7 @@ describe 'dvl.collection', ->
         text: String
       }
     )
-    nextTick(->
+    process.nextTick(->
       firstDivs = {}
       divs = d3.select('body').selectAll('div')
       divs.each((d, i) ->
@@ -142,7 +121,7 @@ describe 'dvl.collection', ->
       expect(divs.size()).to.equal(3)
       data.value([0, 1])
 
-      nextTick(->
+      process.nextTick(->
         divs = d3.select('body').selectAll('div')
         divs.each((d, i) ->
           expect(d).to.equal(i)
@@ -164,7 +143,7 @@ describe 'dvl.collection', ->
         text: String
       }
     )
-    nextTick(->
+    process.nextTick(->
       firstDivs = {}
       divs = d3.select('body').selectAll('div')
       expect(divs.size()).to.equal(2)
@@ -174,7 +153,7 @@ describe 'dvl.collection', ->
       )
       data.value([1, 0])
 
-      nextTick(->
+      process.nextTick(->
         divs = d3.select('body').selectAll('div')
         expect(divs.size()).to.equal(2)
         divs.each((d, i) ->
