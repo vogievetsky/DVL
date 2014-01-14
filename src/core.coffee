@@ -172,12 +172,17 @@ class DVLVar
   notify: ->
     dvl.notify(this)
 
-  discard: ->
-    if @listeners.length > 0
-      throw "Cannot remove variable #{@id} because it has listeners."
-    if @changers.length > 0
-      throw "Cannot remove variable #{@id} because it has changers."
+  discard: (preventSortgraph) ->
+    for w in @changers
+      throw new Error("Cannot find variable #{@id} from its changer #{w.id}") if w.change.indexOf(this) < 0
+      w.removeChange(this, preventSortgraph)
+
+    for w in @listeners
+      throw new Error("Cannot find variable #{@id} from its listner #{w.id}") if w.listen.indexOf(this) < 0
+      w.removeListen(this, preventSortgraph)
+
     variables.splice(variables.indexOf(this), 1)
+    sortGraph() if preventSortgraph
     return null
 
   name: ->
@@ -252,22 +257,17 @@ dvl.knows = (v) -> v instanceof DVLVar or v instanceof DVLConst
 class DVLWorker
   constructor: (@name, @ctx, @fn, @listen, @change) ->
     @id = nextObjId++
-    @updates = new Set()
+    @eventArrays = {}
     @level = workers.length # place at the end
     workers.push(this)
 
     # Append listen and change to variables and dependency graph
-    hasPrev = false
     for v in @listen
       v.listeners.push(this)
       for prevWorker in v.changers
         prevWorker.updates.add(this)
-        hasPrev = true
 
-    for v in @change
-      v.changers.push(this)
-      for nextWorker in v.listeners
-        @updates.add(nextWorker)
+    @_redoUpdates()
 
     # the optimization is that if we are adding a sink worker then it's level is just the last level
     if @updates.length()
@@ -306,7 +306,6 @@ class DVLWorker
         for prevWorker in v.changers
           prevWorker.updates.add(this)
           updatesChanged = true
-          hasPrev = false
 
       sortGraph() if updatesChanged
 
@@ -322,6 +321,37 @@ class DVLWorker
     end_notify_collect()
     return this
 
+  removeChange: (v, preventSortgraph) ->
+    return this if variables.indexOf(v) < 0
+
+    throw new Error("Cannot find variable #{v.id} in worker #{@id}'s change") if @change.indexOf(v) < 0
+    @change.splice(@change.indexOf(v), 1)
+    v.changers.splice(v.changers.indexOf(this), 1)
+    @_redoUpdates()
+    sortGraph() if not preventSortgraph
+    return this
+
+  removeListen: (v, preventSortgraph) ->
+    return this if variables.indexOf(v) < 0
+
+    throw new Error("Cannot find variable #{v.id} in worker #{@id}'s listen") if @listen.indexOf(v) < 0
+    @listen.splice(@listen.indexOf(v), 1)
+    v.listeners.splice(v.listeners.indexOf(this), 1)
+
+    for prevWorker in v.changers
+      prevWorker._redoUpdates()
+
+    sortGraph() if not preventSortgraph
+    return this
+
+  _redoUpdates: ->
+    @updates = new Set()
+    for v in @change
+      v.changers.push(this)
+      for nextWorker in v.listeners
+        @updates.add(nextWorker)
+    return
+
   discard: ->
     # Find the register object
     workers.splice(workers.indexOf(this), 1)
@@ -331,14 +361,23 @@ class DVLWorker
         prevWorker.updates.remove(this)
 
     for v in @change
-      v.changers.splice(v.changers.indexOf(this), 1)
+      if v.changers.indexOf(this) > -1
+        v.changers.splice(v.changers.indexOf(this), 1)
 
     for v in @listen
-      v.listeners.splice(v.listeners.indexOf(this), 1)
+      if v.listeners.indexOf(this) > -1
+        v.listeners.splice(v.listeners.indexOf(this), 1)
 
     sortGraph()
     @change = @listen = @updates = null # cause an error if we hit these
+    @eventArrays.discard?.forEach((fn) -> fn())
     return
+
+  on: (type, fn) ->
+    @eventArrays[type] ?= []
+    @eventArrays[type].push fn
+    return
+
 
 dvl.register = ({ctx, fn, listen, change, name, noRun}) ->
   throw new Error('cannot call register from within a notify') if curNotifyListener
@@ -397,9 +436,9 @@ class DVLBlock
 
   discard: ->
     @parent?.removeMemeber(this)
-    d.discard() for d in @owns
+    v.discard(true) for k, v of @owns
+    sortGraph()
     return
-
 
 dvl.blockFn = ->
   switch arguments.length
@@ -408,7 +447,7 @@ dvl.blockFn = ->
     else throw "bad number of arguments"
 
   return (args...) ->
-    block = new DVLBlock(name, curBlock)
+    curBlock = block = new DVLBlock(name, curBlock)
     ret = fn.apply(this, args)
     curBlock = block.parent
     return ret
@@ -419,7 +458,7 @@ dvl.block = ->
     when 2 then [name, fn] = arguments
     else throw "bad number of arguments"
 
-  block = new DVLBlock(name, curBlock)
+  curBlock = block = new DVLBlock(name, curBlock)
   fn.call(this)
   curBlock = block.parent
   return block

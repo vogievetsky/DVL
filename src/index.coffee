@@ -8,5 +8,6 @@ dvl.svg = require './svg'
 dvl.snap = require './snap'
 dvl.misc = require './misc'
 dvl.util = require './util'
+dvl.collection = require './collection'
 
 module.exports = dvl
