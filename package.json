@@ -1,6 +1,6 @@
 {
   "name": "dvl",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "A framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.",
   "keywords": [
     "dom",
@@ -22,10 +22,10 @@
   },
   "main": "./build/index.js",
   "dependencies": {
-    "jsdom": "0.7.0",
     "browserify": "3.19.1",
-    "d3": "3.4.3",
-    "coffee-script": "1.6.3"
+    "coffee-script": "1.6.3",
+    "d3": "^3.4.13",
+    "jsdom": "0.7.0"
   },
   "devDependencies": {
     "uglify-js": "1.2.3",
