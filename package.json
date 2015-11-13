@@ -1,6 +1,6 @@
 {
   "name": "dvl",
-  "version": "1.5.6",
+  "version": "2.0.0",
   "description": "A framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.",
   "keywords": [
     "dom",
