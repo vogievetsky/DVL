@@ -24,13 +24,13 @@
   "dependencies": {
     "browserify": "~12.0.1",
     "coffee-script": "1.6.3",
-    "d3": "^3.4.13",
-    "jsdom": "3.1.2"
+    "d3": "^3.5.8",
+    "jsdom": "~7.0.2"
   },
   "devDependencies": {
-    "uglify-js": "1.2.3",
+    "uglify-js": "~2.6.0",
     "chai": "~3.4.1",
-    "mocha": "^2.3.3"
+    "mocha": "~2.3.3"
   },
   "scripts": {
     "test": "./test-run",
