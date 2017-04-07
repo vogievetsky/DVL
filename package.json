@@ -1,6 +1,6 @@
 {
   "name": "@metamx/dvl",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A framework for building highly interactive user interfaces and data visualizations dynamically with JavaScript.",
   "keywords": [
     "dom",
