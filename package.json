@@ -33,7 +33,6 @@
     "mocha": "~2.3.3"
   },
   "scripts": {
-    "test": "./test-run",
-    "install": "./compile"
+    "test": "./test-run"
   }
 }
