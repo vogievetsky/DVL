@@ -24,7 +24,7 @@
   "dependencies": {
     "browserify": "~12.0.1",
     "coffee-script": "1.6.3",
-    "d3": "^3.5.8",
+    "d3": "3.5.8",
     "jsdom": "~7.0.2"
   },
   "devDependencies": {
