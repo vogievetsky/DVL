@@ -12,7 +12,7 @@ utilModule = require './util'
 nextObjId = 1
 
 dvl = (value) -> new DVLVar(value)
-dvl.version = '1.5.0'
+dvl.version = '2.0.3'
 dvl._variables = variables = []
 dvl._workers = workers = []
 
