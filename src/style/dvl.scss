@@ -1,6 +1,3 @@
-@import "compass/css3";
-@import "compass/css3/user-interface";
-
 .dropdown {
   display: inline-block;
   position: relative;
@@ -8,8 +5,13 @@
   white-space: nowrap;
   border: 1px solid white;
   padding: 2px 3px 2px 5px;
-  @include border-radius(2px);
-  @include user-select(text);
+  -moz-border-radius: 2px;
+  -webkit-border-radius: 2px;
+  border-radius: 2px;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  -webkit-user-select: text;
+  user-select: text;
 
   div.title-cont {
     line-height: 18px;

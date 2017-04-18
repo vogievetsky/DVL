@@ -1,4 +1,3 @@
-/* line 4, src/style/dvl.scss */
 .dropdown {
   display: inline-block;
   position: relative;
@@ -12,39 +11,30 @@
   -moz-user-select: text;
   -ms-user-select: text;
   -webkit-user-select: text;
-  user-select: text;
-}
-/* line 14, src/style/dvl.scss */
-.dropdown div.title-cont {
-  line-height: 18px;
-  height: 21px;
-  cursor: default;
-  outline: none;
-}
-/* line 21, src/style/dvl.scss */
-.dropdown ul.menu-cont {
-  position: absolute;
-  z-index: 1000;
-  list-style-type: none;
-  top: 100%;
-  left: 0;
-  margin: 0;
-  padding: 2px;
-  max-height: 200px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  border: 1px solid black;
-  background: white;
-}
-/* line 37, src/style/dvl.scss */
-.dropdown ul.menu-cont li.item {
-  position: relative;
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 26px;
-  padding-right: 40px;
-}
-/* line 46, src/style/dvl.scss */
-.dropdown ul.menu-cont li.spacer {
-  border-top: 1px solid gray;
-}
+  user-select: text; }
+  .dropdown div.title-cont {
+    line-height: 18px;
+    height: 21px;
+    cursor: default;
+    outline: none; }
+  .dropdown ul.menu-cont {
+    position: absolute;
+    z-index: 1000;
+    list-style-type: none;
+    top: 100%;
+    left: 0;
+    margin: 0;
+    padding: 2px;
+    max-height: 200px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: 1px solid black;
+    background: white; }
+    .dropdown ul.menu-cont li.item {
+      position: relative;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 26px;
+      padding-right: 40px; }
+    .dropdown ul.menu-cont li.spacer {
+      border-top: 1px solid gray; }

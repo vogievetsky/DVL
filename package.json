@@ -23,17 +23,30 @@
   "main": "./dvl.js",
   "devDependencies": {
     "browserify": "~12.0.1",
-    "coffee-script": "1.6.3",
-    "compass": "^0.1.1",
-    "d3": "3.5.8",
-    "jsdom": "~7.0.2",
-    "uglify-js": "~2.6.0",
     "chai": "~3.4.1",
-    "mocha": "~2.3.3"
+    "coffee-script": "1.6.3",
+    "css-loader": "^0.28.0",
+    "d3": "3.5.8",
+    "extract-text-webpack-plugin": "^2.1.0",
+    "jsdom": "~7.0.2",
+    "mocha": "~2.3.3",
+    "node-sass": "^4.5.2",
+    "sass-loader": "^6.0.3",
+    "style-loader": "^0.16.1",
+    "uglify-js": "~2.6.0",
+    "webpack": "^2.4.1"
   },
   "scripts": {
     "test": "./test-run",
-    "prepublish": "./test-run",
-    "compile": "./compile"
+    "watch": "webpack -w --progress --env \"development\"",
+    "build:dist": "webpack -p --progress --env \"production\"",
+    "build": "webpack -d --progress --env \"development\"",
+    "prepublish": "./test-run"
+  },
+  "dependencies": {
+    "babel-core": "^6.24.1",
+    "babel-loader": "^6.4.1",
+    "babel-preset-es2015": "^6.24.1",
+    "coffee-loader": "^0.7.3"
   }
 }
