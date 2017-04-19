@@ -124,7 +124,7 @@ b.value(4);
 console.log(c.value()); //=> 5
 ```
 
-The above example is equvelant to the first `dvl.apply` example.
+The above example is equivalent to the first `dvl.apply` example.
 
 We must explicitly declare that the function being registered will be changing `c`. This is important for DVL to calculate the dependency graph and ensure that it is acyclic. Modifying a variable without specifying that it might be modified will throw an error.
 
