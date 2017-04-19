@@ -1,4 +1,5 @@
 #!/bin/bash
-compass watch --sass-dir src/style/ --css-dir ./ &
-coffee --compile --bare --watch --output build src
-browserify build/index.js -o dvl.js
+# compass watch --sass-dir src/style/ --css-dir ./ &
+# $(npm bin)/coffee --compile --bare --watch --output build src
+# $(npm bin)/browserify build/index.js -o dvl.js
+npm run watch

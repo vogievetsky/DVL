@@ -1,4 +1,5 @@
 dvl = require './core'
+dvl.d3 = require 'd3'
 dvl.async = require './async'
 { bind, bindSingle } = require('./bind')
 dvl.bind = bind
